@@ -1,45 +1,49 @@
 package com.porbe.porbe.model;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import lombok.Builder;
 import lombok.Data;
 
 @Builder
 @Data
 @Entity
-public class Report {
-
+public class StockOperation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long totalGainLoss;
+    @OneToOne(optional = false)
+    private Stock stock;
 
     @Column(nullable = false)
-    private String bestPerfStock;
+    private String type;
 
     @Column(nullable = false)
-    private String worstPerfStock;
-
-    @Column
-    private String reportImagePath;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean isWaMessageSent = false;
+    private double price;
 
     @Column(nullable = false)
-    private LocalDate weekEndingDate;
+    private int quantity;
 
     @Column(nullable = false)
+    private double comission;
+
+    @Column(nullable = false)
+    private double total;
+
+    @Column(nullable = false)
+    private LocalDateTime date;
+
+    @Column(nullable = false)
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
 }

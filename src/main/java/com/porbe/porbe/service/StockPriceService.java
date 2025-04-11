@@ -8,7 +8,9 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 
+import com.porbe.porbe.model.Stock;
 import com.porbe.porbe.model.StockPrice;
+import com.porbe.porbe.repo.StockRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,6 +21,8 @@ public class StockPriceService {
     private static final String BASE_URL = "https://finance.yahoo.com/quote/%s";
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36";
     private static final String PRICE_CSS_QUERY = "span[data-testid=qsp-price]";
+
+    private StockRepository stockRepository;
 
     public Optional<StockPrice> scrapeStockPrice(String ticker) {
         log.info("Getting stock price for: {}", ticker);
@@ -39,8 +43,14 @@ public class StockPriceService {
 
             if (priceStr != null && !priceStr.isEmpty()) {
                 double closePrice = Double.parseDouble(priceStr);
+                Stock stock = stockRepository.findByTicker(ticker).orElse(
+                        Stock.builder()
+                                .name(ticker)
+                                .ticker(ticker)
+                                .currency("COP")
+                                .build());
                 StockPrice stockPrice = StockPrice.builder()
-                        .ticker(ticker)
+                        .stock(stock)
                         .closePrice(closePrice)
                         .build();
 
