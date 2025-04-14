@@ -1,20 +1,25 @@
 package com.porbe.porbe.service;
 
 import java.io.IOException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.porbe.porbe.model.Stock;
 import com.porbe.porbe.model.StockPrice;
+import com.porbe.porbe.repo.StockPriceRepository;
 import com.porbe.porbe.repo.StockRepository;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class StockPriceService {
 
@@ -22,11 +27,13 @@ public class StockPriceService {
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36";
     private static final String PRICE_CSS_QUERY = "span[data-testid=qsp-price]";
 
-    private StockRepository stockRepository;
+    private final StockRepository stockRepo;
+    private final StockPriceRepository stockPriceRepo;
 
     public Optional<StockPrice> scrapeStockPrice(String ticker) {
         log.info("Getting stock price for: {}", ticker);
 
+        LocalDate today = LocalDate.now();
         String tickerUrl = String.format(BASE_URL, ticker);
 
         try {
@@ -43,7 +50,7 @@ public class StockPriceService {
 
             if (priceStr != null && !priceStr.isEmpty()) {
                 double closePrice = Double.parseDouble(priceStr);
-                Stock stock = stockRepository.findByTicker(ticker).orElse(
+                Stock stock = stockRepo.findByTicker(ticker).orElse(
                         Stock.builder()
                                 .name(ticker)
                                 .ticker(ticker)
@@ -51,6 +58,7 @@ public class StockPriceService {
                                 .build());
                 StockPrice stockPrice = StockPrice.builder()
                         .stock(stock)
+                        .date(today)
                         .closePrice(closePrice)
                         .build();
 
@@ -66,4 +74,29 @@ public class StockPriceService {
 
         return Optional.empty();
     }
+
+    @Scheduled(cron = "${stock.scheduler.cron.daily}")
+    public void fetchDailyStockPrices() {
+        log.info("Starting daily stock price fetch.");
+
+        List<Stock> stocks = stockRepo.findAll();
+
+        for (Stock stock : stocks) {
+            try {
+                scrapeStockPrice(stock.getTicker()).ifPresent(stockPriceRepo::save);
+
+                // Delay to prevent rate limiting
+                // TODO: Make this random between 3-10 seconds
+                Thread.sleep(3000);
+
+            } catch (Exception e) {
+                log.error("Error processing ticker {}: {}", stock.getTicker(), e.getMessage());
+            }
+        }
+
+        log.info("Completed daily stock price fetch");
+
+    }
+
+    
 }

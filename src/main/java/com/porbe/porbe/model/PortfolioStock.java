@@ -1,17 +1,19 @@
 package com.porbe.porbe.model;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import jakarta.persistence.Column;
+import com.porbe.porbe.model.keys.PortfolioStockId;
+
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
@@ -24,24 +26,24 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "stock_price", uniqueConstraints = @UniqueConstraint(columnNames = { "stock_id",
-        "date" }, name = "UniqueTickerAndDate"))
-public class StockPrice {
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = { "stock_id", "portfolio_id" }))
+public class PortfolioStock {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne
+    @JoinColumn(name = "portfolio_id")
+    private Portfolio portfolio;
+
+    @ManyToOne
     @JoinColumn(name = "stock_id")
     private Stock stock;
 
-    @Column(nullable = false)
-    private Double closePrice;
+    private double quantity;
 
-    @Column(nullable = false)
-    private LocalDate date;
-
-    @Column(nullable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
+
 }

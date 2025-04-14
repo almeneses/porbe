@@ -31,6 +31,7 @@
         <jsoup.version>1.17.2</jsoup.version>
         <jfreechart.version>1.5.4</jfreechart.version>
         <sqlite-jdbc.version>3.49.1.0</sqlite-jdbc.version>
+		<hibernate-community-dialects.version>6.6.13.Final</hibernate-community-dialects.version>
 	</properties>
 	<dependencies>
 	 	<!-- Spring Boot -->
@@ -58,6 +59,7 @@
 		<dependency>
 			<groupId>org.hibernate.orm</groupId>
 			<artifactId>hibernate-community-dialects</artifactId>
+			<version>${hibernate-community-dialects.version}</version>
 		</dependency>
 
 		
