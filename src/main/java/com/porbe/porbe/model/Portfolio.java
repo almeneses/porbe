@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,14 +24,14 @@ public class Portfolio {
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         public Long id;
 
-        @Column(nullable = false)
-        private String owner;
-
         @Column
         private double total;
 
         @Column
         private double cash;
+
+        @ManyToOne(optional = false)
+        private User user;
 
         @OneToMany(mappedBy = "portfolio", orphanRemoval = true)
         private Set<PortfolioStock> portfolioStocks;

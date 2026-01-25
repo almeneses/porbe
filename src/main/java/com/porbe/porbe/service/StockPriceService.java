@@ -98,5 +98,24 @@ public class StockPriceService {
 
     }
 
-    
+    public List<StockPrice> getStockPricesBetween(String ticker, LocalDate startDate, LocalDate endDate) {
+        return stockPriceRepo.findByStock_TickerAndDateBetween(ticker, startDate, endDate);
+    }
+
+    public StockPrice bestPerfStockPrice(List<StockPrice> initial, List<StockPrice> current){
+        StockPrice currentBest = null;
+        Double priceChange = 0d;
+        for (int i = 0; i < current.size(); i++) {
+            if(currentBest == null){
+                currentBest = current.get(i);
+            } else {
+                Double change = (current.get(i).getClosePrice() - initial.get(i).getClosePrice()) / initial.get(i).getClosePrice();
+                if(change > priceChange){
+                    currentBest = current.get(i);
+                }
+            }
+        }
+
+        return currentBest;
+    }
 }

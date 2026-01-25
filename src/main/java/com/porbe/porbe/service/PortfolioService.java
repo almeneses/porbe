@@ -24,20 +24,20 @@ public class PortfolioService {
     @Autowired
     private PortfolioRepository portfolioRepo;
 
-    public List<StockPrice> getPortfolioWeeklySummary(Long portfolioId) {
-        List<StockPrice> stockPricesNow = portfolioRepo.findStockPriceByPortfolioAndDate(portfolioId, LocalDate.now());
-        LocalDate monday = LocalDate.now().minusDays(2);
-        List<Long> stockIds = stockPricesNow.stream().map(sp -> sp.getStock().getId()).toList();
-        List<StockPrice> stockPricesMonday = stockPriceRepo.findByDateAndStock_idIn(monday, stockIds);
-        Stock bestPerfStock = getBestPerfStock(stockPricesMonday, stockPricesNow);
+    // public List<StockPrice> getPortfolioWeeklySummary(Long portfolioId) {
+    //     List<StockPrice> stockPricesNow = portfolioRepo.findStockPriceByPortfolioAndDate(portfolioId, LocalDate.now());
+    //     LocalDate monday = LocalDate.now().minusDays(2);
+    //     List<Long> stockIds = stockPricesNow.stream().map(sp -> sp.getStock().getId()).toList();
+    //     List<StockPrice> stockPricesMonday = stockPriceRepo.findByDateAndStock_idIn(monday, stockIds);
+    //     Stock bestPerfStock = getBestPerfStock(stockPricesMonday, stockPricesNow);
         
-        // Set pStocks = portfolio.getPortfolioStocks().stream().map(ps ->
-        // ps.get).toArray();
-        // List<Long> pStockIds = pStocks.stream().map(entry -> entry.)
-        // List<StockPrice> pStockPrices =
-        // stockPriceRepo.findByDateAndStock_idIn(LocalDate.now(), pStockIds);
+    //     // Set pStocks = portfolio.getPortfolioStocks().stream().map(ps ->
+    //     // ps.get).toArray();
+    //     // List<Long> pStockIds = pStocks.stream().map(entry -> entry.)
+    //     // List<StockPrice> pStockPrices =
+    //     // stockPriceRepo.findByDateAndStock_idIn(LocalDate.now(), pStockIds);
 
-    }
+    // }
 
     private Stock getBestPerfStock(List<StockPrice> initialSp, List<StockPrice> finalSp){
         return new Stock();
