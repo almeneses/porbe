@@ -4,8 +4,13 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.porbe.porbe.enums.OperationType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,15 +32,16 @@ public class Operation {
     private Long id;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "portfolio_id")
+    @JoinColumn(name = "portfolio_id", nullable=false, foreignKey=@ForeignKey(name="fk_operation_portfolio"))
     private Portfolio portfolio;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "stock_id")
+    @JoinColumn(name = "stock_id", nullable=false, foreignKey=@ForeignKey(name="fk_operation_stock"))
     private Stock stock;
 
     @Column(nullable = false)
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private OperationType type;
 
     @Column(nullable = false)
     private double price;
@@ -57,3 +63,4 @@ public class Operation {
     private LocalDateTime createdAt;
 
 }
+

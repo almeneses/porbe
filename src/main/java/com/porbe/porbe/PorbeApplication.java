@@ -19,9 +19,9 @@ public class PorbeApplication {
 		stockPriceService.fetchDailyStockPrices();
 		PortfolioService portfolioService = appContext.getBean(PortfolioService.class);
 		StockPriceRepository stockPriceRepo = appContext.getBean(StockPriceRepository.class);
-		System.out.println(portfolioService.getPortfolioWeeklySummary(1L));
+		//System.out.println(portfolioService.getPortfolioWeeklySummary(1L));
 		System.out.println("------------------------------");
-		// System.out.println(stockPriceService.scrapeStockPrice("CELSIA.CL"));
+		System.out.println(stockPriceService.scrapeStockPrice("CELSIA.CL"));
 	}
 
 }

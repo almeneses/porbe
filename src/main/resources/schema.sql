@@ -1,24 +1,33 @@
 
+    create table operation (
+        comission float not null,
+        price float not null,
+        quantity integer not null,
+        total float not null,
+        created_at timestamp not null,
+        date timestamp not null,
+        id integer,
+        portfolio_id bigint not null,
+        stock_id bigint not null,
+        type varchar(255) not null,
+        primary key (id)
+    );
+
     create table portfolio (
         cash float,
         total float,
         id integer,
-        owner varchar(255) not null,
+        user_id bigint not null,
         primary key (id)
-    );
-
-    create table portfolio_operations (
-        portfolio_id bigint not null,
-        stock_operation_id bigint not null,
-        primary key (portfolio_id, stock_operation_id)
     );
 
     create table portfolio_stock (
         quantity float not null,
         created_at timestamp,
-        portfolio_id bigint not null,
-        stock_id bigint not null,
-        primary key (portfolio_id, stock_id)
+        id integer,
+        portfolio_id bigint,
+        stock_id bigint,
+        primary key (id)
     );
 
     create table report (
@@ -50,15 +59,8 @@
         primary key (id)
     );
 
-    create table stock_operation (
-        comission float not null,
-        price float not null,
-        quantity integer not null,
-        total float not null,
-        created_at timestamp not null,
-        date timestamp not null,
+    create table user (
         id integer,
-        stock_ticker bigint not null,
-        type varchar(255) not null,
+        name varchar(255),
         primary key (id)
     );
