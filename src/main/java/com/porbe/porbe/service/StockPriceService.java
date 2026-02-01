@@ -3,10 +3,16 @@ package com.porbe.porbe.service;
 import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -75,10 +81,16 @@ public class StockPriceService {
         return Optional.empty();
     }
 
-    @Scheduled(cron = "${stock.scheduler.cron.daily}")
+    @Async
+    @Scheduled(cron = "${stock.scheduler.cron.daily}", zone = "America/Bogota")
+    @Retryable(
+        retryFor = { IOException.class, RuntimeException.class }, 
+        maxAttempts = 4, 
+        backoff = @Backoff(delay = 2000, multiplier = 2)
+    )
     public void fetchDailyStockPrices() {
         log.info("Starting daily stock price fetch.");
-
+        
         List<Stock> stocks = stockRepo.findAll();
 
         for (Stock stock : stocks) {
@@ -98,8 +110,27 @@ public class StockPriceService {
 
     }
 
+    @Async
+    @Scheduled(cron = "0 * * * * *", zone = "America/Bogota")
+    public void test(){
+        System.out.println("Running!");
+    }
+
     public List<StockPrice> getStockPricesBetween(String ticker, LocalDate startDate, LocalDate endDate) {
         return stockPriceRepo.findByStock_TickerAndDateBetween(ticker, startDate, endDate);
+    }
+
+    public List<StockPrice> getLastStockPrices(){
+        LocalDate lastFriday = LocalDate.now().with(TemporalAdjusters.previous(DayOfWeek.FRIDAY));
+        LocalDateTime startOfDay = lastFriday.atStartOfDay();
+        LocalDateTime endOfDay = lastFriday.atTime(23, 59, 59);
+
+        return stockPriceRepo.findAllByCreatedAtBetween(startOfDay, endOfDay);
+    }
+
+    @Recover
+    public void recover(Exception e){
+        System.err.println("Scraping totally failed after retries: " + e.getMessage());
     }
 
     public StockPrice bestPerfStockPrice(List<StockPrice> initial, List<StockPrice> current){

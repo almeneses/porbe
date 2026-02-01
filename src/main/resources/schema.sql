@@ -9,7 +9,7 @@
         id integer,
         portfolio_id bigint not null,
         stock_id bigint not null,
-        type varchar(255) not null,
+        type varchar(255) not null check (type in ('BUY','SELL')),
         primary key (id)
     );
 
