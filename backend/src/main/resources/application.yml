@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: porbe-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/porbe}
+    username: ${SPRING_DATASOURCE_USERNAME:porbe}
+    password: ${SPRING_DATASOURCE_PASSWORD:porbe_local}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  jackson:
+    time-zone: America/Bogota
+
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        secure: ${APP_SESSION_COOKIE_SECURE:false}
+        same-site: lax
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  import:
+    max-rows: 5000
+  market-data:
+    yahoo:
+      base-url: ${YAHOO_FINANCE_BASE_URL:https://query1.finance.yahoo.com}
+      user-agent: ${YAHOO_FINANCE_USER_AGENT:Porbe/0.1}
+      connect-timeout-seconds: ${YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS:5}
+      read-timeout-seconds: ${YAHOO_FINANCE_READ_TIMEOUT_SECONDS:15}
+  security:
+    admin:
+      username: ${APP_SECURITY_ADMIN_USERNAME:admin}
+      password: ${APP_SECURITY_ADMIN_PASSWORD:admin}

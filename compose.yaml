@@ -1,0 +1,64 @@
+name: porbe
+
+services:
+  database:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-porbe}
+      POSTGRES_USER: ${POSTGRES_USER:-porbe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-porbe_local}
+    ports:
+      - "${PORBE_DB_PORT:-5432}:5432"
+    volumes:
+      - porbe-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-porbe} -d ${POSTGRES_DB:-porbe}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/${POSTGRES_DB:-porbe}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-porbe}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-porbe_local}
+      APP_SECURITY_ADMIN_USERNAME: ${APP_SECURITY_ADMIN_USERNAME:-admin}
+      APP_SECURITY_ADMIN_PASSWORD: ${APP_SECURITY_ADMIN_PASSWORD:-admin}
+      APP_SESSION_COOKIE_SECURE: ${APP_SESSION_COOKIE_SECURE:-false}
+      YAHOO_FINANCE_BASE_URL: ${YAHOO_FINANCE_BASE_URL:-https://query1.finance.yahoo.com}
+      YAHOO_FINANCE_USER_AGENT: ${YAHOO_FINANCE_USER_AGENT:-Porbe/0.1}
+      YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS: ${YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS:-5}
+      YAHOO_FINANCE_READ_TIMEOUT_SECONDS: ${YAHOO_FINANCE_READ_TIMEOUT_SECONDS:-15}
+    ports:
+      - "${PORBE_API_PORT:-8080}:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${PORBE_WEB_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+volumes:
+  porbe-postgres-data:

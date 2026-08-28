@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:porbe;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  flyway:
+    enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+app:
+  security:
+    admin:
+      username: admin
+      password: admin
