@@ -18,7 +18,7 @@ Seguimiento y análisis de portafolios de inversión, inicialmente enfocado en a
 
 - Plantilla oficial descargable desde la pantalla **Importar portafolio**.
 - Importación `.xlsx` transaccional: si alguna fila es inválida no se guarda ninguna operación.
-- Validación de encabezados, fechas, tipos de operación, ticker Yahoo, valores numéricos y coherencia del total.
+- Validación de encabezados, fechas en formato `dd/mm/aaaa`, `aaaa-mm-dd` o como fecha nativa de Excel, tipos de operación, ticker Yahoo, valores numéricos y coherencia del total.
 - Prevención de importaciones duplicadas mediante la huella SHA-256 del archivo.
 - Consulta de las últimas 200 operaciones en tabla para computador y tarjetas para móvil.
 - Mensajes y errores de validación completamente en español.
@@ -27,7 +27,7 @@ El archivo contiene las hojas `Instrucciones`, `Operaciones` y `Ejemplos`. La ho
 
 | Columna | Regla principal |
 | --- | --- |
-| `fecha` | Fecha de la operación; no puede estar en el futuro. |
+| `fecha` | Fecha de la operación en `dd/mm/aaaa` o `aaaa-mm-dd`; también admite una fecha nativa de Excel y no puede estar en el futuro. |
 | `operación` | `compra`, `venta`, `dividendo`, `depósito` o `retiro`. |
 | `ticker` | Símbolo de Yahoo Finance, por ejemplo `ECOPETROL.CL`. |
 | `nombre` | Nombre del activo. |
@@ -57,6 +57,23 @@ Endpoints principales:
 - `POST /api/market-data/sync`: consulta Yahoo y actualiza los cierres diarios.
 - `GET /api/market-data/{ticker}/daily?from=AAAA-MM-DD&to=AAAA-MM-DD`: serie diaria guardada.
 
+### Incremento 4: posiciones y valoración actual
+
+- Reconstrucción cronológica de la cantidad disponible por ticker.
+- Costo promedio ponderado, costo vigente y capital total destinado a compras.
+- Ganancia realizada en ventas y ganancia no realizada contra el último precio.
+- Dividendos, efectivo acumulado, aportes netos y resultado total del portafolio.
+- Detección de ventas superiores a la cantidad disponible.
+- Valoración parcial explícita cuando falta un precio o el activo usa otra moneda.
+- Dashboard conectado a datos reales, con mejor y menor resultado por activo.
+- Posiciones en tabla para computador y tarjetas para móvil.
+
+La valoración usa los importes de compra con comisión incluida y los importes netos de venta. Las posiciones en una moneda diferente a la moneda base se muestran individualmente, pero se excluyen del total hasta incorporar conversión de divisas.
+
+Endpoint principal:
+
+- `GET /api/portfolio/summary`: resumen de efectivo, valoración, rendimiento y posiciones actuales.
+
 ## Ejecución con Docker
 
 1. Copie `.env.example` como `.env` si desea cambiar puertos o credenciales.
@@ -74,7 +91,7 @@ El proveedor se puede redirigir para pruebas o reemplazo mediante `YAHOO_FINANCE
 Backend:
 
 ```bash
-docker run --rm -v "$PWD/backend:/workspace" -w /workspace maven:3.9.11-eclipse-temurin-21 mvn --batch-mode test
+docker run --rm -v "$PWD/backend:/workspace" -w /workspace maven:3.9.11-eclipse-temurin-25 mvn --batch-mode test
 ```
 
 Frontend:

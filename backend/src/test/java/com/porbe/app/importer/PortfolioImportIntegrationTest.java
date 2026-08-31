@@ -84,6 +84,49 @@ class PortfolioImportIntegrationTest {
     }
 
     @Test
+    void importsSpanishTextAndNativeExcelDates() throws Exception {
+        var rows = validRows();
+        rows.set(0, new Object[] {
+                "06/01/2025", "compra", "ECOPETROL.CL", "Ecopetrol",
+                100d, 1850d, 15000d, 200000d, "Fecha en español"
+        });
+        rows.set(1, new Object[] {
+                LocalDate.of(2025, 2, 10), "venta", "PFBCOLOM.CL", "Preferencial Bancolombia",
+                10d, 46000d, 9000d, 451000d, "Fecha de Excel"
+        });
+
+        mockMvc.perform(multipart("/api/portfolio-import")
+                        .file(workbookFile(rows, "portafolio-fechas-espanol.xlsx"))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.importedRows").value(5));
+
+        org.assertj.core.api.Assertions.assertThat(operationRepository.findAll())
+                .extracting(operation -> operation.getDate())
+                .contains(LocalDate.of(2025, 1, 6), LocalDate.of(2025, 2, 10));
+    }
+
+    @Test
+    void explainsBothAcceptedDateFormats() throws Exception {
+        var rows = validRows();
+        rows.set(0, new Object[] {
+                "31/02/2025", "compra", "ECOPETROL.CL", "Ecopetrol",
+                100d, 1850d, 15000d, 200000d, "Fecha inválida"
+        });
+
+        mockMvc.perform(multipart("/api/portfolio-import")
+                        .file(workbookFile(rows, "portafolio-fecha-invalida.xlsx"))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].field").value("fecha"))
+                .andExpect(jsonPath("$.errors[0].message")
+                        .value("Usa una fecha válida en formato dd/mm/aaaa o aaaa-mm-dd."));
+    }
+
+    @Test
     void rejectsEveryRowWhenOneTotalIsInvalid() throws Exception {
         var rows = validRows();
         rows.set(0, new Object[] {
@@ -134,6 +177,8 @@ class PortfolioImportIntegrationTest {
     private MockMultipartFile workbookFile(List<Object[]> rows, String filename) throws IOException {
         try (var workbook = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Operaciones");
+            var dateStyle = workbook.createCellStyle();
+            dateStyle.setDataFormat(workbook.createDataFormat().getFormat("dd/mm/yyyy"));
             var header = sheet.createRow(0);
             var headers = List.of(
                     "fecha",
@@ -153,7 +198,11 @@ class PortfolioImportIntegrationTest {
                 var values = rows.get(rowIndex);
                 for (int column = 0; column < values.length; column++) {
                     var value = values[column];
-                    if (value instanceof Number number) {
+                    if (value instanceof LocalDate date) {
+                        var cell = row.createCell(column);
+                        cell.setCellValue(date);
+                        cell.setCellStyle(dateStyle);
+                    } else if (value instanceof Number number) {
                         row.createCell(column).setCellValue(number.doubleValue());
                     } else if (value != null) {
                         row.createCell(column).setCellValue(value.toString());

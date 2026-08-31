@@ -123,6 +123,17 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
                         isFinalClose(date, exchangeZone, regularEnd)));
             }
         }
+        var r = new MarketDataSeries(
+                text(meta, "symbol", ticker).toUpperCase(Locale.ROOT),
+                text(meta, "longName", text(meta, "shortName", ticker)),
+                nullableText(meta, "currency"),
+                text(meta, "exchangeName", text(meta, "fullExchangeName", null)),
+                nullableText(meta, "instrumentType"),
+                exchangeTimezone,
+                decimal(meta.path("regularMarketPrice")),
+                bars);
+        
+        System.out.println("YahooFinanceMarketDataClient.parseResponse: " + r);
 
         return new MarketDataSeries(
                 text(meta, "symbol", ticker).toUpperCase(Locale.ROOT),

@@ -1,5 +1,6 @@
 package com.porbe.app.operation;
 
+import com.porbe.app.portfolio.Portfolio;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface PortfolioOperationRepository extends JpaRepository<PortfolioOperation, Long> {
 
     List<PortfolioOperation> findTop200ByOrderByDateDescIdDesc();
+
+    List<PortfolioOperation> findAllByPortfolioOrderByDateAscIdAsc(Portfolio portfolio);
 
     @Query("""
             SELECT UPPER(operation.ticker) AS ticker, MIN(operation.date) AS firstOperationDate

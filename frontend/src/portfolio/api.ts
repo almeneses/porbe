@@ -38,6 +38,61 @@ export interface OperationsResponse {
   operations: PortfolioOperation[]
 }
 
+/** Posición acumulada y valorada para un ticker del portafolio. */
+export interface PortfolioPosition {
+  ticker: string
+  name: string | null
+  currency: string
+  quantity: number
+  averageCost: number | null
+  costBasis: number | null
+  totalPurchases: number
+  lastPrice: number | null
+  priceDate: string | null
+  provisionalPrice: boolean
+  marketValue: number | null
+  realizedGain: number | null
+  unrealizedGain: number | null
+  dividends: number
+  totalGain: number | null
+  returnRate: number | null
+  closed: boolean
+  valued: boolean
+  calculationComplete: boolean
+  foreignCurrency: boolean
+}
+
+/** Advertencia de consistencia detectada durante el cálculo de posiciones. */
+export interface PortfolioValuationIssue {
+  ticker: string
+  code: string
+  message: string
+}
+
+/** Resumen agregado de efectivo, posiciones y rendimiento actual. */
+export interface PortfolioSummary {
+  calculatedAt: string
+  valuationDate: string | null
+  baseCurrency: string
+  operationCount: number
+  openPositionCount: number
+  marketValue: number
+  costBasis: number
+  cashBalance: number
+  portfolioValue: number
+  netContributions: number
+  dividends: number
+  realizedGain: number
+  unrealizedGain: number
+  totalGain: number
+  returnRate: number
+  valuationComplete: boolean
+  unpricedPositions: number
+  foreignCurrencyPositions: number
+  positions: PortfolioPosition[]
+  issues: PortfolioValuationIssue[]
+}
+
 /** Distingue una respuesta de validación conocida de un error HTTP genérico. */
 function isImportResult(value: unknown): value is PortfolioImportResult {
   if (!value || typeof value !== 'object') return false
@@ -64,4 +119,5 @@ export const portfolioApi = {
     }
   },
   operations: () => apiRequest<OperationsResponse>('/api/operations'),
+  summary: () => apiRequest<PortfolioSummary>('/api/portfolio/summary'),
 }

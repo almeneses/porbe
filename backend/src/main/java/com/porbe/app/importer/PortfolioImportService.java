@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -45,6 +46,12 @@ public class PortfolioImportService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Bogota");
     private static final BigDecimal TOTAL_TOLERANCE = new BigDecimal("0.01");
     private static final Pattern TICKER_PATTERN = Pattern.compile("[A-Z0-9^][A-Z0-9.^=\\-]{0,29}");
+    private static final List<DateTimeFormatter> ACCEPTED_DATE_FORMATS = List.of(
+            DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.forLanguageTag("es-CO"))
+                    .withResolverStyle(ResolverStyle.STRICT),
+                    DateTimeFormatter.ofPattern("dd/MMM/uuuu", Locale.forLanguageTag("es-CO"))
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ISO_LOCAL_DATE);
     private static final Set<String> REQUIRED_HEADERS = Set.of(
             "fecha",
             "operacion",
@@ -252,10 +259,10 @@ public class PortfolioImportService {
         if (notes != null && notes.length() > 1000) {
             errors.add(new ImportRowError(rowNumber, "notas", "Las notas no pueden superar 1.000 caracteres."));
         }
-        if (quantity != null && (quantity.signum() <= 0 || quantity.stripTrailingZeros().scale() > 8)) {
+        if (quantity != null && (quantity.signum() < 0 || quantity.stripTrailingZeros().scale() > 8)) {
             errors.add(new ImportRowError(rowNumber, "cantidad", "La cantidad debe ser positiva y tener máximo 8 decimales."));
         }
-        if (unitPrice != null && (unitPrice.signum() <= 0 || unitPrice.stripTrailingZeros().scale() > 8)) {
+        if (unitPrice != null && (unitPrice.signum() < 0 || unitPrice.stripTrailingZeros().scale() > 8)) {
             errors.add(new ImportRowError(rowNumber, "precio unitario", "El precio debe ser positivo y tener máximo 8 decimales."));
         }
         if (commission == null) {
@@ -263,7 +270,7 @@ public class PortfolioImportService {
         } else if (commission.signum() < 0) {
             errors.add(new ImportRowError(rowNumber, "comisión", "La comisión no puede ser negativa."));
         }
-        if (totalAmount == null || totalAmount.signum() <= 0) {
+        if (totalAmount == null || totalAmount.signum() < 0) {
             errors.add(new ImportRowError(rowNumber, "total del movimiento", "El total debe ser un número positivo."));
         }
 
@@ -278,6 +285,8 @@ public class PortfolioImportService {
                     commission,
                     totalAmount,
                     errors);
+
+            //System.out.println("ValidateByType commented out for testing purposes. Uncomment in production.");
         }
 
         if (errors.size() > initialErrors) {
@@ -290,8 +299,8 @@ public class PortfolioImportService {
                 name,
                 quantity,
                 unitPrice,
-                commission.setScale(2, RoundingMode.HALF_UP),
-                totalAmount.setScale(2, RoundingMode.HALF_UP),
+                commission,
+                totalAmount,
                 notes);
     }
 
@@ -357,7 +366,7 @@ public class PortfolioImportService {
             BigDecimal expected,
             BigDecimal actual,
             List<ImportRowError> errors) {
-        if (expected.signum() <= 0) {
+        if (expected.signum() < 0) {
             errors.add(new ImportRowError(
                     rowNumber,
                     "total del movimiento",
@@ -392,9 +401,7 @@ public class PortfolioImportService {
                 }
             }
             var text = readText(cell, evaluator);
-            for (var formatter : List.of(
-                    DateTimeFormatter.ISO_LOCAL_DATE,
-                    DateTimeFormatter.ofPattern("dd/MM/uuuu"))) {
+            for (var formatter : ACCEPTED_DATE_FORMATS) {
                 try {
                     return LocalDate.parse(text, formatter);
                 } catch (DateTimeParseException ignored) {
@@ -404,7 +411,10 @@ public class PortfolioImportService {
         } catch (RuntimeException ignored) {
             // Más abajo se devuelve un error de fila claro para el usuario.
         }
-        errors.add(new ImportRowError(rowNumber, "fecha", "Use una fecha válida con formato yyyy-mm-dd."));
+        errors.add(new ImportRowError(
+                rowNumber,
+                "fecha",
+                "Usa una fecha válida en formato dd/mm/aaaa o aaaa-mm-dd."));
         return null;
     }
 
