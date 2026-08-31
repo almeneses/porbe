@@ -10,6 +10,7 @@ public record MarketTickerStatus(
         String name,
         String currency,
         String exchange,
+        String sector,
         LocalDate firstOperationDate,
         LocalDate lastPriceDate,
         BigDecimal lastClose,

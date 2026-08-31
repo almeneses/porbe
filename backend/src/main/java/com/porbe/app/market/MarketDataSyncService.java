@@ -2,19 +2,26 @@ package com.porbe.app.market;
 
 import com.porbe.app.operation.PortfolioOperationRepository;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
 /** Coordina la cobertura requerida, consulta al proveedor y reporta resultados. */
+@Service
 public class MarketDataSyncService {
+
+    public static final LocalDate MARKET_HISTORY_START = LocalDate.of(2024, 1, 19);
 
     private final PortfolioOperationRepository operationRepository;
     private final MarketInstrumentRepository instrumentRepository;
@@ -60,7 +67,7 @@ public class MarketDataSyncService {
 
         for (var tickerRange : tickerRanges) {
             var ticker = tickerRange.getTicker().toUpperCase(Locale.ROOT);
-            var from = tickerRange.getFirstOperationDate().minusDays(7);
+            var from = MARKET_HISTORY_START;
             try {
                 var series = provider.fetchDaily(ticker, from, toExclusive);
                 var stored = persistenceService.save(series, provider.source());
@@ -96,7 +103,17 @@ public class MarketDataSyncService {
                     var instrument = instrumentsByTicker.get(ticker);
                     if (instrument == null) {
                         return new MarketTickerStatus(
-                                ticker, null, null, null, range.getFirstOperationDate(), null, null, false, 0, null);
+                                ticker,
+                                null,
+                                null,
+                                null,
+                                MarketSectorCatalog.suggestedSector(ticker),
+                                range.getFirstOperationDate(),
+                                null,
+                                null,
+                                false,
+                                0,
+                                null);
                     }
                     var latest = priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
                     return new MarketTickerStatus(
@@ -104,6 +121,7 @@ public class MarketDataSyncService {
                             instrument.getName(),
                             instrument.getCurrency(),
                             instrument.getExchange(),
+                            instrument.getSector(),
                             range.getFirstOperationDate(),
                             latest == null ? null : latest.getPriceDate(),
                             latest == null ? null : latest.getClose(),
@@ -139,6 +157,93 @@ public class MarketDataSyncService {
                 instrument.getCurrency(),
                 instrument.getExchange(),
                 prices);
+    }
+
+    /**
+     * Proyecta el último cierre conocido sobre cada viernes para todos los
+     * símbolos actuales, incluso antes de su primera operación en el libro.
+     */
+    @Transactional(readOnly = true)
+    public MarketWeeklyClosesResponse weeklyCloses() {
+        var ranges = operationRepository.findPortfolioTickerRanges();
+        var tickers = ranges.stream()
+                .map(range -> range.getTicker().toUpperCase(Locale.ROOT))
+                .toList();
+        var instruments = new HashMap<String, MarketInstrument>();
+        instrumentRepository.findByTickerIn(tickers)
+                .forEach(instrument -> instruments.put(instrument.getTicker(), instrument));
+        var lastFriday = LocalDate.ofInstant(clock.instant(), ZoneId.of("America/Bogota"))
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
+        var fridays = fridays(MARKET_HISTORY_START, lastFriday);
+        var complete = true;
+        var series = new ArrayList<MarketTickerWeeklyCloses>();
+
+        for (var ticker : tickers) {
+            var instrument = instruments.get(ticker);
+            var prices = priceIndex(instrument, lastFriday);
+            var closes = new ArrayList<MarketWeeklyClosePoint>();
+            for (var friday : fridays) {
+                var entry = prices.floorEntry(friday);
+                var price = entry == null ? null : entry.getValue();
+                if (price == null) {
+                    complete = false;
+                }
+                closes.add(new MarketWeeklyClosePoint(
+                        friday,
+                        price == null ? null : price.getClose(),
+                        price == null ? null : price.getPriceDate(),
+                        price != null && !price.isFinalClose()));
+            }
+            series.add(new MarketTickerWeeklyCloses(
+                    ticker,
+                    instrument == null ? null : instrument.getName(),
+                    instrument == null ? null : instrument.getCurrency(),
+                    instrument == null
+                            ? MarketSectorCatalog.suggestedSector(ticker)
+                            : instrument.getSector(),
+                    closes));
+        }
+
+        return new MarketWeeklyClosesResponse(
+                OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC),
+                MARKET_HISTORY_START,
+                lastFriday,
+                series.size(),
+                fridays.size(),
+                complete,
+                series);
+    }
+
+    @Transactional
+    public MarketSectorResponse updateSector(String ticker, String sector) {
+        var normalizedTicker = ticker.trim().toUpperCase(Locale.ROOT);
+        var instrument = instrumentRepository.findByTicker(normalizedTicker)
+                .orElseGet(() -> new MarketInstrument(normalizedTicker));
+        instrument.updateSector(sector);
+        var saved = instrumentRepository.save(instrument);
+        return new MarketSectorResponse(saved.getTicker(), saved.getSector());
+    }
+
+    private NavigableMap<LocalDate, MarketPriceDaily> priceIndex(
+            MarketInstrument instrument,
+            LocalDate lastFriday) {
+        if (instrument == null) {
+            return new TreeMap<>();
+        }
+        var prices = new TreeMap<LocalDate, MarketPriceDaily>();
+        priceRepository.findByInstrumentAndPriceDateLessThanEqualOrderByPriceDateAsc(instrument, lastFriday)
+                .forEach(price -> prices.put(price.getPriceDate(), price));
+        return prices;
+    }
+
+    private List<LocalDate> fridays(LocalDate from, LocalDate to) {
+        var result = new ArrayList<LocalDate>();
+        for (var date = from.with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY));
+                !date.isAfter(to);
+                date = date.plusWeeks(1)) {
+            result.add(date);
+        }
+        return result;
     }
 
     private String safeMessage(RuntimeException exception) {

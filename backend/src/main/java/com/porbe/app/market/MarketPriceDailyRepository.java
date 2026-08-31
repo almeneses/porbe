@@ -13,6 +13,10 @@ public interface MarketPriceDailyRepository extends JpaRepository<MarketPriceDai
             LocalDate from,
             LocalDate to);
 
+    List<MarketPriceDaily> findByInstrumentAndPriceDateLessThanEqualOrderByPriceDateAsc(
+            MarketInstrument instrument,
+            LocalDate to);
+
     Optional<MarketPriceDaily> findTopByInstrumentOrderByPriceDateDesc(MarketInstrument instrument);
 
     long countByInstrument(MarketInstrument instrument);

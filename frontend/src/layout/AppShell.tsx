@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, Clock3, FileSpreadsheet, History, LayoutDashboard, LogOut, Settings } from 'lucide-react'
+import { ChartNoAxesCombined, Clock3, FileImage, FileSpreadsheet, History, LayoutDashboard, LogOut, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -13,8 +13,11 @@ const navigation = [
   { to: '/operaciones', label: 'nav.operations', icon: Clock3 },
   { to: '/importar', label: 'nav.import', icon: FileSpreadsheet },
   { to: '/mercado', label: 'nav.market', icon: ChartNoAxesCombined },
+  { to: '/informes', label: 'nav.reports', icon: FileImage },
   { to: '/configuracion', label: 'nav.settings', icon: Settings },
 ]
+
+const mobileNavigation = [navigation[0], navigation[1], navigation[5], navigation[2]]
 
 /** Distribuye el menú lateral, la navegación móvil y el contenido autenticado. */
 export function AppShell() {
@@ -67,7 +70,7 @@ export function AppShell() {
           <Outlet />
         </main>
         <nav className="bottom-nav" aria-label="Navegación móvil">
-          {navigation.slice(0, 4).map(({ to, label, icon: Icon }) => (
+          {mobileNavigation.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} className={({ isActive }) => `bottom-nav__item${isActive ? ' bottom-nav__item--active' : ''}`}>
               <Icon size={20} />
               <span>{t(label)}</span>

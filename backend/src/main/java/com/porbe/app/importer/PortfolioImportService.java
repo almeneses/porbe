@@ -1,6 +1,8 @@
 package com.porbe.app.importer;
 
 import com.porbe.app.operation.OperationType;
+import com.porbe.app.operation.OperationData;
+import com.porbe.app.operation.OperationRules;
 import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
 import com.porbe.app.portfolio.PortfolioService;
@@ -8,12 +10,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -43,9 +42,6 @@ import org.springframework.web.multipart.MultipartFile;
 public class PortfolioImportService {
 
     private static final String OPERATIONS_SHEET = "Operaciones";
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Bogota");
-    private static final BigDecimal TOTAL_TOLERANCE = new BigDecimal("0.01");
-    private static final Pattern TICKER_PATTERN = Pattern.compile("[A-Z0-9^][A-Z0-9.^=\\-]{0,29}");
     private static final List<DateTimeFormatter> ACCEPTED_DATE_FORMATS = List.of(
             DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.forLanguageTag("es-CO"))
                     .withResolverStyle(ResolverStyle.STRICT),
@@ -66,16 +62,19 @@ public class PortfolioImportService {
     private final PortfolioService portfolioService;
     private final ImportBatchRepository importBatchRepository;
     private final PortfolioOperationRepository operationRepository;
+    private final OperationRules operationRules;
     private final int maxRows;
 
     public PortfolioImportService(
             PortfolioService portfolioService,
             ImportBatchRepository importBatchRepository,
             PortfolioOperationRepository operationRepository,
+            OperationRules operationRules,
             @Value("${app.import.max-rows:5000}") int maxRows) {
         this.portfolioService = portfolioService;
         this.importBatchRepository = importBatchRepository;
         this.operationRepository = operationRepository;
+        this.operationRules = operationRules;
         this.maxRows = maxRows;
     }
 
@@ -247,47 +246,24 @@ public class PortfolioImportService {
                 errors);
         var notes = nullIfBlank(readText(cell(row, columns, "notas"), evaluator));
 
-        if (date != null && date.isAfter(LocalDate.now(BUSINESS_ZONE))) {
-            errors.add(new ImportRowError(rowNumber, "fecha", "La fecha no puede estar en el futuro."));
-        }
-        if (ticker != null && !TICKER_PATTERN.matcher(ticker).matches()) {
-            errors.add(new ImportRowError(rowNumber, "ticker", "El ticker no tiene un formato Yahoo Finance válido."));
-        }
-        if (name != null && name.length() > 160) {
-            errors.add(new ImportRowError(rowNumber, "nombre", "El nombre no puede superar 160 caracteres."));
-        }
-        if (notes != null && notes.length() > 1000) {
-            errors.add(new ImportRowError(rowNumber, "notas", "Las notas no pueden superar 1.000 caracteres."));
-        }
-        if (quantity != null && (quantity.signum() < 0 || quantity.stripTrailingZeros().scale() > 8)) {
-            errors.add(new ImportRowError(rowNumber, "cantidad", "La cantidad debe ser positiva y tener máximo 8 decimales."));
-        }
-        if (unitPrice != null && (unitPrice.signum() < 0 || unitPrice.stripTrailingZeros().scale() > 8)) {
-            errors.add(new ImportRowError(rowNumber, "precio unitario", "El precio debe ser positivo y tener máximo 8 decimales."));
-        }
         if (commission == null) {
             commission = BigDecimal.ZERO;
-        } else if (commission.signum() < 0) {
-            errors.add(new ImportRowError(rowNumber, "comisión", "La comisión no puede ser negativa."));
-        }
-        if (totalAmount == null || totalAmount.signum() < 0) {
-            errors.add(new ImportRowError(rowNumber, "total del movimiento", "El total debe ser un número positivo."));
         }
 
-        if (type != null) {
-            validateByType(
-                    rowNumber,
-                    type,
-                    ticker,
-                    name,
-                    quantity,
-                    unitPrice,
-                    commission,
-                    totalAmount,
-                    errors);
-
-            //System.out.println("ValidateByType commented out for testing purposes. Uncomment in production.");
-        }
+        appendRuleErrors(
+                rowNumber,
+                new OperationData(
+                        date,
+                        type,
+                        ticker,
+                        name,
+                        quantity,
+                        unitPrice,
+                        commission,
+                        totalAmount,
+                        notes),
+                errors,
+                initialErrors);
 
         if (errors.size() > initialErrors) {
             return null;
@@ -304,79 +280,34 @@ public class PortfolioImportService {
                 notes);
     }
 
-    /** Aplica requisitos y fórmulas diferentes según la naturaleza del movimiento. */
-    private void validateByType(
+    /** Adapta los errores compartidos a los nombres de columna usados por Excel. */
+    private void appendRuleErrors(
             int rowNumber,
-            OperationType type,
-            String ticker,
-            String name,
-            BigDecimal quantity,
-            BigDecimal unitPrice,
-            BigDecimal commission,
-            BigDecimal totalAmount,
-            List<ImportRowError> errors) {
-        var stockOperation = type == OperationType.COMPRA
-                || type == OperationType.VENTA
-                || type == OperationType.DIVIDENDO;
-        if (stockOperation && ticker == null) {
-            errors.add(new ImportRowError(rowNumber, "ticker", "El ticker es obligatorio para esta operación."));
-        }
-        if (stockOperation && name == null) {
-            errors.add(new ImportRowError(rowNumber, "nombre", "El nombre es obligatorio para esta operación."));
-        }
-
-        if (type == OperationType.COMPRA || type == OperationType.VENTA) {
-            if (quantity == null) {
-                errors.add(new ImportRowError(rowNumber, "cantidad", "La cantidad es obligatoria para compras y ventas."));
+            OperationData data,
+            List<ImportRowError> errors,
+            int initialErrors) {
+        var reportedFields = errors.subList(initialErrors, errors.size()).stream()
+                .map(ImportRowError::field)
+                .collect(java.util.stream.Collectors.toSet());
+        operationRules.validate(data).forEach(error -> {
+            var field = importField(error.field());
+            if (reportedFields.add(field)) {
+                errors.add(new ImportRowError(rowNumber, field, error.message()));
             }
-            if (unitPrice == null) {
-                errors.add(new ImportRowError(rowNumber, "precio unitario", "El precio es obligatorio para compras y ventas."));
-            }
-            if (quantity != null && unitPrice != null && totalAmount != null) {
-                var gross = quantity.multiply(unitPrice);
-                var expected = type == OperationType.COMPRA
-                        ? gross.add(commission)
-                        : gross.subtract(commission);
-                validateExpectedTotal(rowNumber, expected, totalAmount, errors);
-            }
-        }
-
-        if (type == OperationType.DIVIDENDO) {
-            if ((quantity == null) != (unitPrice == null)) {
-                errors.add(new ImportRowError(
-                        rowNumber,
-                        "cantidad",
-                        "Para dividendos, completa cantidad y precio unitario juntos o deja ambos vacíos."));
-            } else if (quantity != null && totalAmount != null) {
-                validateExpectedTotal(
-                        rowNumber,
-                        quantity.multiply(unitPrice).subtract(commission),
-                        totalAmount,
-                        errors);
-            }
-        }
-
-        if ((type == OperationType.DEPOSITO || type == OperationType.RETIRO) && commission.signum() != 0) {
-            errors.add(new ImportRowError(rowNumber, "comisión", "Depósitos y retiros deben tener comisión igual a 0."));
-        }
+        });
     }
 
-    private void validateExpectedTotal(
-            int rowNumber,
-            BigDecimal expected,
-            BigDecimal actual,
-            List<ImportRowError> errors) {
-        if (expected.signum() < 0) {
-            errors.add(new ImportRowError(
-                    rowNumber,
-                    "total del movimiento",
-                    "El cálculo de la operación debe producir un total positivo."));
-        } else if (expected.subtract(actual).abs().compareTo(TOTAL_TOLERANCE) > 0) {
-            errors.add(new ImportRowError(
-                    rowNumber,
-                    "total del movimiento",
-                    "El total no coincide con cantidad × precio y la comisión."));
-        }
+    private String importField(String field) {
+        return switch (field) {
+            case "date" -> "fecha";
+            case "type" -> "operación";
+            case "name" -> "nombre";
+            case "unitPrice" -> "precio unitario";
+            case "commission" -> "comisión";
+            case "totalAmount" -> "total del movimiento";
+            case "notes" -> "notas";
+            default -> field;
+        };
     }
 
     private LocalDate readDate(

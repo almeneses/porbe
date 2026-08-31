@@ -10,7 +10,9 @@ RUN mvn --batch-mode package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S porbe && adduser -S porbe -G porbe
+RUN apk add --no-cache fontconfig ttf-dejavu \
+    && addgroup -S porbe \
+    && adduser -S porbe -G porbe
 COPY --from=build /workspace/target/porbe-backend-*.jar app.jar
 
 USER porbe

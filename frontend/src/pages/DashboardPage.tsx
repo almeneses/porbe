@@ -1,6 +1,8 @@
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarClock,
+  ChartSpline,
   CircleDollarSign,
   Landmark,
   LoaderCircle,
@@ -13,8 +15,10 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { ApiRequestError } from '../auth/api'
+import { PortfolioHistoryChart } from '../components/PortfolioHistoryChart'
+import { PortfolioAnalyticsCharts } from '../components/PortfolioAnalyticsCharts'
 import { portfolioApi } from '../portfolio/api'
-import type { PortfolioPosition, PortfolioSummary } from '../portfolio/api'
+import type { PortfolioHistory, PortfolioPosition, PortfolioSummary } from '../portfolio/api'
 import { formatCurrency, formatDate, formatPercentage, formatQuantity } from '../utils/formatters'
 
 /** Presenta la valoración actual, alertas y posiciones calculadas del portafolio. */
@@ -22,7 +26,9 @@ export function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [summary, setSummary] = useState<PortfolioSummary | null>(null)
+  const [history, setHistory] = useState<PortfolioHistory | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -34,17 +40,26 @@ export function DashboardPage() {
     return () => { active = false }
   }, [t])
 
+  useEffect(() => {
+    let active = true
+    portfolioApi.weeklyHistory()
+      .then((response) => { if (active) setHistory(response) })
+      .catch(() => { if (active) setHistoryError(t('dashboard.historyLoadError')) })
+    return () => { active = false }
+  }, [t])
+
   const performance = useMemo(() => {
-    const valued = summary?.positions.filter((position) => position.totalGain !== null) ?? []
+    const valued = summary?.positions.filter((position) => position.returnRate !== null) ?? []
     if (valued.length === 0) return { best: null, worst: null }
     return {
-      best: valued.reduce((current, position) => position.totalGain! > current.totalGain! ? position : current),
-      worst: valued.reduce((current, position) => position.totalGain! < current.totalGain! ? position : current),
+      best: valued.reduce((current, position) => position.returnRate! > current.returnRate! ? position : current),
+      worst: valued.reduce((current, position) => position.returnRate! < current.returnRate! ? position : current),
     }
   }, [summary])
 
   const hasOperations = Boolean(summary?.operationCount)
   const currency = summary?.baseCurrency ?? 'COP'
+  const latestWeek = history?.weeks.at(-1)
   const metrics = [
     {
       key: 'portfolioValue',
@@ -61,11 +76,18 @@ export function DashboardPage() {
       tone: 'blue',
     },
     {
-      key: 'totalReturn',
-      value: summary ? formatPercentage(summary.returnRate) : '—',
-      detail: summary ? t('dashboard.totalGainDetail', { value: formatCurrency(summary.totalGain, currency) }) : t('dashboard.calculating'),
-      icon: Sparkles,
+      key: 'timeWeightedReturn',
+      value: latestWeek ? formatPercentage(latestWeek.timeWeightedReturn) : '—',
+      detail: t('dashboard.timeWeightedReturnDetail'),
+      icon: ChartSpline,
       tone: 'green',
+    },
+    {
+      key: 'annualizedReturn',
+      value: latestWeek?.annualizedReturn == null ? '—' : formatPercentage(latestWeek.annualizedReturn),
+      detail: t('dashboard.annualizedReturnDetail'),
+      icon: CalendarClock,
+      tone: 'blue',
     },
     {
       key: 'availableCash',
@@ -73,6 +95,13 @@ export function DashboardPage() {
       detail: summary ? t('dashboard.netContributions', { value: formatCurrency(summary.netContributions, currency) }) : t('dashboard.calculating'),
       icon: CircleDollarSign,
       tone: 'coral',
+    },
+    {
+      key: 'dividends',
+      value: summary ? formatCurrency(summary.dividends, currency) : '—',
+      detail: t('dashboard.dividendsDetail'),
+      icon: Sparkles,
+      tone: 'violet',
     },
   ]
 
@@ -109,28 +138,41 @@ export function DashboardPage() {
               <h2>{t('dashboard.chartTitle')}</h2>
               <p>{t('dashboard.chartSubtitle')}</p>
             </div>
-            <span className="period-chip">{t('dashboard.allPeriod')}</span>
+            {history && history.weeks.length > 0 && (
+              <Link className="chart-detail-link" to="/historico">{t('dashboard.viewHistory')} <ArrowRight size={14} /></Link>
+            )}
           </div>
-          <div className="empty-chart">
-            <div className="empty-chart__grid" />
-            <div className="empty-chart__content">
-              {!summary ? (
-                <><LoaderCircle className="spin" size={26} /><p>{t('dashboard.calculating')}</p></>
-              ) : (
-                <>
-                  <span className="empty-chart__icon"><PiggyBank size={25} /></span>
-                  <h3>{t(hasOperations ? 'dashboard.readyTitle' : 'dashboard.emptyTitle')}</h3>
-                  <p>{t(hasOperations ? 'dashboard.readyBody' : 'dashboard.emptyBody', {
-                    count: summary.operationCount,
-                    positions: summary.openPositionCount,
-                  })}</p>
-                  <Link className="secondary-button" to={hasOperations ? (summary.valuationComplete ? '/operaciones' : '/mercado') : '/importar'}>
-                    {t(hasOperations ? (summary.valuationComplete ? 'dashboard.viewOperations' : 'dashboard.readyAction') : 'dashboard.emptyAction')}
-                  </Link>
-                </>
-              )}
+          {summary && history && history.weeks.length > 0 ? (
+            <PortfolioHistoryChart weeks={history.weeks} currency={history.baseCurrency} defaultRange={26} />
+          ) : (
+            <div className="empty-chart">
+              <div className="empty-chart__grid" />
+              <div className="empty-chart__content">
+                {!summary || (!history && !historyError) ? (
+                  <><LoaderCircle className="spin" size={26} /><p>{t('dashboard.calculating')}</p></>
+                ) : historyError ? (
+                  <>
+                    <span className="empty-chart__icon"><AlertTriangle size={25} /></span>
+                    <h3>{t('dashboard.chartUnavailableTitle')}</h3>
+                    <p>{historyError}</p>
+                    <Link className="secondary-button" to="/historico">{t('dashboard.retryInHistory')}</Link>
+                  </>
+                ) : (
+                  <>
+                    <span className="empty-chart__icon"><PiggyBank size={25} /></span>
+                    <h3>{t(hasOperations ? 'dashboard.readyTitle' : 'dashboard.emptyTitle')}</h3>
+                    <p>{t(hasOperations ? 'dashboard.readyBody' : 'dashboard.emptyBody', {
+                      count: summary.operationCount,
+                      positions: summary.openPositionCount,
+                    })}</p>
+                    <Link className="secondary-button" to={hasOperations ? (summary.valuationComplete ? '/historico' : '/mercado') : '/importar'}>
+                      {t(hasOperations ? (summary.valuationComplete ? 'dashboard.viewHistory' : 'dashboard.readyAction') : 'dashboard.emptyAction')}
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </article>
 
         <aside className="foundation-card">
@@ -138,7 +180,7 @@ export function DashboardPage() {
           <span className="eyebrow">{t('dashboard.performanceEyebrow')}</span>
           <h2>{performance.best?.ticker ?? t('dashboard.noPerformanceTitle')}</h2>
           <p>{performance.best
-            ? t('dashboard.bestResult', { value: formatCurrency(performance.best.totalGain!, performance.best.currency) })
+            ? t('dashboard.bestResult', { value: formatPercentage(performance.best.returnRate!) })
             : t('dashboard.noPerformanceBody')}</p>
           <ul>
             <li><span /> {t('dashboard.worstResult')}: <strong>{performance.worst?.ticker ?? '—'}</strong></li>
@@ -149,6 +191,7 @@ export function DashboardPage() {
         </aside>
       </section>
 
+      {summary && summary.positions.length > 0 && <PortfolioAnalyticsCharts summary={summary} />}
       {summary && summary.positions.length > 0 && <PositionsSection summary={summary} />}
     </div>
   )
@@ -184,6 +227,7 @@ function PositionsSection({ summary }: { summary: PortfolioSummary }) {
         <table className="positions-table">
           <thead><tr>
             <th>{t('dashboard.asset')}</th>
+            <th>{t('dashboard.sector')}</th>
             <th>{t('dashboard.quantity')}</th>
             <th>{t('dashboard.averageCost')}</th>
             <th>{t('dashboard.lastPrice')}</th>
@@ -204,6 +248,7 @@ function PositionRow({ position }: { position: PortfolioPosition }) {
   return (
     <tr>
       <td><PositionAsset position={position} /></td>
+      <td>{position.sector}</td>
       <td className="numeric-cell">{formatQuantity(position.quantity)}</td>
       <td className="numeric-cell">{moneyOrDash(position.averageCost, position.currency)}</td>
       <td className="numeric-cell">{moneyOrDash(position.lastPrice, position.currency)}</td>
@@ -223,6 +268,7 @@ function PositionCard({ position }: { position: PortfolioPosition }) {
       <div className="position-card__value"><span>{t('dashboard.marketValue')}</span><strong>{moneyOrDash(position.marketValue, position.currency)}</strong></div>
       <dl>
         <div><dt>{t('dashboard.quantity')}</dt><dd>{formatQuantity(position.quantity)}</dd></div>
+        <div><dt>{t('dashboard.sector')}</dt><dd>{position.sector}</dd></div>
         <div><dt>{t('dashboard.averageCost')}</dt><dd>{moneyOrDash(position.averageCost, position.currency)}</dd></div>
         <div><dt>{t('dashboard.lastPrice')}</dt><dd>{moneyOrDash(position.lastPrice, position.currency)}</dd></div>
         <div><dt>{t('dashboard.gain')}</dt><dd className={gainClass(position.totalGain)}>{moneyOrDash(position.totalGain, position.currency)}</dd></div>

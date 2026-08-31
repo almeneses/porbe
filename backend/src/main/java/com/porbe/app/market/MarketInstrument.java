@@ -37,6 +37,9 @@ public class MarketInstrument {
     @Column(name = "exchange_timezone", length = 80)
     private String exchangeTimezone;
 
+    @Column(length = 80)
+    private String sector;
+
     @Column(name = "last_synced_at")
     private OffsetDateTime lastSyncedAt;
 
@@ -61,7 +64,14 @@ public class MarketInstrument {
         this.exchange = shorten(series.exchange(), 30);
         this.instrumentType = shorten(series.instrumentType(), 30);
         this.exchangeTimezone = shorten(series.exchangeTimezone(), 80);
+        if (sector == null || sector.isBlank()) {
+            this.sector = MarketSectorCatalog.suggestedSector(ticker);
+        }
         this.lastSyncedAt = syncedAt;
+    }
+
+    public void updateSector(String sector) {
+        this.sector = shorten(sector.trim(), 80);
     }
 
     private String shorten(String value, int maxLength) {
@@ -94,6 +104,12 @@ public class MarketInstrument {
 
     public String getExchangeTimezone() {
         return exchangeTimezone;
+    }
+
+    public String getSector() {
+        return sector == null || sector.isBlank()
+                ? MarketSectorCatalog.suggestedSector(ticker)
+                : sector;
     }
 
     public OffsetDateTime getLastSyncedAt() {

@@ -74,6 +74,91 @@ Endpoint principal:
 
 - `GET /api/portfolio/summary`: resumen de efectivo, valoración, rendimiento y posiciones actuales.
 
+### Incremento 5: histórico semanal
+
+- Reconstrucción del portafolio para cada viernes ya finalizado desde la primera operación.
+- Cantidad, precio de cierre, fecha efectiva del precio y valor de mercado por ticker y semana.
+- Uso del último cierre disponible anterior al viernes cuando la jornada fue festiva.
+- Capital invertido vigente, aportes netos, dividendos, efectivo, ganancias y rentabilidad acumulada.
+- Variación nominal y porcentual contra el cierre semanal anterior.
+- Gráfico interactivo del valor del portafolio frente al capital aportado, con rangos de 12, 26 y 52 semanas o todo el período.
+- Tabla para computador y tarjetas adaptables para móvil, compatibles con los temas claro y oscuro.
+- Señalización de semanas parciales por precios faltantes, monedas externas u operaciones inconsistentes.
+
+Endpoint principal:
+
+- `GET /api/portfolio/history/weekly?from=AAAA-MM-DD&to=AAAA-MM-DD`: histórico semanal; ambas fechas son opcionales.
+
+### Incremento 6: administración de operaciones
+
+- Creación, modificación y eliminación manual desde la pantalla **Operaciones**.
+- Las operaciones manuales usan las mismas reglas financieras y de formato que la importación Excel.
+- Filtros por rango de fechas, ticker, tipo, origen y archivo importado.
+- Identificación de la operación exacta que deja negativa la cantidad de un ticker.
+- Origen visible para cada registro: archivo Excel o captura manual.
+- Reversión atómica de una importación completa con confirmación previa.
+- Bitácora de creaciones, modificaciones, eliminaciones y reversiones con usuario y fecha.
+- Exportación `.xlsx` del libro corregido, compatible con el formato de importación.
+- Recalculo inmediato del dashboard y el histórico después de cada cambio.
+- Encabezados fijos y desplazamiento interno en las tablas que superan aproximadamente 20 filas.
+
+Endpoints principales:
+
+- `GET /api/operations`: consulta filtrada del libro.
+- `POST /api/operations`: crea una operación manual.
+- `PUT /api/operations/{id}`: modifica una operación conservando su origen.
+- `DELETE /api/operations/{id}`: elimina una operación.
+- `GET /api/operations/export`: exporta el resultado filtrado a Excel.
+- `GET /api/operation-batches`: lista importaciones de Excel.
+- `DELETE /api/operation-batches/{id}`: revierte una importación completa.
+- `GET /api/operation-audit`: consulta las últimas acciones administrativas.
+
+### Incremento 7: rentabilidad, distribución y actualización automática
+
+- Rentabilidad TWR semanal que descuenta depósitos y retiros externos del rendimiento.
+- TWR acumulada y anualizada para todo el período disponible.
+- Rentabilidad contable por activo, con resultado realizado, no realizado y dividendos.
+- Participación de cada acción sobre el valor de mercado del portafolio.
+- Distribución por sector; la clasificación sugerida puede corregirse desde **Mercado**.
+- Gráficos adaptables de composición por acción, composición sectorial, ganancias y dividendos.
+- Histórico del último cierre disponible para cada viernes desde el 19 de enero de 2024, para todos los tickers actuales.
+- Programación semanal persistente por día y hora en la zona `America/Bogota`.
+- Ejecución automática en el backend, incluso sin una sesión web abierta, con estado de la última y próxima ejecución.
+
+El TWR se calcula encadenando los rendimientos semanales. Para cada semana se resta del valor final el flujo externo neto —depósitos menos retiros— y se compara con el valor del viernes anterior. La anualización se muestra cuando existe más de un cierre semanal.
+
+Endpoints principales:
+
+- `GET /api/market-data/weekly-closes`: cierres de todos los viernes desde `2024-01-19`.
+- `GET /api/market-data/schedule`: consulta la programación automática.
+- `PUT /api/market-data/schedule`: activa o modifica día y hora.
+- `PUT /api/market-data/{ticker}/sector`: corrige la clasificación sectorial de un activo.
+- `GET /api/portfolio/history/weekly`: incluye flujo externo, rendimiento semanal, TWR y TWR anualizada.
+
+### Incremento 8: informes de rendimiento
+
+- Informe de rendimiento para un rango de fechas elegido por el usuario.
+- Imagen vertical PNG consistente con la identidad visual de Porbe.
+- PDF de una página generado desde la misma composición gráfica.
+- Resultado nominal y TWR del periodo, descontando depósitos y retiros.
+- Mayor y menor valorización del periodo y rentabilidad acumulada por activo.
+- Dividendos, ganancia, rentabilidad, aportes, efectivo y valor del portafolio.
+- Gráfico de valor del portafolio frente a los aportes y movimientos recientes.
+- Historial persistente de informes con descargas posteriores.
+- Actualización de precios y generación automática cada viernes a las 17:30 en `America/Bogota`.
+- Interfaz de entrega desacoplada; WhatsApp Business permanece sin configurar y no envía mensajes.
+- La sección de notas se mantiene oculta hasta incorporar un resumen asistido por IA.
+
+La generación se realiza completamente en el backend. Java2D construye la imagen y Apache PDFBox 3.0.8 crea el PDF, por lo que la tarea automática no necesita que el navegador permanezca abierto.
+
+Endpoints principales:
+
+- `GET /api/reports`: historial de informes sin cargar los archivos binarios.
+- `POST /api/reports`: genera y persiste PNG y PDF para el periodo solicitado.
+- `GET /api/reports/{id}/image`: muestra o descarga la imagen.
+- `GET /api/reports/{id}/pdf`: descarga el PDF.
+- `GET /api/reports/schedule`: informa la próxima ejecución y el estado del canal de entrega.
+
 ## Ejecución con Docker
 
 1. Copie `.env.example` como `.env` si desea cambiar puertos o credenciales.

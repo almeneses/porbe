@@ -10,9 +10,9 @@ import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+/** Portafolio raíz al que pertenecen los movimientos de inversión. */
 @Entity
 @Table(name = "portfolio")
-/** Portafolio raíz al que pertenecen los movimientos de inversión. */
 public class Portfolio {
 
     @Id

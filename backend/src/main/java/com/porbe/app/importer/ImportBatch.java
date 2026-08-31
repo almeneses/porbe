@@ -3,6 +3,8 @@ package com.porbe.app.importer;
 import com.porbe.app.portfolio.Portfolio;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,9 +15,9 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
+/** Registra la identidad y el resultado de cada archivo importado. */
 @Entity
 @Table(name = "import_batch")
-/** Registra la identidad y el resultado de cada archivo importado. */
 public class ImportBatch {
 
     @Id
@@ -38,6 +40,10 @@ public class ImportBatch {
     @Column(name = "imported_by", nullable = false, length = 100)
     private String importedBy;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false, length = 20)
+    private ImportSourceType sourceType;
+
     @CreationTimestamp
     @Column(name = "imported_at", nullable = false, updatable = false)
     private OffsetDateTime importedAt;
@@ -51,14 +57,53 @@ public class ImportBatch {
             String fileHash,
             int rowCount,
             String importedBy) {
+        this(portfolio, sourceFilename, fileHash, rowCount, importedBy, ImportSourceType.IMPORT);
+    }
+
+    public ImportBatch(
+            Portfolio portfolio,
+            String sourceFilename,
+            String fileHash,
+            int rowCount,
+            String importedBy,
+            ImportSourceType sourceType) {
         this.portfolio = portfolio;
         this.sourceFilename = sourceFilename;
         this.fileHash = fileHash;
         this.rowCount = rowCount;
         this.importedBy = importedBy;
+        this.sourceType = sourceType;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public Portfolio getPortfolio() {
+        return portfolio;
+    }
+
+    public String getSourceFilename() {
+        return sourceFilename;
+    }
+
+    public String getFileHash() {
+        return fileHash;
+    }
+
+    public int getRowCount() {
+        return rowCount;
+    }
+
+    public String getImportedBy() {
+        return importedBy;
+    }
+
+    public ImportSourceType getSourceType() {
+        return sourceType;
+    }
+
+    public OffsetDateTime getImportedAt() {
+        return importedAt;
     }
 }

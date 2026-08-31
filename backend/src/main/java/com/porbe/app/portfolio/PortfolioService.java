@@ -2,8 +2,8 @@ package com.porbe.app.portfolio;
 
 import org.springframework.stereotype.Service;
 
-@Service
 /** Resuelve y crea cuando hace falta el portafolio principal de la instalación. */
+@Service
 public class PortfolioService {
 
     static final String DEFAULT_PORTFOLIO_NAME = "Portafolio principal";

@@ -3,10 +3,12 @@ package com.porbe.app.market;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +22,8 @@ import com.porbe.app.portfolio.PortfolioRepository;
 import com.porbe.app.portfolio.PortfolioService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +48,9 @@ class MarketDataIntegrationTest {
     private MarketInstrumentRepository instrumentRepository;
 
     @Autowired
+    private MarketDataScheduleRepository scheduleRepository;
+
+    @Autowired
     private PortfolioOperationRepository operationRepository;
 
     @Autowired
@@ -65,6 +72,10 @@ class MarketDataIntegrationTest {
         operationRepository.deleteAll();
         importBatchRepository.deleteAll();
         portfolioRepository.deleteAll();
+        scheduleRepository.findByScheduleKey(MarketDataSchedule.PORTFOLIO_CLOSES).ifPresent(schedule -> {
+            schedule.update(false, DayOfWeek.SATURDAY, LocalTime.of(8, 0), "test");
+            scheduleRepository.save(schedule);
+        });
     }
 
     @Test
@@ -82,6 +93,10 @@ class MarketDataIntegrationTest {
                 .andExpect(jsonPath("$.successfulTickers").value(1))
                 .andExpect(jsonPath("$.storedPrices").value(2))
                 .andExpect(jsonPath("$.results[0].ticker").value("ECOPETROL.CL"));
+        verify(provider).fetchDaily(
+                eq("ECOPETROL.CL"),
+                eq(LocalDate.of(2024, 1, 19)),
+                any(LocalDate.class));
 
         mockMvc.perform(get("/api/market-data")
                         .with(user("admin").roles("ADMIN")))
@@ -105,6 +120,49 @@ class MarketDataIntegrationTest {
                         .with(csrf().asHeader()))
                 .andExpect(status().isOk());
         org.assertj.core.api.Assertions.assertThat(priceRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void configuresAutomaticUpdatesSectorsAndWeeklyCloseHistory() throws Exception {
+        createPurchase();
+        given(provider.source()).willReturn("YAHOO_FINANCE");
+        given(provider.fetchDaily(eq("ECOPETROL.CL"), any(LocalDate.class), any(LocalDate.class)))
+                .willReturn(series());
+
+        mockMvc.perform(post("/api/market-data/sync")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/market-data/ECOPETROL.CL/sector")
+                        .contentType("application/json")
+                        .content("{\"sector\":\"Petróleo y gas\"}")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sector").value("Petróleo y gas"));
+
+        mockMvc.perform(get("/api/market-data/weekly-closes")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.from").value("2024-01-19"))
+                .andExpect(jsonPath("$.tickerCount").value(1))
+                .andExpect(jsonPath("$.weekCount").isNumber())
+                .andExpect(jsonPath("$.tickers[0].ticker").value("ECOPETROL.CL"))
+                .andExpect(jsonPath("$.tickers[0].sector").value("Petróleo y gas"))
+                .andExpect(jsonPath("$.tickers[0].closes[0].weekEnding").value("2024-01-19"));
+
+        mockMvc.perform(put("/api/market-data/schedule")
+                        .contentType("application/json")
+                        .content("{\"enabled\":true,\"dayOfWeek\":\"FRIDAY\",\"runTime\":\"19:30\"}")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.dayOfWeek").value("FRIDAY"))
+                .andExpect(jsonPath("$.runTime").value("19:30:00"))
+                .andExpect(jsonPath("$.timezone").value("America/Bogota"))
+                .andExpect(jsonPath("$.nextRunAt").exists());
     }
 
     @Test

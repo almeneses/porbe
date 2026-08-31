@@ -4,17 +4,19 @@ import {
   CalendarDays,
   ChartNoAxesCombined,
   CheckCircle2,
+  Clock3,
   CloudDownload,
   Database,
   LoaderCircle,
   RefreshCw,
+  Save,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
-import type { MarketDataStatus, MarketDataSyncResult, MarketTickerStatus } from '../market/api'
+import type { MarketDataSchedule, MarketDataStatus, MarketDataSyncResult, MarketTickerStatus, WeekDay } from '../market/api'
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters'
 
 /** Muestra la cobertura de mercado y permite actualizar precios desde Yahoo. */
@@ -22,6 +24,7 @@ export function MarketDataPage() {
   const { t } = useTranslation()
   const [status, setStatus] = useState<MarketDataStatus | null>(null)
   const [syncResult, setSyncResult] = useState<MarketDataSyncResult | null>(null)
+  const [schedule, setSchedule] = useState<MarketDataSchedule | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
 
@@ -36,7 +39,10 @@ export function MarketDataPage() {
 
   useEffect(() => {
     void loadStatus()
-  }, [loadStatus])
+    marketDataApi.schedule()
+      .then(setSchedule)
+      .catch((requestError) => setError(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleLoadError')))
+  }, [loadStatus, t])
 
   // Recarga el estado después de sincronizar para reflejar lo persistido.
   async function syncPrices() {
@@ -96,8 +102,10 @@ export function MarketDataPage() {
 
           {syncResult && <SyncResult result={syncResult} />}
 
+          {schedule && <SchedulePanel schedule={schedule} onSaved={setSchedule} />}
+
           <section className="market-grid" aria-label={t('market.assetsLabel')}>
-            {status.tickers.map((ticker) => <TickerCard key={ticker.ticker} ticker={ticker} />)}
+            {status.tickers.map((ticker) => <TickerCard key={ticker.ticker} ticker={ticker} onSectorSaved={loadStatus} />)}
           </section>
         </>
       )}
@@ -128,7 +136,7 @@ function SyncResult({ result }: { result: MarketDataSyncResult }) {
 }
 
 /** Presenta el último precio y la cobertura almacenada de un activo. */
-function TickerCard({ ticker }: { ticker: MarketTickerStatus }) {
+function TickerCard({ ticker, onSectorSaved }: { ticker: MarketTickerStatus; onSectorSaved: () => Promise<void> }) {
   const { t } = useTranslation()
   const hasPrice = ticker.lastPriceDate !== null && ticker.lastClose !== null
   return (
@@ -149,9 +157,77 @@ function TickerCard({ ticker }: { ticker: MarketTickerStatus }) {
         <div><dt><CalendarDays size={15} /> {t('market.priceDate')}</dt><dd>{ticker.lastPriceDate ? formatDate(ticker.lastPriceDate) : '—'}</dd></div>
         <div><dt><Database size={15} /> {t('market.storedDays')}</dt><dd>{ticker.storedDays}</dd></div>
       </dl>
+      <SectorEditor ticker={ticker} onSaved={onSectorSaved} />
       <small className="market-card__updated">
         {ticker.lastSyncedAt ? t('market.updatedAt', { date: formatDateTime(ticker.lastSyncedAt) }) : t('market.neverUpdated')}
       </small>
     </article>
   )
+}
+
+/** Permite activar y modificar el día y hora del trabajo semanal. */
+function SchedulePanel({ schedule, onSaved }: { schedule: MarketDataSchedule; onSaved: (schedule: MarketDataSchedule) => void }) {
+  const { t } = useTranslation()
+  const [enabled, setEnabled] = useState(schedule.enabled)
+  const [dayOfWeek, setDayOfWeek] = useState<WeekDay>(schedule.dayOfWeek)
+  const [runTime, setRunTime] = useState(schedule.runTime.slice(0, 5))
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function saveSchedule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setMessage(null)
+    try {
+      const updated = await marketDataApi.updateSchedule({ enabled, dayOfWeek, runTime })
+      onSaved(updated)
+      setMessage(t('market.scheduleSaved'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleSaveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="market-schedule-card">
+      <div className="market-schedule-card__intro"><span><Clock3 size={20} /></span><div><h2>{t('market.scheduleTitle')}</h2><p>{t('market.scheduleBody')}</p></div></div>
+      <form onSubmit={saveSchedule}>
+        <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'market.scheduleEnabled' : 'market.scheduleDisabled')}</span></label>
+        <label><span>{t('market.scheduleDay')}</span><select value={dayOfWeek} onChange={(event) => setDayOfWeek(event.target.value as WeekDay)}>{(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as WeekDay[]).map((day) => <option key={day} value={day}>{t(`market.days.${day}`)}</option>)}</select></label>
+        <label><span>{t('market.scheduleTime')}</span><input type="time" value={runTime} onChange={(event) => setRunTime(event.target.value)} required /></label>
+        <button className="secondary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('market.saveSchedule')}</button>
+      </form>
+      <div className="market-schedule-card__status">
+        <span>{t('market.scheduleTimezone', { timezone: schedule.timezone })}</span>
+        <span>{schedule.nextRunAt ? t('market.nextRun', { date: formatDateTime(schedule.nextRunAt) }) : t('market.noNextRun')}</span>
+        {schedule.lastRunAt && <span>{t('market.lastRun', { date: formatDateTime(schedule.lastRunAt), status: t(`market.runStatus.${schedule.lastRunStatus}`) })}</span>}
+        {message && <strong>{message}</strong>}
+      </div>
+    </section>
+  )
+}
+
+/** Guarda una clasificación sectorial reutilizada por el dashboard. */
+function SectorEditor({ ticker, onSaved }: { ticker: MarketTickerStatus; onSaved: () => Promise<void> }) {
+  const { t } = useTranslation()
+  const [sector, setSector] = useState(ticker.sector)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function saveSector() {
+    if (!sector.trim() || sector.trim() === ticker.sector) return
+    setSaving(true)
+    setError(null)
+    try {
+      await marketDataApi.updateSector(ticker.ticker, sector.trim())
+      await onSaved()
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('market.sectorSaveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <label className="market-sector"><span>{t('market.sector')}</span><div><input value={sector} maxLength={80} onChange={(event) => setSector(event.target.value)} /><button type="button" aria-label={t('market.saveSector')} title={t('market.saveSector')} disabled={saving || !sector.trim() || sector.trim() === ticker.sector} onClick={saveSector}>{saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}</button></div>{error && <small role="alert">{error}</small>}</label>
 }

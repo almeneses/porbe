@@ -26,9 +26,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
+/** Verifica costo promedio, ganancias y alertas de la valoración actual. */
 @SpringBootTest(classes = PorbeApplication.class)
 @AutoConfigureMockMvc
-/** Verifica costo promedio, ganancias y alertas de la valoración actual. */
 class PortfolioValuationIntegrationTest {
 
     @Autowired
