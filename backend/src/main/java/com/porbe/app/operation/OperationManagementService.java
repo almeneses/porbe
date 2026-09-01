@@ -48,9 +48,9 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public OperationsResponse list(OperationFilter filter) {
+    public OperationsResponse list(Long portfolioId, OperationFilter filter) {
         validateRange(filter);
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var allOperations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var consistency = consistencyByOperation(allOperations);
         var filtered = allOperations.stream()
@@ -67,9 +67,9 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public OperationResponse create(OperationRequest request, String username) {
+    public OperationResponse create(Long portfolioId, OperationRequest request, String username) {
         var data = validated(request);
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var batch = importBatchRepository.save(new ImportBatch(
                 portfolio,
                 "Operación manual",
@@ -90,6 +90,7 @@ public class OperationManagementService {
                 data.totalAmount(),
                 data.notes()));
         auditRepository.save(new OperationAudit(
+                portfolio,
                 operation.getId(),
                 batch.getId(),
                 OperationAuditAction.CREATED,
@@ -101,8 +102,9 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public OperationResponse update(Long id, OperationRequest request, String username) {
-        var operation = findOperation(id);
+    public OperationResponse update(Long portfolioId, Long id, OperationRequest request, String username) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        var operation = findOperation(id, portfolio);
         var previous = json(OperationSnapshot.from(operation));
         var data = validated(request);
         operation.update(
@@ -118,6 +120,7 @@ public class OperationManagementService {
                 username);
         operationRepository.saveAndFlush(operation);
         auditRepository.save(new OperationAudit(
+                portfolio,
                 operation.getId(),
                 operation.getImportBatch().getId(),
                 OperationAuditAction.UPDATED,
@@ -129,10 +132,12 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public void delete(Long id, String username) {
-        var operation = findOperation(id);
+    public void delete(Long portfolioId, Long id, String username) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        var operation = findOperation(id, portfolio);
         var batch = operation.getImportBatch();
         auditRepository.save(new OperationAudit(
+                portfolio,
                 operation.getId(),
                 batch.getId(),
                 OperationAuditAction.DELETED,
@@ -149,8 +154,9 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public List<OperationBatchResponse> importedBatches() {
-        return importBatchRepository.findAllBySourceTypeOrderByImportedAtDesc(ImportSourceType.IMPORT).stream()
+    public List<OperationBatchResponse> importedBatches(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return importBatchRepository.findAllByPortfolioAndSourceTypeOrderByImportedAtDesc(portfolio, ImportSourceType.IMPORT).stream()
                 .map(batch -> new OperationBatchResponse(
                         batch.getId(),
                         batch.getSourceFilename(),
@@ -162,15 +168,20 @@ public class OperationManagementService {
     }
 
     @Transactional
-    public void revertBatch(Long id, String username) {
+    public void revertBatch(Long portfolioId, Long id, String username) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var batch = importBatchRepository.findById(id)
                 .orElseThrow(() -> new OperationResourceNotFoundException("La importación ya no existe."));
+        if (!batch.getPortfolio().getId().equals(portfolio.getId())) {
+            throw new OperationResourceNotFoundException("La importación no pertenece al portafolio seleccionado.");
+        }
         if (batch.getSourceType() != ImportSourceType.IMPORT) {
             throw new IllegalArgumentException("Solo se pueden revertir lotes importados desde Excel.");
         }
         var operations = operationRepository.findAllByImportBatchOrderByDateAscIdAsc(batch);
         var snapshot = json(operations.stream().map(OperationSnapshot::from).toList());
         auditRepository.save(new OperationAudit(
+                portfolio,
                 null,
                 batch.getId(),
                 OperationAuditAction.BATCH_REVERTED,
@@ -184,19 +195,52 @@ public class OperationManagementService {
     }
 
     @Transactional(readOnly = true)
-    public List<OperationAuditResponse> auditTrail() {
-        return auditRepository.findTop100ByOrderByCreatedAtDescIdDesc().stream()
+    public List<OperationAuditResponse> auditTrail(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return auditRepository.findTop100ByPortfolioOrderByCreatedAtDescIdDesc(portfolio).stream()
                 .map(OperationAuditResponse::from)
                 .toList();
     }
 
     @Transactional
-    public List<PortfolioOperation> filteredOperations(OperationFilter filter) {
+    public List<PortfolioOperation> filteredOperations(Long portfolioId, OperationFilter filter) {
         validateRange(filter);
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         return operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio).stream()
                 .filter(operation -> matches(operation, filter))
                 .toList();
+    }
+
+    public OperationsResponse list(OperationFilter filter) {
+        return list(null, filter);
+    }
+
+    public OperationResponse create(OperationRequest request, String username) {
+        return create(null, request, username);
+    }
+
+    public OperationResponse update(Long id, OperationRequest request, String username) {
+        return update(null, id, request, username);
+    }
+
+    public void delete(Long id, String username) {
+        delete(null, id, username);
+    }
+
+    public List<OperationBatchResponse> importedBatches() {
+        return importedBatches(null);
+    }
+
+    public void revertBatch(Long id, String username) {
+        revertBatch(null, id, username);
+    }
+
+    public List<OperationAuditResponse> auditTrail() {
+        return auditTrail(null);
+    }
+
+    public List<PortfolioOperation> filteredOperations(OperationFilter filter) {
+        return filteredOperations(null, filter);
     }
 
     private OperationData validated(OperationRequest request) {
@@ -282,9 +326,10 @@ public class OperationManagementService {
         }
     }
 
-    private PortfolioOperation findOperation(Long id) {
-        return operationRepository.findById(id)
-                .orElseThrow(() -> new OperationResourceNotFoundException("La operación ya no existe."));
+    private PortfolioOperation findOperation(Long id, com.porbe.app.portfolio.Portfolio portfolio) {
+        return operationRepository.findByIdAndPortfolio(id, portfolio)
+                .orElseThrow(() -> new OperationResourceNotFoundException(
+                        "La operación no existe en el portafolio seleccionado."));
     }
 
     private String operationLabel(PortfolioOperation operation) {

@@ -3,6 +3,8 @@ import { apiRequest } from '../auth/api'
 /** Informe persistido y formatos disponibles para descarga. */
 export interface PortfolioReport {
   id: number
+  portfolioId: number
+  portfolioName: string
   from: string
   to: string
   valuationDate: string
@@ -33,11 +35,11 @@ export interface PortfolioReportSchedule {
 }
 
 export const reportApi = {
-  list: () => apiRequest<PortfolioReport[]>('/api/reports'),
+  list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
-  generate: (from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
+  generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',
-    body: JSON.stringify({ from, to }),
+    body: JSON.stringify({ portfolioId, from, to }),
   }),
   imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
   pdfUrl: (id: number) => `/api/reports/${id}/pdf`,

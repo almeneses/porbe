@@ -33,8 +33,8 @@ public class PortfolioReportController {
     }
 
     @GetMapping
-    List<PortfolioReportListItem> list() {
-        return reportService.list();
+    List<PortfolioReportListItem> list(@RequestParam(required = false) Long portfolioId) {
+        return reportService.list(portfolioId);
     }
 
     @PostMapping
@@ -42,7 +42,8 @@ public class PortfolioReportController {
     PortfolioReportListItem generate(
             @Valid @RequestBody PortfolioReportRequest request,
             Principal principal) {
-        return reportService.generate(request.from(), request.to(), "MANUAL", principal.getName());
+        return reportService.generate(
+                request.portfolioId(), request.from(), request.to(), "MANUAL", principal.getName());
     }
 
     @GetMapping("/schedule")

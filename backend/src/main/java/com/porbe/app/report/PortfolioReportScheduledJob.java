@@ -22,6 +22,7 @@ public class PortfolioReportScheduledJob {
     private final ZoneId timezone;
     private final MarketDataSyncService marketDataSyncService;
     private final PortfolioReportService reportService;
+    private final com.porbe.app.portfolio.PortfolioService portfolioService;
     private final Clock clock;
 
     public PortfolioReportScheduledJob(
@@ -29,11 +30,13 @@ public class PortfolioReportScheduledJob {
             @Value("${app.reports.timezone:America/Bogota}") String timezone,
             MarketDataSyncService marketDataSyncService,
             PortfolioReportService reportService,
+            com.porbe.app.portfolio.PortfolioService portfolioService,
             Clock clock) {
         this.enabled = enabled;
         this.timezone = ZoneId.of(timezone);
         this.marketDataSyncService = marketDataSyncService;
         this.reportService = reportService;
+        this.portfolioService = portfolioService;
         this.clock = clock;
     }
 
@@ -48,8 +51,10 @@ public class PortfolioReportScheduledJob {
         var from = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         try {
             marketDataSyncService.syncPortfolio();
-            var report = reportService.generateScheduledIfMissing(from, to);
-            reportService.deliver(report.id());
+            for (var portfolio : portfolioService.list()) {
+                var report = reportService.generateScheduledIfMissing(portfolio.id(), from, to);
+                reportService.deliver(report.id());
+            }
         } catch (RuntimeException exception) {
             LOGGER.error("No fue posible generar el informe semanal del {} al {}.", from, to, exception);
         }

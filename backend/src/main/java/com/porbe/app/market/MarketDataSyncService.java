@@ -1,6 +1,7 @@
 package com.porbe.app.market;
 
 import com.porbe.app.operation.PortfolioOperationRepository;
+import com.porbe.app.portfolio.PortfolioService;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -16,6 +17,10 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 
 /** Coordina la cobertura requerida, consulta al proveedor y reporta resultados. */
 @Service
@@ -28,6 +33,7 @@ public class MarketDataSyncService {
     private final MarketPriceDailyRepository priceRepository;
     private final MarketDataProvider provider;
     private final MarketDataPersistenceService persistenceService;
+    private final PortfolioService portfolioService;
     private final Clock clock;
 
     public MarketDataSyncService(
@@ -36,12 +42,14 @@ public class MarketDataSyncService {
             MarketPriceDailyRepository priceRepository,
             MarketDataProvider provider,
             MarketDataPersistenceService persistenceService,
+            PortfolioService portfolioService,
             Clock clock) {
         this.operationRepository = operationRepository;
         this.instrumentRepository = instrumentRepository;
         this.priceRepository = priceRepository;
         this.provider = provider;
         this.persistenceService = persistenceService;
+        this.portfolioService = portfolioService;
         this.clock = clock;
     }
 
@@ -51,6 +59,15 @@ public class MarketDataSyncService {
      */
     public MarketDataSyncResponse syncPortfolio() {
         var tickerRanges = operationRepository.findPortfolioTickerRanges();
+        return syncRanges(tickerRanges);
+    }
+
+    public MarketDataSyncResponse syncPortfolio(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return syncRanges(operationRepository.findPortfolioTickerRanges(portfolio));
+    }
+
+    private MarketDataSyncResponse syncRanges(List<com.porbe.app.operation.PortfolioTickerRange> tickerRanges) {
         if (tickerRanges.isEmpty()) {
             return new MarketDataSyncResponse(
                     0,
@@ -93,6 +110,16 @@ public class MarketDataSyncService {
     /** Combina operaciones, instrumentos y último precio en una vista compacta. */
     public MarketDataStatusResponse status() {
         var tickerRanges = operationRepository.findPortfolioTickerRanges();
+        return status(tickerRanges);
+    }
+
+    @Transactional(readOnly = true)
+    public MarketDataStatusResponse status(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return status(operationRepository.findPortfolioTickerRanges(portfolio));
+    }
+
+    private MarketDataStatusResponse status(List<com.porbe.app.operation.PortfolioTickerRange> tickerRanges) {
         var instrumentsByTicker = new HashMap<String, MarketInstrument>();
         instrumentRepository.findByTickerIn(tickerRanges.stream().map(range -> range.getTicker().toUpperCase(Locale.ROOT)).toList())
                 .forEach(instrument -> instrumentsByTicker.put(instrument.getTicker(), instrument));
@@ -113,6 +140,8 @@ public class MarketDataSyncService {
                                 null,
                                 false,
                                 0,
+                                null,
+                                false,
                                 null);
                     }
                     var latest = priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
@@ -127,7 +156,9 @@ public class MarketDataSyncService {
                             latest == null ? null : latest.getClose(),
                             latest != null && !latest.isFinalClose(),
                             priceRepository.countByInstrument(instrument),
-                            instrument.getLastSyncedAt());
+                            instrument.getLastSyncedAt(),
+                            instrument.hasIcon(),
+                            instrument.getIconUpdatedAt());
                 })
                 .toList();
 
@@ -166,6 +197,17 @@ public class MarketDataSyncService {
     @Transactional(readOnly = true)
     public MarketWeeklyClosesResponse weeklyCloses() {
         var ranges = operationRepository.findPortfolioTickerRanges();
+        return weeklyCloses(ranges);
+    }
+
+    @Transactional(readOnly = true)
+    public MarketWeeklyClosesResponse weeklyCloses(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return weeklyCloses(operationRepository.findPortfolioTickerRanges(portfolio));
+    }
+
+    private MarketWeeklyClosesResponse weeklyCloses(
+            List<com.porbe.app.operation.PortfolioTickerRange> ranges) {
         var tickers = ranges.stream()
                 .map(range -> range.getTicker().toUpperCase(Locale.ROOT))
                 .toList();
@@ -222,6 +264,55 @@ public class MarketDataSyncService {
         instrument.updateSector(sector);
         var saved = instrumentRepository.save(instrument);
         return new MarketSectorResponse(saved.getTicker(), saved.getSector());
+    }
+
+    /** Valida que el archivo sea una imagen PNG o JPEG pequeña antes de persistirla. */
+    @Transactional
+    public MarketTickerIconResponse updateIcon(String ticker, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Selecciona una imagen PNG o JPG.");
+        }
+        if (file.getSize() > 1024 * 1024) {
+            throw new IllegalArgumentException("El ícono no puede superar 1 MB.");
+        }
+        var contentType = file.getContentType();
+        if (!"image/png".equals(contentType) && !"image/jpeg".equals(contentType)) {
+            throw new IllegalArgumentException("El ícono debe estar en formato PNG o JPG.");
+        }
+        try {
+            var bytes = file.getBytes();
+            var image = ImageIO.read(new ByteArrayInputStream(bytes));
+            if (image == null || image.getWidth() > 2048 || image.getHeight() > 2048) {
+                throw new IllegalArgumentException("La imagen no es válida o supera 2048 × 2048 píxeles.");
+            }
+            var normalizedTicker = ticker.trim().toUpperCase(Locale.ROOT);
+            var instrument = instrumentRepository.findByTicker(normalizedTicker)
+                    .orElseGet(() -> new MarketInstrument(normalizedTicker));
+            var updatedAt = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+            instrument.updateIcon(bytes, contentType, updatedAt);
+            instrumentRepository.save(instrument);
+            return new MarketTickerIconResponse(normalizedTicker, true, updatedAt);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("No fue posible leer la imagen seleccionada.");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public MarketTickerIconFile icon(String ticker) {
+        var instrument = instrumentRepository.findByTicker(ticker.trim().toUpperCase(Locale.ROOT))
+                .filter(MarketInstrument::hasIcon)
+                .orElseThrow(() -> new MarketDataNotFoundException("Este ticker no tiene un ícono configurado."));
+        return new MarketTickerIconFile(instrument.getIconData(), instrument.getIconContentType());
+    }
+
+    @Transactional
+    public MarketTickerIconResponse removeIcon(String ticker) {
+        var normalizedTicker = ticker.trim().toUpperCase(Locale.ROOT);
+        var instrument = instrumentRepository.findByTicker(normalizedTicker)
+                .orElseThrow(() -> new MarketDataNotFoundException("El ticker no existe."));
+        instrument.removeIcon();
+        instrumentRepository.save(instrument);
+        return new MarketTickerIconResponse(normalizedTicker, false, null);
     }
 
     private NavigableMap<LocalDate, MarketPriceDaily> priceIndex(

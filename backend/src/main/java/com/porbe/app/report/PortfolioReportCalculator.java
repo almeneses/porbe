@@ -3,6 +3,8 @@ package com.porbe.app.report;
 import com.porbe.app.operation.OperationType;
 import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
+import com.porbe.app.market.MarketInstrument;
+import com.porbe.app.market.MarketInstrumentRepository;
 import com.porbe.app.portfolio.PortfolioHistoryService;
 import com.porbe.app.portfolio.PortfolioService;
 import com.porbe.app.portfolio.PortfolioWeeklyPositionResponse;
@@ -35,16 +37,19 @@ public class PortfolioReportCalculator {
     private final PortfolioHistoryService historyService;
     private final PortfolioService portfolioService;
     private final PortfolioOperationRepository operationRepository;
+    private final MarketInstrumentRepository instrumentRepository;
     private final Clock clock;
 
     public PortfolioReportCalculator(
             PortfolioHistoryService historyService,
             PortfolioService portfolioService,
             PortfolioOperationRepository operationRepository,
+            MarketInstrumentRepository instrumentRepository,
             Clock clock) {
         this.historyService = historyService;
         this.portfolioService = portfolioService;
         this.operationRepository = operationRepository;
+        this.instrumentRepository = instrumentRepository;
         this.clock = clock;
     }
 
@@ -53,10 +58,10 @@ public class PortfolioReportCalculator {
      * cierre. Los movimientos conservan las fechas exactas elegidas por el usuario.
      */
     @Transactional(readOnly = true)
-    public PortfolioReportData calculate(LocalDate from, LocalDate to) {
+    public PortfolioReportData calculate(Long portfolioId, LocalDate from, LocalDate to) {
         validateDates(from, to);
         var endFriday = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
-        var history = historyService.weeklyHistory(null, endFriday);
+        var history = historyService.weeklyHistory(portfolioId, null, endFriday);
         if (history.weeks().isEmpty()) {
             throw new IllegalArgumentException(
                     "No hay cierres semanales disponibles para generar el informe seleccionado.");
@@ -72,7 +77,7 @@ public class PortfolioReportCalculator {
         var baseline = prior.orElse(history.weeks().getFirst());
         var hasPriorBaseline = prior.isPresent();
 
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository
                 .findAllByPortfolioAndDateBetweenOrderByDateAscIdAsc(portfolio, from, to);
         var externalCashFlow = operations.stream()
@@ -88,20 +93,26 @@ public class PortfolioReportCalculator {
 
         var baselinePositions = baseline.positions().stream()
                 .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()));
-        var appreciations = appreciationHighlights(baselinePositions, end.positions());
-        var profitability = profitabilityHighlights(end.positions());
-        var displayedMovements = recentMovements(operations);
+        var icons = iconsByTicker(end.positions(), operations);
+        var appreciations = appreciationHighlights(baselinePositions, end.positions(), icons);
+        var profitability = profitabilityHighlights(end.positions(), icons);
+        var displayedMovements = recentMovements(operations, icons);
         var chart = history.weeks().stream()
-                .filter(week -> !week.weekEnding().isBefore(baseline.weekEnding())
-                        && !week.weekEnding().isAfter(end.weekEnding()))
+                .filter(week -> !week.weekEnding().isAfter(end.weekEnding()))
                 .map(week -> new PortfolioReportChartPoint(
                         week.weekEnding(), week.portfolioValue(), week.netContributions()))
+                .toList();
+        var sixMonthStart = end.weekEnding().minusMonths(6);
+        var sixMonthChart = chart.stream()
+                .filter(point -> !point.date().isBefore(sixMonthStart))
                 .toList();
         var provisionalPrices = (int) end.positions().stream()
                 .filter(position -> position.quantity().signum() != 0 && position.provisionalPrice())
                 .count();
 
         return new PortfolioReportData(
+                portfolio.getId(),
+                portfolio.getName(),
                 from,
                 to,
                 baseline.weekEnding(),
@@ -122,14 +133,20 @@ public class PortfolioReportCalculator {
                 operations.size(),
                 displayedMovements,
                 chart,
+                sixMonthChart,
                 end.valuationComplete() && provisionalPrices == 0,
                 provisionalPrices,
                 end.unpricedPositions());
     }
 
+    public PortfolioReportData calculate(LocalDate from, LocalDate to) {
+        return calculate(null, from, to);
+    }
+
     private Highlights appreciationHighlights(
             Map<String, PortfolioWeeklyPositionResponse> baseline,
-            List<PortfolioWeeklyPositionResponse> endPositions) {
+            List<PortfolioWeeklyPositionResponse> endPositions,
+            Map<String, byte[]> icons) {
         var values = endPositions.stream()
                 .filter(position -> position.quantity().signum() != 0 && position.closePrice() != null)
                 .map(position -> {
@@ -141,14 +158,16 @@ public class PortfolioReportCalculator {
                             .divide(start.closePrice(), RATE_SCALE, RoundingMode.HALF_UP)
                             .subtract(BigDecimal.ONE);
                     return new PortfolioReportAssetHighlight(
-                            position.ticker(), position.name(), rate(change), null);
+                            position.ticker(), position.name(), rate(change), null, icons.get(position.ticker()));
                 })
                 .filter(java.util.Objects::nonNull)
                 .toList();
         return highlights(values);
     }
 
-    private Highlights profitabilityHighlights(List<PortfolioWeeklyPositionResponse> positions) {
+    private Highlights profitabilityHighlights(
+            List<PortfolioWeeklyPositionResponse> positions,
+            Map<String, byte[]> icons) {
         var values = positions.stream()
                 .filter(position -> position.quantity().signum() != 0
                         && position.costBasis() != null
@@ -159,7 +178,8 @@ public class PortfolioReportCalculator {
                         position.name(),
                         rate(position.totalGain().divide(
                                 position.costBasis(), RATE_SCALE, RoundingMode.HALF_UP)),
-                        money(position.totalGain())))
+                        money(position.totalGain()),
+                        icons.get(position.ticker())))
                 .toList();
         return highlights(values);
     }
@@ -171,7 +191,9 @@ public class PortfolioReportCalculator {
                 values.stream().min(comparator).orElse(null));
     }
 
-    private List<PortfolioReportMovement> recentMovements(List<PortfolioOperation> operations) {
+    private List<PortfolioReportMovement> recentMovements(
+            List<PortfolioOperation> operations,
+            Map<String, byte[]> icons) {
         var recent = new ArrayList<>(operations);
         java.util.Collections.reverse(recent);
         return recent.stream().limit(4).map(operation -> new PortfolioReportMovement(
@@ -180,7 +202,26 @@ public class PortfolioReportCalculator {
                 operation.getTicker(),
                 operation.getName(),
                 operation.getQuantity(),
-                operation.getTotalAmount())).toList();
+                operation.getTotalAmount(),
+                operation.getTicker() == null ? null : icons.get(operation.getTicker().toUpperCase(Locale.ROOT))))
+                .toList();
+    }
+
+    /** Carga una sola vez los íconos necesarios para que el renderizado no consulte la base de datos. */
+    private Map<String, byte[]> iconsByTicker(
+            List<PortfolioWeeklyPositionResponse> positions,
+            List<PortfolioOperation> operations) {
+        var tickers = java.util.stream.Stream.concat(
+                        positions.stream().map(PortfolioWeeklyPositionResponse::ticker),
+                        operations.stream().map(PortfolioOperation::getTicker).filter(java.util.Objects::nonNull))
+                .map(ticker -> ticker.toUpperCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        if (tickers.isEmpty()) {
+            return Map.of();
+        }
+        return instrumentRepository.findByTickerIn(tickers).stream()
+                .filter(MarketInstrument::hasIcon)
+                .collect(Collectors.toMap(MarketInstrument::getTicker, MarketInstrument::getIconData));
     }
 
     private BigDecimal relativeTwr(BigDecimal baseline, BigDecimal end) {

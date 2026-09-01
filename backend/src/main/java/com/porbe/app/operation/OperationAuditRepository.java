@@ -7,4 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OperationAuditRepository extends JpaRepository<OperationAudit, Long> {
 
     List<OperationAudit> findTop100ByOrderByCreatedAtDescIdDesc();
+
+    List<OperationAudit> findTop100ByPortfolioOrderByCreatedAtDescIdDesc(
+            com.porbe.app.portfolio.Portfolio portfolio);
 }

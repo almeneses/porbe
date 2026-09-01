@@ -20,11 +20,14 @@ import { PortfolioAnalyticsCharts } from '../components/PortfolioAnalyticsCharts
 import { portfolioApi } from '../portfolio/api'
 import type { PortfolioHistory, PortfolioPosition, PortfolioSummary } from '../portfolio/api'
 import { formatCurrency, formatDate, formatPercentage, formatQuantity } from '../utils/formatters'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
+import { TickerIcon } from '../components/TickerIcon'
 
 /** Presenta la valoración actual, alertas y posiciones calculadas del portafolio. */
 export function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { activePortfolio } = usePortfolio()
   const [summary, setSummary] = useState<PortfolioSummary | null>(null)
   const [history, setHistory] = useState<PortfolioHistory | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,21 +35,23 @@ export function DashboardPage() {
 
   useEffect(() => {
     let active = true
-    portfolioApi.summary()
+    setSummary(null)
+    portfolioApi.summary(activePortfolio.id)
       .then((response) => { if (active) setSummary(response) })
       .catch((requestError) => {
         if (active) setError(requestError instanceof ApiRequestError ? requestError.message : t('dashboard.loadError'))
       })
     return () => { active = false }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   useEffect(() => {
     let active = true
-    portfolioApi.weeklyHistory()
+    setHistory(null)
+    portfolioApi.weeklyHistory(activePortfolio.id)
       .then((response) => { if (active) setHistory(response) })
       .catch(() => { if (active) setHistoryError(t('dashboard.historyLoadError')) })
     return () => { active = false }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   const performance = useMemo(() => {
     const valued = summary?.positions.filter((position) => position.returnRate !== null) ?? []
@@ -281,8 +286,8 @@ function PositionCard({ position }: { position: PortfolioPosition }) {
 function PositionAsset({ position }: { position: PortfolioPosition }) {
   return (
     <div className="position-asset">
-      <strong>{position.ticker}</strong>
-      <small>{position.name ?? '—'}</small>
+      <TickerIcon ticker={position.ticker} />
+      <span><strong>{position.ticker}</strong><small>{position.name ?? '—'}</small></span>
       <PositionStatus position={position} />
     </div>
   )

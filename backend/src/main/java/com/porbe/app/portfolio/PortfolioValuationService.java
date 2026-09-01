@@ -55,8 +55,8 @@ public class PortfolioValuationService {
      * Reconstruye el estado actual en orden cronológico y usa costo promedio
      * ponderado para separar resultado realizado y no realizado.
      */
-    public PortfolioSummaryResponse currentSummary() {
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+    public PortfolioSummaryResponse currentSummary(Long portfolioId) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var baseCurrency = portfolio.getBaseCurrency().toUpperCase(Locale.ROOT);
         var ledgers = positionLedgers(operations);
@@ -121,6 +121,10 @@ public class PortfolioValuationService {
                 foreign,
                 positions,
                 issues);
+    }
+
+    public PortfolioSummaryResponse currentSummary() {
+        return currentSummary(null);
     }
 
     private Map<String, PortfolioPositionLedger> positionLedgers(List<PortfolioOperation> operations) {

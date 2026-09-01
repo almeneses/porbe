@@ -39,44 +39,53 @@ public class OperationController {
 
     @GetMapping
     OperationsResponse list(
+            @RequestParam(required = false) Long portfolioId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String ticker,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) Long importBatchId) {
-        return managementService.list(filter(from, to, ticker, type, sourceType, importBatchId));
+        return managementService.list(portfolioId, filter(from, to, ticker, type, sourceType, importBatchId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    OperationResponse create(@RequestBody OperationRequest request, Authentication authentication) {
-        return managementService.create(request, authentication.getName());
+    OperationResponse create(
+            @RequestParam(required = false) Long portfolioId,
+            @RequestBody OperationRequest request,
+            Authentication authentication) {
+        return managementService.create(portfolioId, request, authentication.getName());
     }
 
     @PutMapping("/{id}")
     OperationResponse update(
             @PathVariable Long id,
+            @RequestParam(required = false) Long portfolioId,
             @RequestBody OperationRequest request,
             Authentication authentication) {
-        return managementService.update(id, request, authentication.getName());
+        return managementService.update(portfolioId, id, request, authentication.getName());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void delete(@PathVariable Long id, Authentication authentication) {
-        managementService.delete(id, authentication.getName());
+    void delete(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long portfolioId,
+            Authentication authentication) {
+        managementService.delete(portfolioId, id, authentication.getName());
     }
 
     @GetMapping("/export")
     ResponseEntity<byte[]> export(
+            @RequestParam(required = false) Long portfolioId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String ticker,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) Long importBatchId) {
-        var content = exportService.export(managementService.filteredOperations(
+        var content = exportService.export(managementService.filteredOperations(portfolioId,
                 filter(from, to, ticker, type, sourceType, importBatchId)));
         return ResponseEntity.ok()
                 .contentType(XLSX_MEDIA_TYPE)

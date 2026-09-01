@@ -7,5 +7,6 @@ public record PortfolioReportAssetHighlight(
         String ticker,
         String name,
         BigDecimal rate,
-        BigDecimal amount) {
+        BigDecimal amount,
+        byte[] icon) {
 }

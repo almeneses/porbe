@@ -13,6 +13,8 @@ export interface MarketTickerStatus {
   provisional: boolean
   storedDays: number
   lastSyncedAt: string | null
+  hasIcon: boolean
+  iconUpdatedAt: string | null
 }
 
 /** Cobertura completa disponible en la fuente de mercado configurada. */
@@ -83,9 +85,9 @@ export interface MarketWeeklyCloses {
 
 /** Cliente de los endpoints de consulta y sincronización de mercado. */
 export const marketDataApi = {
-  status: () => apiRequest<MarketDataStatus>('/api/market-data'),
-  sync: () => apiRequest<MarketDataSyncResult>('/api/market-data/sync', { method: 'POST' }),
-  weeklyCloses: () => apiRequest<MarketWeeklyCloses>('/api/market-data/weekly-closes'),
+  status: (portfolioId: number) => apiRequest<MarketDataStatus>(`/api/market-data?portfolioId=${portfolioId}`),
+  sync: (portfolioId: number) => apiRequest<MarketDataSyncResult>(`/api/market-data/sync?portfolioId=${portfolioId}`, { method: 'POST' }),
+  weeklyCloses: (portfolioId: number) => apiRequest<MarketWeeklyCloses>(`/api/market-data/weekly-closes?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<MarketDataSchedule>('/api/market-data/schedule'),
   updateSchedule: (schedule: Pick<MarketDataSchedule, 'enabled' | 'dayOfWeek' | 'runTime'>) =>
     apiRequest<MarketDataSchedule>('/api/market-data/schedule', {
@@ -96,4 +98,14 @@ export const marketDataApi = {
     `/api/market-data/${encodeURIComponent(ticker)}/sector`,
     { method: 'PUT', body: JSON.stringify({ sector }) },
   ),
+  updateIcon: (ticker: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiRequest<{ ticker: string; hasIcon: boolean; updatedAt: string }>(
+      `/api/market-data/${encodeURIComponent(ticker)}/icon`,
+      { method: 'PUT', body: formData },
+    )
+  },
+  removeIcon: (ticker: string) => apiRequest<void>(`/api/market-data/${encodeURIComponent(ticker)}/icon`, { method: 'DELETE' }),
+  iconUrl: (ticker: string) => `/api/market-data/${encodeURIComponent(ticker)}/icon`,
 }

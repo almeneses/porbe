@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
 public class PortfolioReportArtifactRenderer {
 
     private static final float PDF_WIDTH = 540f;
-    private static final float PDF_HEIGHT = 960f;
+    private static final float PDF_HEIGHT = PDF_WIDTH * PortfolioReportImageRenderer.HEIGHT
+            / PortfolioReportImageRenderer.WIDTH;
 
     private final PortfolioReportImageRenderer imageRenderer;
 

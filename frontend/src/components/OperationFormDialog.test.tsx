@@ -12,7 +12,7 @@ describe('OperationFormDialog', () => {
       .mockResolvedValue({} as PortfolioOperation)
     const onSaved = vi.fn()
 
-    render(<OperationFormDialog operation={null} onClose={vi.fn()} onSaved={onSaved} />)
+    render(<OperationFormDialog portfolioId={1} operation={null} onClose={vi.fn()} onSaved={onSaved} />)
     fireEvent.change(screen.getByLabelText('Ticker Yahoo Finance'), { target: { value: 'ecopetrol.cl' } })
     fireEvent.change(screen.getByLabelText('Nombre del activo'), { target: { value: 'Ecopetrol' } })
     fireEvent.change(screen.getByLabelText('Cantidad'), { target: { value: '10' } })
@@ -24,7 +24,7 @@ describe('OperationFormDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Crear operación' }))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce())
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+    expect(create).toHaveBeenCalledWith(1, expect.objectContaining({
       type: 'compra',
       ticker: 'ECOPETROL.CL',
       quantity: 10,

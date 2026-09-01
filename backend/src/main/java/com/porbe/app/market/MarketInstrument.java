@@ -40,6 +40,15 @@ public class MarketInstrument {
     @Column(length = 80)
     private String sector;
 
+    @Column(name = "icon_data")
+    private byte[] iconData;
+
+    @Column(name = "icon_content_type", length = 40)
+    private String iconContentType;
+
+    @Column(name = "icon_updated_at")
+    private OffsetDateTime iconUpdatedAt;
+
     @Column(name = "last_synced_at")
     private OffsetDateTime lastSyncedAt;
 
@@ -72,6 +81,19 @@ public class MarketInstrument {
 
     public void updateSector(String sector) {
         this.sector = shorten(sector.trim(), 80);
+    }
+
+    /** Sustituye la imagen asociada al ticker después de que el servicio valida su formato y tamaño. */
+    public void updateIcon(byte[] data, String contentType, OffsetDateTime updatedAt) {
+        this.iconData = data;
+        this.iconContentType = contentType;
+        this.iconUpdatedAt = updatedAt;
+    }
+
+    public void removeIcon() {
+        this.iconData = null;
+        this.iconContentType = null;
+        this.iconUpdatedAt = null;
     }
 
     private String shorten(String value, int maxLength) {
@@ -114,5 +136,21 @@ public class MarketInstrument {
 
     public OffsetDateTime getLastSyncedAt() {
         return lastSyncedAt;
+    }
+
+    public byte[] getIconData() {
+        return iconData;
+    }
+
+    public String getIconContentType() {
+        return iconContentType;
+    }
+
+    public OffsetDateTime getIconUpdatedAt() {
+        return iconUpdatedAt;
+    }
+
+    public boolean hasIcon() {
+        return iconData != null && iconData.length > 0;
     }
 }

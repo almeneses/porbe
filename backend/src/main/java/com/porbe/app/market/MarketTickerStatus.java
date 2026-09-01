@@ -16,5 +16,7 @@ public record MarketTickerStatus(
         BigDecimal lastClose,
         boolean provisional,
         long storedDays,
-        OffsetDateTime lastSyncedAt) {
+        OffsetDateTime lastSyncedAt,
+        boolean hasIcon,
+        OffsetDateTime iconUpdatedAt) {
 }

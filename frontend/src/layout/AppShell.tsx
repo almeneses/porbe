@@ -5,6 +5,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { Logo } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { PortfolioSwitcher } from '../components/PortfolioSwitcher'
 
 /** Navegación principal compartida por escritorio y móvil. */
 const navigation = [
@@ -39,6 +40,7 @@ export function AppShell() {
       <aside className="sidebar">
         <div className="sidebar__top">
           <Logo />
+          <PortfolioSwitcher />
           <nav className="sidebar__nav" aria-label="Navegación principal">
             {navigation.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}>
@@ -63,6 +65,7 @@ export function AppShell() {
       <div className="app-content">
         <header className="mobile-header">
           <Logo />
+          <PortfolioSwitcher compact />
           <ThemeToggle />
         </header>
         <main className="page-content">

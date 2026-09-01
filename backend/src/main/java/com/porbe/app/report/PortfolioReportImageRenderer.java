@@ -6,8 +6,12 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.geom.Path2D;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -17,13 +21,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
+import javax.imageio.ImageIO;
 
 /** Dibuja el informe vertical con la paleta y jerarquía visual de Porbe. */
 @Component
 public class PortfolioReportImageRenderer {
 
     public static final int WIDTH = 1080;
-    public static final int HEIGHT = 1920;
+    public static final int HEIGHT = 2280;
 
     private static final Color BACKGROUND = color("#f5f1e9");
     private static final Color SURFACE = color("#fffdf9");
@@ -70,7 +75,7 @@ public class PortfolioReportImageRenderer {
         graphics.drawLine(77, 90, 89, 76);
         graphics.drawLine(89, 76, 101, 87);
         graphics.drawLine(101, 87, 109, 67);
-        text(graphics, "PORBE", 144, 72, 24, Font.BOLD, SURFACE);
+        text(graphics, trim(data.portfolioName().toUpperCase(SPANISH), 28), 144, 72, 24, Font.BOLD, SURFACE);
         text(graphics, "INFORME DE RENDIMIENTO", 144, 104, 14, Font.BOLD, color("#adc0cb"));
         text(graphics, "Resumen del portafolio", 60, 162, 46, Font.BOLD, SURFACE);
         var period = capitalize(data.from().format(PERIOD_DATE)) + " - "
@@ -126,21 +131,10 @@ public class PortfolioReportImageRenderer {
             PortfolioReportAssetHighlight asset,
             Color tone) {
         text(graphics, label, x, y + 12, 13, Font.BOLD, TEXT_SOFT);
-        graphics.setColor(asset == null ? BORDER : tone);
-        graphics.fillOval(x, y + 28, 58, 58);
-        centeredText(
-                graphics,
-                asset == null ? "-" : initials(asset.ticker()),
-                x + 29,
-                y + 66,
-                17,
-                Font.BOLD,
-                SURFACE);
-        text(graphics, asset == null ? "Sin datos" : trim(asset.ticker(), 16), x, y + 118, 18, Font.BOLD, TEXT);
-        text(graphics, asset == null ? "-" : signedPercent(asset.rate()), x, y + 148, 22, Font.BOLD, asset == null ? TEXT_SOFT : tone);
-        if (asset != null && asset.name() != null) {
-            text(graphics, trim(asset.name(), 21), x, y + 171, 12, Font.PLAIN, TEXT_SOFT);
-        }
+        drawTickerIcon(graphics, asset, x, y + 28, 58, tone);
+        text(graphics, asset == null ? "Sin datos" : trim(asset.name() == null ? asset.ticker() : asset.name(), 21), x, y + 118, 17, Font.BOLD, TEXT);
+        text(graphics, asset == null ? "-" : trim(asset.ticker(), 16), x, y + 142, 12, Font.PLAIN, TEXT_SOFT);
+        text(graphics, asset == null ? "-" : signedPercent(asset.rate()), x, y + 174, 22, Font.BOLD, asset == null ? TEXT_SOFT : tone);
     }
 
     private void accumulated(Graphics2D graphics, PortfolioReportData data) {
@@ -152,29 +146,39 @@ public class PortfolioReportImageRenderer {
     }
 
     private void chart(Graphics2D graphics, PortfolioReportData data) {
+        chartCard(graphics, 985, "Evolución histórica completa", "Desde la primera operación", data.chart());
+        chartCard(graphics, 1375, "Evolución de los últimos 6 meses", "Detalle reciente del portafolio", data.sixMonthChart());
+    }
+
+    private void chartCard(
+            Graphics2D graphics,
+            int y,
+            String title,
+            String subtitle,
+            List<PortfolioReportChartPoint> points) {
         var x = 60;
-        var y = 985;
         var width = 960;
-        var height = 430;
+        var height = 360;
         card(graphics, x, y, width, height);
-        text(graphics, "Evolución del portafolio", x + 32, y + 52, 30, Font.BOLD, TEXT);
+        text(graphics, title, x + 32, y + 47, 27, Font.BOLD, TEXT);
+        text(graphics, subtitle, x + 32, y + 72, 13, Font.PLAIN, TEXT_SOFT);
         legend(graphics, x + 610, y + 43, GOLD, "Valor del portafolio");
         legend(graphics, x + 800, y + 43, TEXT_SOFT, "Capital aportado");
 
         var left = x + 48;
         var right = x + width - 36;
-        var top = y + 96;
-        var bottom = y + height - 62;
+        var top = y + 100;
+        var bottom = y + height - 52;
         for (var index = 0; index <= 4; index++) {
             var gridY = top + (bottom - top) * index / 4;
             graphics.setColor(BORDER);
             graphics.setStroke(new BasicStroke(1f));
             graphics.drawLine(left, gridY, right, gridY);
         }
-        drawSeries(graphics, data.chart(), left, right, top, bottom);
-        if (!data.chart().isEmpty()) {
-            text(graphics, data.chart().getFirst().date().format(DateTimeFormatter.ofPattern("dd MMM", SPANISH)), left, bottom + 35, 13, Font.PLAIN, TEXT_SOFT);
-            rightText(graphics, data.chart().getLast().date().format(DateTimeFormatter.ofPattern("dd MMM", SPANISH)), right, bottom + 35, 13, Font.PLAIN, TEXT_SOFT);
+        drawSeries(graphics, points, left, right, top, bottom);
+        if (!points.isEmpty()) {
+            text(graphics, points.getFirst().date().format(DateTimeFormatter.ofPattern("dd MMM yy", SPANISH)), left, bottom + 31, 13, Font.PLAIN, TEXT_SOFT);
+            rightText(graphics, points.getLast().date().format(DateTimeFormatter.ofPattern("dd MMM yy", SPANISH)), right, bottom + 31, 13, Font.PLAIN, TEXT_SOFT);
         }
     }
 
@@ -231,17 +235,17 @@ public class PortfolioReportImageRenderer {
     }
 
     private void closingMetrics(Graphics2D graphics, PortfolioReportData data) {
-        smallMetricCard(graphics, 60, 1445, "Aportes netos", compactMoney(data.netContributions()));
-        smallMetricCard(graphics, 385, 1445, "Efectivo", compactMoney(data.cashBalance()));
-        smallMetricCard(graphics, 710, 1445, "Valor del portafolio", compactMoney(data.portfolioValue()));
+        smallMetricCard(graphics, 60, 1765, "Aportes netos", compactMoney(data.netContributions()));
+        smallMetricCard(graphics, 385, 1765, "Efectivo", compactMoney(data.cashBalance()));
+        smallMetricCard(graphics, 710, 1765, "Valor del portafolio", compactMoney(data.portfolioValue()));
     }
 
     private void movements(Graphics2D graphics, PortfolioReportData data) {
-        card(graphics, 60, 1640, 960, 200);
-        text(graphics, "Movimientos del periodo", 92, 1688, 28, Font.BOLD, TEXT);
-        rightText(graphics, data.movementCount() + " registrados", 988, 1687, 14, Font.BOLD, TEXT_SOFT);
+        card(graphics, 60, 1960, 960, 230);
+        text(graphics, "Movimientos del periodo", 92, 2008, 28, Font.BOLD, TEXT);
+        rightText(graphics, data.movementCount() + " registrados", 988, 2007, 14, Font.BOLD, TEXT_SOFT);
         if (data.movements().isEmpty()) {
-            text(graphics, "No hubo compras, ventas, dividendos, depósitos ni retiros.", 92, 1760, 17, Font.PLAIN, TEXT_SOFT);
+            text(graphics, "No hubo compras, ventas, dividendos, depósitos ni retiros.", 92, 2080, 17, Font.PLAIN, TEXT_SOFT);
             return;
         }
         for (var index = 0; index < data.movements().size(); index++) {
@@ -249,15 +253,20 @@ public class PortfolioReportImageRenderer {
             var column = index % 2;
             var row = index / 2;
             var itemX = 92 + column * 448;
-            var itemY = 1720 + row * 58;
+            var itemY = 2040 + row * 66;
             graphics.setColor(movementTone(movement.type()));
             graphics.fillRoundRect(itemX, itemY, 8, 39, 8, 8);
+            var contentX = itemX + 18;
+            if (movement.ticker() != null) {
+                drawTickerIcon(graphics, movement.ticker(), movement.icon(), contentX, itemY, 38, movementTone(movement.type()));
+                contentX += 48;
+            }
             var title = capitalize(movement.type()) + (movement.ticker() == null ? "" : " · " + movement.ticker());
-            text(graphics, trim(title, 29), itemX + 18, itemY + 16, 15, Font.BOLD, TEXT);
+            text(graphics, trim(title, 25), contentX, itemY + 16, 15, Font.BOLD, TEXT);
             var detail = movement.quantity() == null
                     ? compactMoney(movement.totalAmount())
                     : formatQuantity(movement.quantity()) + " acciones · " + compactMoney(movement.totalAmount());
-            text(graphics, trim(detail, 36), itemX + 18, itemY + 37, 13, Font.PLAIN, TEXT_SOFT);
+            text(graphics, trim(detail, 30), contentX, itemY + 37, 13, Font.PLAIN, TEXT_SOFT);
         }
     }
 
@@ -265,8 +274,8 @@ public class PortfolioReportImageRenderer {
         var message = data.valuationComplete()
                 ? "Cierres completos al " + data.valuationDate().format(PERIOD_DATE)
                 : partialValuationMessage(data);
-        text(graphics, message, 60, 1882, 14, Font.PLAIN, data.valuationComplete() ? TEXT_SOFT : CORAL);
-        rightText(graphics, "Fuente de precios: Yahoo Finance", WIDTH - 60, 1882, 14, Font.PLAIN, TEXT_SOFT);
+        text(graphics, message, 60, 2242, 14, Font.PLAIN, data.valuationComplete() ? TEXT_SOFT : CORAL);
+        rightText(graphics, "Fuente de precios: Yahoo Finance", WIDTH - 60, 2242, 14, Font.PLAIN, TEXT_SOFT);
     }
 
     /** Explica una valoración parcial incluso cuando el problema proviene de las operaciones y no de los precios. */
@@ -276,6 +285,66 @@ public class PortfolioReportImageRenderer {
         }
         return "Informe parcial: " + data.unpricedPositions() + " posiciones sin precio y "
                 + data.provisionalPrices() + " precios provisionales";
+    }
+
+    private void drawTickerIcon(
+            Graphics2D graphics,
+            PortfolioReportAssetHighlight asset,
+            int x,
+            int y,
+            int size,
+            Color tone) {
+        drawTickerIcon(
+                graphics,
+                asset == null ? null : asset.ticker(),
+                asset == null ? null : asset.icon(),
+                x,
+                y,
+                size,
+                asset == null ? BORDER : tone);
+    }
+
+    /** Recorta el ícono en círculo y usa iniciales cuando el ticker aún no tiene imagen. */
+    private void drawTickerIcon(
+            Graphics2D graphics,
+            String ticker,
+            byte[] icon,
+            int x,
+            int y,
+            int size,
+            Color tone) {
+        var image = readIcon(icon);
+        graphics.setColor(tone);
+        graphics.fillOval(x, y, size, size);
+        if (image != null) {
+            Shape previousClip = graphics.getClip();
+            graphics.clip(new Ellipse2D.Double(x, y, size, size));
+            graphics.drawImage(image, x, y, size, size, null);
+            graphics.setClip(previousClip);
+            graphics.setColor(BORDER);
+            graphics.setStroke(new BasicStroke(1.5f));
+            graphics.drawOval(x, y, size, size);
+            return;
+        }
+        centeredText(
+                graphics,
+                ticker == null ? "-" : initials(ticker),
+                x + size / 2,
+                y + (int) (size * 0.65),
+                Math.max(12, size / 3),
+                Font.BOLD,
+                SURFACE);
+    }
+
+    private BufferedImage readIcon(byte[] icon) {
+        if (icon == null || icon.length == 0) {
+            return null;
+        }
+        try {
+            return ImageIO.read(new ByteArrayInputStream(icon));
+        } catch (IOException exception) {
+            return null;
+        }
     }
 
     private void metric(Graphics2D graphics, int x, int y, String label, String value, Color tone) {

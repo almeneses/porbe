@@ -6,6 +6,8 @@ import java.time.OffsetDateTime;
 /** Metadatos livianos de un informe disponibles para la pantalla de historial. */
 public record PortfolioReportListItem(
         Long id,
+        Long portfolioId,
+        String portfolioName,
         LocalDate from,
         LocalDate to,
         LocalDate valuationDate,

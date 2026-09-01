@@ -1,5 +1,6 @@
 package com.porbe.app.operation;
 
+import com.porbe.app.portfolio.Portfolio;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,6 +8,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
@@ -19,6 +23,10 @@ public class OperationAudit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "portfolio_id", nullable = false)
+    private Portfolio portfolio;
 
     @Column(name = "operation_id")
     private Long operationId;
@@ -50,6 +58,7 @@ public class OperationAudit {
     }
 
     public OperationAudit(
+            Portfolio portfolio,
             Long operationId,
             Long importBatchId,
             OperationAuditAction action,
@@ -57,6 +66,7 @@ public class OperationAudit {
             String details,
             String previousData,
             String newData) {
+        this.portfolio = portfolio;
         this.operationId = operationId;
         this.importBatchId = importBatchId;
         this.action = action;
@@ -68,6 +78,10 @@ public class OperationAudit {
 
     public Long getId() {
         return id;
+    }
+
+    public Portfolio getPortfolio() {
+        return portfolio;
     }
 
     public Long getOperationId() {

@@ -8,8 +8,10 @@ import {
   CloudDownload,
   Database,
   LoaderCircle,
+  ImageUp,
   RefreshCw,
   Save,
+  Trash2,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,10 +20,13 @@ import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
 import type { MarketDataSchedule, MarketDataStatus, MarketDataSyncResult, MarketTickerStatus, WeekDay } from '../market/api'
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
+import { TickerIcon } from '../components/TickerIcon'
 
 /** Muestra la cobertura de mercado y permite actualizar precios desde Yahoo. */
 export function MarketDataPage() {
   const { t } = useTranslation()
+  const { activePortfolio } = usePortfolio()
   const [status, setStatus] = useState<MarketDataStatus | null>(null)
   const [syncResult, setSyncResult] = useState<MarketDataSyncResult | null>(null)
   const [schedule, setSchedule] = useState<MarketDataSchedule | null>(null)
@@ -30,12 +35,12 @@ export function MarketDataPage() {
 
   const loadStatus = useCallback(async () => {
     try {
-      setStatus(await marketDataApi.status())
+      setStatus(await marketDataApi.status(activePortfolio.id))
       setError(null)
     } catch (requestError) {
       setError(requestError instanceof ApiRequestError ? requestError.message : t('market.loadError'))
     }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   useEffect(() => {
     void loadStatus()
@@ -50,7 +55,7 @@ export function MarketDataPage() {
     setError(null)
     setSyncResult(null)
     try {
-      const result = await marketDataApi.sync()
+      const result = await marketDataApi.sync(activePortfolio.id)
       setSyncResult(result)
       await loadStatus()
     } catch (requestError) {
@@ -142,7 +147,7 @@ function TickerCard({ ticker, onSectorSaved }: { ticker: MarketTickerStatus; onS
   return (
     <article className="market-card">
       <div className="market-card__top">
-        <span className="market-card__ticker">{ticker.ticker}</span>
+        <div className="market-card__identity"><TickerIcon key={ticker.iconUpdatedAt ?? ticker.ticker} ticker={ticker.ticker} size={46} /><span className="market-card__ticker">{ticker.ticker}</span></div>
         <span className={`market-status market-status--${hasPrice ? (ticker.provisional ? 'provisional' : 'final') : 'pending'}`}>
           {t(hasPrice ? (ticker.provisional ? 'market.provisional' : 'market.finalClose') : 'market.pending')}
         </span>
@@ -158,10 +163,57 @@ function TickerCard({ ticker, onSectorSaved }: { ticker: MarketTickerStatus; onS
         <div><dt><Database size={15} /> {t('market.storedDays')}</dt><dd>{ticker.storedDays}</dd></div>
       </dl>
       <SectorEditor ticker={ticker} onSaved={onSectorSaved} />
+      <IconEditor ticker={ticker} onSaved={onSectorSaved} />
       <small className="market-card__updated">
         {ticker.lastSyncedAt ? t('market.updatedAt', { date: formatDateTime(ticker.lastSyncedAt) }) : t('market.neverUpdated')}
       </small>
     </article>
+  )
+}
+
+/** Carga, reemplaza o retira el ícono que se reutiliza en toda la aplicación y en los informes. */
+function IconEditor({ ticker, onSaved }: { ticker: MarketTickerStatus; onSaved: () => Promise<void> }) {
+  const { t } = useTranslation()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function upload(file?: File) {
+    if (!file) return
+    setSaving(true)
+    setError(null)
+    try {
+      await marketDataApi.updateIcon(ticker.ticker, file)
+      await onSaved()
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('market.iconSaveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function remove() {
+    setSaving(true)
+    setError(null)
+    try {
+      await marketDataApi.removeIcon(ticker.ticker)
+      await onSaved()
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('market.iconRemoveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="market-icon-editor">
+      <span>{t('market.tickerIcon')}</span>
+      <div>
+        <label className="quiet-button"><ImageUp size={14} />{t(ticker.hasIcon ? 'market.replaceIcon' : 'market.addIcon')}<input type="file" accept="image/png,image/jpeg" disabled={saving} onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} /></label>
+        {ticker.hasIcon && <button className="icon-button" type="button" title={t('market.removeIcon')} aria-label={t('market.removeIcon')} disabled={saving} onClick={remove}>{saving ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} />}</button>}
+      </div>
+      <small>{t('market.iconHint')}</small>
+      {error && <small role="alert" className="field-error">{error}</small>}
+    </div>
   )
 }
 

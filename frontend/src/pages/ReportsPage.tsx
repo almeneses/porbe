@@ -16,10 +16,12 @@ import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
 import type { PortfolioReport, PortfolioReportSchedule } from '../report/api'
 import { formatDate, formatDateTime } from '../utils/formatters'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
 
 /** Genera, previsualiza y conserva los informes periódicos del portafolio. */
 export function ReportsPage() {
   const { t } = useTranslation()
+  const { activePortfolio } = usePortfolio()
   const initialRange = useMemo(defaultReportRange, [])
   const [from, setFrom] = useState(initialRange.from)
   const [to, setTo] = useState(initialRange.to)
@@ -32,17 +34,17 @@ export function ReportsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [items, configuredSchedule] = await Promise.all([reportApi.list(), reportApi.schedule()])
+      const [items, configuredSchedule] = await Promise.all([reportApi.list(activePortfolio.id), reportApi.schedule()])
       setReports(items)
       setSchedule(configuredSchedule)
-      setSelectedId((current) => current ?? items.find((item) => item.status === 'READY')?.id ?? null)
+      setSelectedId(items.find((item) => item.status === 'READY')?.id ?? null)
       setError(null)
     } catch (requestError) {
       setError(requestError instanceof ApiRequestError ? requestError.message : t('reports.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   useEffect(() => { void load() }, [load])
 
@@ -51,7 +53,7 @@ export function ReportsPage() {
     setGenerating(true)
     setError(null)
     try {
-      const generated = await reportApi.generate(from, to)
+      const generated = await reportApi.generate(activePortfolio.id, from, to)
       setSelectedId(generated.id)
       await load()
     } catch (requestError) {
@@ -114,7 +116,7 @@ function ReportPreview({ report }: { report: PortfolioReport | null }) {
   return (
     <section className="report-preview-card">
       <header>
-        <div><span className="eyebrow">{t('reports.previewEyebrow')}</span><h2>{t('reports.previewTitle')}</h2><p>{formatDate(report.from)} - {formatDate(report.to)}</p></div>
+        <div><span className="eyebrow">{t('reports.previewEyebrow')}</span><h2>{t('reports.previewTitle')}</h2><p><strong>{report.portfolioName}</strong> · {formatDate(report.from)} - {formatDate(report.to)}</p></div>
         <div className="report-downloads">
           <a className="quiet-button" href={reportApi.imageUrl(report.id, true)} download><Download size={16} /> PNG</a>
           <a className="secondary-button" href={reportApi.pdfUrl(report.id)} download><FileText size={16} /> PDF</a>
@@ -169,7 +171,7 @@ function ReportHistory({ reports, selectedId, onSelect }: { reports: PortfolioRe
 
 function ReportHistoryRow({ report, selected, onSelect }: { report: PortfolioReport; selected: boolean; onSelect: (id: number) => void }) {
   const { t } = useTranslation()
-  return <tr className={selected ? 'is-selected' : ''}><td><strong>{formatDate(report.from)} - {formatDate(report.to)}</strong></td><td>{t(`reports.trigger.${report.triggerType}`)}</td><td>{report.generatedAt ? formatDateTime(report.generatedAt) : '—'}</td><td><ReportStatus report={report} /></td><td>{t(`reports.deliveryStatus.${report.deliveryStatus}`)}</td><td><button className="table-view-action" type="button" onClick={() => onSelect(report.id)}><FileImage size={15} />{t('reports.view')}</button></td></tr>
+  return <tr className={selected ? 'is-selected' : ''}><td><strong>{formatDate(report.from)} - {formatDate(report.to)}</strong><small>{report.portfolioName}</small></td><td>{t(`reports.trigger.${report.triggerType}`)}</td><td>{report.generatedAt ? formatDateTime(report.generatedAt) : '—'}</td><td><ReportStatus report={report} /></td><td>{t(`reports.deliveryStatus.${report.deliveryStatus}`)}</td><td><button className="table-view-action" type="button" onClick={() => onSelect(report.id)}><FileImage size={15} />{t('reports.view')}</button></td></tr>
 }
 
 function ReportHistoryCard({ report, selected, onSelect }: { report: PortfolioReport; selected: boolean; onSelect: (id: number) => void }) {

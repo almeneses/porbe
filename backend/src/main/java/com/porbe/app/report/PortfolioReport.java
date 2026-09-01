@@ -1,10 +1,14 @@
 package com.porbe.app.report;
 
+import com.porbe.app.portfolio.Portfolio;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -19,6 +23,13 @@ public class PortfolioReport {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "portfolio_id", nullable = false)
+    private Portfolio portfolio;
+
+    @Column(name = "portfolio_name", nullable = false, length = 120)
+    private String portfolioName;
 
     @Column(name = "report_from", nullable = false)
     private LocalDate from;
@@ -85,7 +96,9 @@ public class PortfolioReport {
     protected PortfolioReport() {
     }
 
-    public PortfolioReport(PortfolioReportData data, String triggerType, String generatedBy) {
+    public PortfolioReport(Portfolio portfolio, PortfolioReportData data, String triggerType, String generatedBy) {
+        this.portfolio = portfolio;
+        this.portfolioName = data.portfolioName();
         this.from = data.from();
         this.to = data.to();
         this.baselineDate = data.baselineDate();
@@ -127,6 +140,8 @@ public class PortfolioReport {
     }
 
     public Long getId() { return id; }
+    public Portfolio getPortfolio() { return portfolio; }
+    public String getPortfolioName() { return portfolioName; }
     public LocalDate getFrom() { return from; }
     public LocalDate getTo() { return to; }
     public LocalDate getBaselineDate() { return baselineDate; }

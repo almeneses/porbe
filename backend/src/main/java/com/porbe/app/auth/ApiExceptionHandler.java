@@ -8,6 +8,7 @@ import com.porbe.app.operation.OperationResourceNotFoundException;
 import com.porbe.app.operation.OperationValidationException;
 import com.porbe.app.operation.OperationValidationResponse;
 import com.porbe.app.report.PortfolioReportNotFoundException;
+import com.porbe.app.portfolio.PortfolioNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -79,6 +80,12 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     ApiErrorResponse reportNotFound(PortfolioReportNotFoundException exception) {
         return new ApiErrorResponse("INFORME_NO_ENCONTRADO", exception.getMessage());
+    }
+
+    @ExceptionHandler(PortfolioNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    ApiErrorResponse portfolioNotFound(PortfolioNotFoundException exception) {
+        return new ApiErrorResponse("PORTAFOLIO_NO_ENCONTRADO", exception.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

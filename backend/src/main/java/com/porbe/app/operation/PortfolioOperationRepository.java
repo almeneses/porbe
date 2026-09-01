@@ -14,6 +14,8 @@ public interface PortfolioOperationRepository extends JpaRepository<PortfolioOpe
 
     List<PortfolioOperation> findAllByPortfolioOrderByDateAscIdAsc(Portfolio portfolio);
 
+    java.util.Optional<PortfolioOperation> findByIdAndPortfolio(Long id, Portfolio portfolio);
+
     List<PortfolioOperation> findAllByPortfolioAndDateBetweenOrderByDateAscIdAsc(
             Portfolio portfolio,
             LocalDate from,
@@ -33,4 +35,13 @@ public interface PortfolioOperationRepository extends JpaRepository<PortfolioOpe
             ORDER BY UPPER(operation.ticker)
             """)
     List<PortfolioTickerRange> findPortfolioTickerRanges();
+
+    @Query("""
+            SELECT UPPER(operation.ticker) AS ticker, MIN(operation.date) AS firstOperationDate
+            FROM PortfolioOperation operation
+            WHERE operation.portfolio = :portfolio AND operation.ticker IS NOT NULL
+            GROUP BY UPPER(operation.ticker)
+            ORDER BY UPPER(operation.ticker)
+            """)
+    List<PortfolioTickerRange> findPortfolioTickerRanges(Portfolio portfolio);
 }

@@ -83,10 +83,11 @@ public class PortfolioImportService {
      * Rechaza duplicados y valida todo el libro antes de guardar el lote y sus
      * operaciones, de modo que nunca queden importaciones parciales.
      */
-    public PortfolioImportResult importWorkbook(MultipartFile file, String username) {
+    public PortfolioImportResult importWorkbook(Long portfolioId, MultipartFile file, String username) {
         var bytes = readAndValidateFile(file);
         var fileHash = sha256(bytes);
-        if (importBatchRepository.existsByFileHash(fileHash)) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        if (importBatchRepository.existsByPortfolioAndFileHash(portfolio, fileHash)) {
             throw new DuplicateImportException();
         }
 
@@ -96,7 +97,6 @@ public class PortfolioImportService {
                     PortfolioImportResult.rejected(parsed.totalRows(), parsed.errors()));
         }
 
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
         var batch = importBatchRepository.save(new ImportBatch(
                 portfolio,
                 safeFilename(file.getOriginalFilename()),
@@ -121,6 +121,10 @@ public class PortfolioImportService {
         operationRepository.saveAll(operations);
 
         return PortfolioImportResult.completed(operations.size(), batch.getId());
+    }
+
+    public PortfolioImportResult importWorkbook(MultipartFile file, String username) {
+        return importWorkbook(null, file, username);
     }
 
     private byte[] readAndValidateFile(MultipartFile file) {

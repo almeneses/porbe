@@ -52,4 +52,17 @@ public class Portfolio {
     public String getBaseCurrency() {
         return baseCurrency;
     }
+
+    /** Permite renombrar el portafolio sin alterar sus operaciones ni informes previos. */
+    public void rename(String name) {
+        this.name = name;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }

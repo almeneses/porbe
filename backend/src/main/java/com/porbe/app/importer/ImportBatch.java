@@ -31,7 +31,7 @@ public class ImportBatch {
     @Column(name = "source_filename", nullable = false, length = 255)
     private String sourceFilename;
 
-    @Column(name = "file_hash", nullable = false, unique = true, length = 64)
+    @Column(name = "file_hash", nullable = false, length = 64)
     private String fileHash;
 
     @Column(name = "row_count", nullable = false)

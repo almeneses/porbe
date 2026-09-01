@@ -5,6 +5,10 @@ import type { PortfolioReport, PortfolioReportSchedule } from '../report/api'
 import { reportApi } from '../report/api'
 import { ReportsPage } from './ReportsPage'
 
+vi.mock('../portfolio/PortfolioProvider', () => ({
+  usePortfolio: () => ({ activePortfolio: { id: 1, name: 'Portafolio principal' } }),
+}))
+
 vi.mock('../report/api', () => ({
   reportApi: {
     list: vi.fn(),
@@ -36,6 +40,8 @@ describe('ReportsPage', () => {
 
 const report: PortfolioReport = {
   id: 7,
+  portfolioId: 1,
+  portfolioName: 'Portafolio principal',
   from: '2026-08-24',
   to: '2026-08-28',
   valuationDate: '2026-08-28',

@@ -229,8 +229,9 @@ export function isOperationValidationPayload(value: unknown): value is Operation
   return candidate.code === 'OPERACION_INVALIDA' && Array.isArray(candidate.errors)
 }
 
-function operationQuery(filters: OperationFilters = {}) {
+function operationQuery(portfolioId: number, filters: OperationFilters = {}) {
   const params = new URLSearchParams()
+  params.set('portfolioId', String(portfolioId))
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
   if (filters.ticker) params.set('ticker', filters.ticker)
@@ -245,11 +246,11 @@ function operationQuery(filters: OperationFilters = {}) {
 /** Cliente de importaciones y consultas del libro de operaciones. */
 export const portfolioApi = {
   templateUrl: '/api/portfolio-import/template',
-  importFile: async (file: File) => {
+  importFile: async (portfolioId: number, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
     try {
-      return await apiRequest<PortfolioImportResult>('/api/portfolio-import', {
+      return await apiRequest<PortfolioImportResult>(`/api/portfolio-import?portfolioId=${portfolioId}`, {
         method: 'POST',
         body: formData,
       })
@@ -260,25 +261,26 @@ export const portfolioApi = {
       throw error
     }
   },
-  operations: (filters: OperationFilters = {}) =>
-    apiRequest<OperationsResponse>(`/api/operations${operationQuery(filters)}`),
-  createOperation: (operation: OperationInput) => apiRequest<PortfolioOperation>('/api/operations', {
+  operations: (portfolioId: number, filters: OperationFilters = {}) =>
+    apiRequest<OperationsResponse>(`/api/operations${operationQuery(portfolioId, filters)}`),
+  createOperation: (portfolioId: number, operation: OperationInput) => apiRequest<PortfolioOperation>(`/api/operations?portfolioId=${portfolioId}`, {
     method: 'POST',
     body: JSON.stringify(operation),
   }),
-  updateOperation: (id: number, operation: OperationInput) =>
-    apiRequest<PortfolioOperation>(`/api/operations/${id}`, {
+  updateOperation: (portfolioId: number, id: number, operation: OperationInput) =>
+    apiRequest<PortfolioOperation>(`/api/operations/${id}?portfolioId=${portfolioId}`, {
       method: 'PUT',
       body: JSON.stringify(operation),
     }),
-  deleteOperation: (id: number) => apiRequest<void>(`/api/operations/${id}`, { method: 'DELETE' }),
-  operationBatches: () => apiRequest<OperationBatch[]>('/api/operation-batches'),
-  revertOperationBatch: (id: number) => apiRequest<void>(`/api/operation-batches/${id}`, { method: 'DELETE' }),
-  operationAudit: () => apiRequest<OperationAuditEntry[]>('/api/operation-audit'),
-  operationExportUrl: (filters: OperationFilters = {}) => `/api/operations/export${operationQuery(filters)}`,
-  summary: () => apiRequest<PortfolioSummary>('/api/portfolio/summary'),
-  weeklyHistory: (from?: string, to?: string) => {
+  deleteOperation: (portfolioId: number, id: number) => apiRequest<void>(`/api/operations/${id}?portfolioId=${portfolioId}`, { method: 'DELETE' }),
+  operationBatches: (portfolioId: number) => apiRequest<OperationBatch[]>(`/api/operation-batches?portfolioId=${portfolioId}`),
+  revertOperationBatch: (portfolioId: number, id: number) => apiRequest<void>(`/api/operation-batches/${id}?portfolioId=${portfolioId}`, { method: 'DELETE' }),
+  operationAudit: (portfolioId: number) => apiRequest<OperationAuditEntry[]>(`/api/operation-audit?portfolioId=${portfolioId}`),
+  operationExportUrl: (portfolioId: number, filters: OperationFilters = {}) => `/api/operations/export${operationQuery(portfolioId, filters)}`,
+  summary: (portfolioId: number) => apiRequest<PortfolioSummary>(`/api/portfolio/summary?portfolioId=${portfolioId}`),
+  weeklyHistory: (portfolioId: number, from?: string, to?: string) => {
     const params = new URLSearchParams()
+    params.set('portfolioId', String(portfolioId))
     if (from) params.set('from', from)
     if (to) params.set('to', to)
     const query = params.size > 0 ? `?${params.toString()}` : ''

@@ -64,12 +64,12 @@ public class PortfolioHistoryService {
      * viernes el último cierre conocido, incluso cuando ese viernes fue festivo.
      */
     @Transactional
-    public PortfolioHistoryResponse weeklyHistory(LocalDate from, LocalDate to) {
+    public PortfolioHistoryResponse weeklyHistory(Long portfolioId, LocalDate from, LocalDate to) {
         if (from != null && to != null && from.isAfter(to)) {
             throw new IllegalArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
         }
 
-        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var lastCompletedWeek = LocalDate.ofInstant(clock.instant(), BUSINESS_ZONE)
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
@@ -167,6 +167,10 @@ public class PortfolioHistoryService {
                 weeks.size(),
                 weeks.stream().allMatch(PortfolioWeeklySnapshot::valuationComplete),
                 weeks);
+    }
+
+    public PortfolioHistoryResponse weeklyHistory(LocalDate from, LocalDate to) {
+        return weeklyHistory(null, from, to);
     }
 
     /** Construye el consolidado y el detalle por ticker para un único cierre semanal. */

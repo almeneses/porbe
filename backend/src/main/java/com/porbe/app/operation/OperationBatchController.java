@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
 
@@ -22,13 +23,16 @@ public class OperationBatchController {
     }
 
     @GetMapping
-    List<OperationBatchResponse> list() {
-        return managementService.importedBatches();
+    List<OperationBatchResponse> list(@RequestParam(required = false) Long portfolioId) {
+        return managementService.importedBatches(portfolioId);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void revert(@PathVariable Long id, Authentication authentication) {
-        managementService.revertBatch(id, authentication.getName());
+    void revert(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long portfolioId,
+            Authentication authentication) {
+        managementService.revertBatch(portfolioId, id, authentication.getName());
     }
 }

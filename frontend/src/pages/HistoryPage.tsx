@@ -18,10 +18,13 @@ import type { MarketTickerWeeklyCloses, MarketWeeklyCloses } from '../market/api
 import { portfolioApi } from '../portfolio/api'
 import type { PortfolioHistory, PortfolioWeeklyPosition, PortfolioWeeklySnapshot } from '../portfolio/api'
 import { formatCurrency, formatDate, formatPercentage, formatQuantity } from '../utils/formatters'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
+import { TickerIcon } from '../components/TickerIcon'
 
 /** Presenta la evolución semanal consolidada y el detalle histórico por activo. */
 export function HistoryPage() {
   const { t } = useTranslation()
+  const { activePortfolio } = usePortfolio()
   const [history, setHistory] = useState<PortfolioHistory | null>(null)
   const [selectedWeek, setSelectedWeek] = useState('')
   const [marketCloses, setMarketCloses] = useState<MarketWeeklyCloses | null>(null)
@@ -30,7 +33,8 @@ export function HistoryPage() {
 
   useEffect(() => {
     let active = true
-    portfolioApi.weeklyHistory()
+    setHistory(null)
+    portfolioApi.weeklyHistory(activePortfolio.id)
       .then((response) => {
         if (!active) return
         setHistory(response)
@@ -40,15 +44,16 @@ export function HistoryPage() {
         if (active) setError(requestError instanceof ApiRequestError ? requestError.message : t('history.loadError'))
       })
     return () => { active = false }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   useEffect(() => {
     let active = true
-    marketDataApi.weeklyCloses()
+    setMarketCloses(null)
+    marketDataApi.weeklyCloses(activePortfolio.id)
       .then((response) => { if (active) setMarketCloses(response) })
       .catch(() => { if (active) setMarketClosesError(t('history.marketClosesError')) })
     return () => { active = false }
-  }, [t])
+  }, [activePortfolio.id, t])
 
   if (error) {
     return <div className="page-state page-state--error"><AlertTriangle size={26} /><p>{error}</p></div>
@@ -274,7 +279,7 @@ function WeeklyAssetsSection({
 function WeeklyAssetRow({ position }: { position: PortfolioWeeklyPosition }) {
   return (
     <tr>
-      <td><div className="history-asset"><strong>{position.ticker}</strong><small>{position.name ?? '—'}</small><AssetStatus position={position} /></div></td>
+      <td><div className="history-asset"><TickerIcon ticker={position.ticker} size={34} /><span><strong>{position.ticker}</strong><small>{position.name ?? '—'}</small></span><AssetStatus position={position} /></div></td>
       <td>{position.sector}</td>
       <td className="numeric-cell">{formatQuantity(position.quantity)}</td>
       <td className="numeric-cell">{moneyOrDash(position.closePrice, position.currency)}</td>
@@ -289,7 +294,7 @@ function WeeklyAssetCard({ position }: { position: PortfolioWeeklyPosition }) {
   const { t } = useTranslation()
   return (
     <article className="history-asset-card">
-      <div className="history-asset-card__top"><div className="history-asset"><strong>{position.ticker}</strong><small>{position.name ?? '—'}</small></div><AssetStatus position={position} /></div>
+      <div className="history-asset-card__top"><div className="history-asset"><TickerIcon ticker={position.ticker} size={34} /><span><strong>{position.ticker}</strong><small>{position.name ?? '—'}</small></span></div><AssetStatus position={position} /></div>
       <div className="history-asset-card__value"><span>{t('history.marketValue')}</span><strong>{moneyOrDash(position.marketValue, position.currency)}</strong></div>
       <dl>
         <div><dt>{t('history.quantity')}</dt><dd>{formatQuantity(position.quantity)}</dd></div>

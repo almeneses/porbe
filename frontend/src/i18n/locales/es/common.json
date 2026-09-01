@@ -26,6 +26,22 @@
     "settings": "Configuración",
     "logout": "Cerrar sesión"
   },
+  "portfolio": {
+    "active": "Portafolio activo",
+    "create": "Crear portafolio",
+    "rename": "Renombrar portafolio",
+    "organization": "Organización",
+    "createTitle": "Crear portafolio",
+    "renameTitle": "Renombrar portafolio",
+    "dialogBody": "Este nombre identificará el portafolio y aparecerá en sus próximos informes.",
+    "name": "Nombre del portafolio",
+    "close": "Cerrar",
+    "cancel": "Cancelar",
+    "createAction": "Crear",
+    "saveName": "Guardar nombre",
+    "saveError": "No fue posible guardar el portafolio.",
+    "loadError": "No fue posible cargar los portafolios."
+  },
   "theme": {
     "light": "Usar tema claro",
     "dark": "Usar tema oscuro"
@@ -365,6 +381,13 @@
     "saveSchedule": "Guardar programación",
     "scheduleSaved": "Programación guardada.",
     "sectorSaveError": "No fue posible guardar el sector.",
+    "tickerIcon": "Ícono del ticker",
+    "addIcon": "Agregar",
+    "replaceIcon": "Reemplazar",
+    "removeIcon": "Quitar ícono",
+    "iconHint": "PNG o JPG · máximo 1 MB",
+    "iconSaveError": "No fue posible guardar el ícono.",
+    "iconRemoveError": "No fue posible retirar el ícono.",
     "scheduleSaveError": "No fue posible guardar la programación.",
     "scheduleTimezone": "Zona horaria: {{timezone}}",
     "nextRun": "Próxima ejecución: {{date}}",

@@ -7,6 +7,7 @@ import { isOperationValidationPayload, portfolioApi } from '../portfolio/api'
 import type { OperationInput, OperationTypeCode, PortfolioOperation } from '../portfolio/api'
 
 interface OperationFormDialogProps {
+  portfolioId: number
   operation: PortfolioOperation | null
   onClose: () => void
   onSaved: () => void
@@ -25,7 +26,7 @@ interface FormState {
 }
 
 /** Formulario modal compartido por la creación y edición manual. */
-export function OperationFormDialog({ operation, onClose, onSaved }: OperationFormDialogProps) {
+export function OperationFormDialog({ portfolioId, operation, onClose, onSaved }: OperationFormDialogProps) {
   const { t } = useTranslation()
   const [form, setForm] = useState<FormState>(() => initialForm(operation))
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -63,9 +64,9 @@ export function OperationFormDialog({ operation, onClose, onSaved }: OperationFo
     try {
       const payload = formPayload(form)
       if (operation) {
-        await portfolioApi.updateOperation(operation.id, payload)
+        await portfolioApi.updateOperation(portfolioId, operation.id, payload)
       } else {
-        await portfolioApi.createOperation(payload)
+        await portfolioApi.createOperation(portfolioId, payload)
       }
       onSaved()
     } catch (requestError) {

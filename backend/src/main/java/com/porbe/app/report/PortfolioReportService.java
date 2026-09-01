@@ -15,6 +15,7 @@ public class PortfolioReportService {
     private final PortfolioReportArtifactRenderer renderer;
     private final PortfolioReportRepository repository;
     private final PortfolioReportDeliveryProvider deliveryProvider;
+    private final com.porbe.app.portfolio.PortfolioService portfolioService;
     private final Clock clock;
 
     public PortfolioReportService(
@@ -22,21 +23,25 @@ public class PortfolioReportService {
             PortfolioReportArtifactRenderer renderer,
             PortfolioReportRepository repository,
             PortfolioReportDeliveryProvider deliveryProvider,
+            com.porbe.app.portfolio.PortfolioService portfolioService,
             Clock clock) {
         this.calculator = calculator;
         this.renderer = renderer;
         this.repository = repository;
         this.deliveryProvider = deliveryProvider;
+        this.portfolioService = portfolioService;
         this.clock = clock;
     }
 
     public PortfolioReportListItem generate(
+            Long portfolioId,
             LocalDate from,
             LocalDate to,
             String triggerType,
             String generatedBy) {
-        var data = calculator.calculate(from, to);
-        var report = repository.save(new PortfolioReport(data, triggerType, generatedBy));
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        var data = calculator.calculate(portfolio.getId(), from, to);
+        var report = repository.save(new PortfolioReport(portfolio, data, triggerType, generatedBy));
         try {
             var artifacts = renderer.render(data);
             report.markReady(
@@ -51,11 +56,20 @@ public class PortfolioReportService {
         }
     }
 
-    public PortfolioReportListItem generateScheduledIfMissing(LocalDate from, LocalDate to) {
-        return repository.findFirstByFromAndToAndTriggerTypeAndStatusOrderByCreatedAtDesc(
-                        from, to, "SCHEDULED", "READY")
+    public PortfolioReportListItem generate(
+            LocalDate from,
+            LocalDate to,
+            String triggerType,
+            String generatedBy) {
+        return generate(null, from, to, triggerType, generatedBy);
+    }
+
+    public PortfolioReportListItem generateScheduledIfMissing(Long portfolioId, LocalDate from, LocalDate to) {
+        var portfolio = portfolioService.getPortfolio(portfolioId);
+        return repository.findFirstByPortfolioAndFromAndToAndTriggerTypeAndStatusOrderByCreatedAtDesc(
+                        portfolio, from, to, "SCHEDULED", "READY")
                 .map(this::item)
-                .orElseGet(() -> generate(from, to, "SCHEDULED", "system"));
+                .orElseGet(() -> generate(portfolio.getId(), from, to, "SCHEDULED", "system"));
     }
 
     public void deliver(Long reportId) {
@@ -65,8 +79,12 @@ public class PortfolioReportService {
         repository.save(report);
     }
 
+    public List<PortfolioReportListItem> list(Long portfolioId) {
+        return repository.listRecent(portfolioService.getPortfolio(portfolioId));
+    }
+
     public List<PortfolioReportListItem> list() {
-        return repository.listRecent();
+        return list(null);
     }
 
     public PortfolioReportFile image(Long id) {
@@ -107,6 +125,8 @@ public class PortfolioReportService {
     private PortfolioReportListItem item(PortfolioReport report) {
         return new PortfolioReportListItem(
                 report.getId(),
+                report.getPortfolio().getId(),
+                report.getPortfolioName(),
                 report.getFrom(),
                 report.getTo(),
                 report.getValuationDate(),

@@ -76,6 +76,7 @@ class PortfolioReportIntegrationTest {
                         .content("{\"from\":\"2026-01-05\",\"to\":\"2026-01-16\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("READY"))
+                .andExpect(jsonPath("$.portfolioName").value("Portafolio principal"))
                 .andExpect(jsonPath("$.triggerType").value("MANUAL"))
                 .andExpect(jsonPath("$.deliveryStatus").value("NOT_CONFIGURED"))
                 .andExpect(jsonPath("$.imageSize", greaterThan(10000)))

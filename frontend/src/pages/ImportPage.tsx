@@ -16,12 +16,14 @@ import { Link } from 'react-router-dom'
 import { ApiRequestError } from '../auth/api'
 import { portfolioApi } from '../portfolio/api'
 import type { PortfolioImportResult } from '../portfolio/api'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 
 /** Gestiona la descarga de la plantilla y la importación validada del Excel. */
 export function ImportPage() {
   const { t } = useTranslation()
+  const { activePortfolio } = usePortfolio()
   const fileInput = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -77,7 +79,7 @@ export function ImportPage() {
     setRequestError(null)
     setResult(null)
     try {
-      setResult(await portfolioApi.importFile(file))
+      setResult(await portfolioApi.importFile(activePortfolio.id, file))
     } catch (error) {
       setRequestError(error instanceof ApiRequestError ? error.message : t('import.errors.generic'))
     } finally {

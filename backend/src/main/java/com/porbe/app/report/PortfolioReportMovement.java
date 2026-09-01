@@ -10,5 +10,6 @@ public record PortfolioReportMovement(
         String ticker,
         String name,
         BigDecimal quantity,
-        BigDecimal totalAmount) {
+        BigDecimal totalAmount,
+        byte[] icon) {
 }

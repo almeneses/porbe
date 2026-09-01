@@ -23,14 +23,15 @@ public class PortfolioSummaryController {
     }
 
     @GetMapping("/summary")
-    PortfolioSummaryResponse summary() {
-        return valuationService.currentSummary();
+    PortfolioSummaryResponse summary(@RequestParam(required = false) Long portfolioId) {
+        return valuationService.currentSummary(portfolioId);
     }
 
     @GetMapping("/history/weekly")
     PortfolioHistoryResponse weeklyHistory(
+            @RequestParam(required = false) Long portfolioId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return historyService.weeklyHistory(from, to);
+        return historyService.weeklyHistory(portfolioId, from, to);
     }
 }

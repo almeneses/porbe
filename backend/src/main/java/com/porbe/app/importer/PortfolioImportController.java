@@ -42,8 +42,9 @@ public class PortfolioImportController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     PortfolioImportResult importPortfolio(
+            @RequestParam(required = false) Long portfolioId,
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
-        return importService.importWorkbook(file, authentication.getName());
+        return importService.importWorkbook(portfolioId, file, authentication.getName());
     }
 }

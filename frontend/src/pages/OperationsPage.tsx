@@ -27,6 +27,8 @@ import type {
   PortfolioOperation,
 } from '../portfolio/api'
 import { formatAmount, formatDate, formatDateTime, formatQuantity } from '../utils/formatters'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
+import { TickerIcon } from '../components/TickerIcon'
 
 type Confirmation =
   | { kind: 'operation'; id: number; label: string }
@@ -37,6 +39,7 @@ const EMPTY_FILTERS: OperationFilters = { from: '', to: '', ticker: '', type: ''
 /** Administra operaciones manuales, importaciones y actividad reciente. */
 export function OperationsPage() {
   const { t } = useTranslation()
+  const { activePortfolio } = usePortfolio()
   const [data, setData] = useState<OperationsResponse | null>(null)
   const [batches, setBatches] = useState<OperationBatch[]>([])
   const [audit, setAudit] = useState<OperationAuditEntry[]>([])
@@ -52,9 +55,9 @@ export function OperationsPage() {
     let active = true
     setError(null)
     Promise.all([
-      portfolioApi.operations(filters),
-      portfolioApi.operationBatches(),
-      portfolioApi.operationAudit(),
+      portfolioApi.operations(activePortfolio.id, filters),
+      portfolioApi.operationBatches(activePortfolio.id),
+      portfolioApi.operationAudit(activePortfolio.id),
     ])
       .then(([operations, importedBatches, recentAudit]) => {
         if (!active) return
@@ -66,7 +69,7 @@ export function OperationsPage() {
         if (active) setError(requestError instanceof ApiRequestError ? requestError.message : t('operations.loadError'))
       })
     return () => { active = false }
-  }, [filters, reload, t])
+  }, [activePortfolio.id, filters, reload, t])
 
   const refresh = () => setReload((value) => value + 1)
 
@@ -77,9 +80,9 @@ export function OperationsPage() {
     setError(null)
     try {
       if (confirmation.kind === 'operation') {
-        await portfolioApi.deleteOperation(confirmation.id)
+        await portfolioApi.deleteOperation(activePortfolio.id, confirmation.id)
       } else {
-        await portfolioApi.revertOperationBatch(confirmation.id)
+        await portfolioApi.revertOperationBatch(activePortfolio.id, confirmation.id)
       }
       setConfirmation(null)
       refresh()
@@ -99,7 +102,7 @@ export function OperationsPage() {
           <p>{t('operations.subtitle')}</p>
         </div>
         <div className="operations-heading__actions">
-          <a className="quiet-button" href={portfolioApi.operationExportUrl(filters)} download>
+          <a className="quiet-button" href={portfolioApi.operationExportUrl(activePortfolio.id, filters)} download>
             <Download size={16} /> {t('operations.export')}
           </a>
           <Link className="quiet-button" to="/importar"><FileSpreadsheet size={16} /> {t('operations.import')}</Link>
@@ -147,6 +150,7 @@ export function OperationsPage() {
 
       {editing && (
         <OperationFormDialog
+          portfolioId={activePortfolio.id}
           operation={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); refresh() }}
@@ -256,7 +260,7 @@ function SourceLabel({ operation }: { operation: PortfolioOperation }) {
 
 function Asset({ operation }: { operation: PortfolioOperation }) {
   const { t } = useTranslation()
-  return <div className="operation-asset"><strong>{operation.ticker ?? t('operations.cash')}</strong><small>{operation.name ?? operation.notes ?? t('operations.cashMovement')}</small></div>
+  return <div className="operation-asset">{operation.ticker && <TickerIcon ticker={operation.ticker} size={34} />}<span><strong>{operation.ticker ?? t('operations.cash')}</strong><small>{operation.name ?? operation.notes ?? t('operations.cashMovement')}</small></span></div>
 }
 
 function OperationBadge({ type }: { type: PortfolioOperation['type'] }) {
