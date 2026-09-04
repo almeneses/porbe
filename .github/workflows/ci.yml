@@ -1,0 +1,110 @@
+name: Calidad
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend Java
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v6
+
+      - name: Preparar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Descargar dependencias
+        run: mvn --batch-mode dependency:go-offline
+
+      - name: Compilar y ejecutar pruebas
+        shell: bash
+        run: |
+          BYTE_BUDDY_AGENT="$(find "$HOME/.m2/repository/net/bytebuddy/byte-buddy-agent" \
+            -type f -name 'byte-buddy-agent-[0-9]*.jar' | sort -V | tail -n 1)"
+
+          if [ -z "$BYTE_BUDDY_AGENT" ]; then
+            echo "No se encontró Byte Buddy Agent."
+            exit 1
+          fi
+
+          mvn --batch-mode clean verify \
+            -DargLine="-javaagent:$BYTE_BUDDY_AGENT"
+
+  frontend:
+    name: Frontend React
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar calidad del código
+        run: npm run lint
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+      - name: Construir frontend
+        run: npm run build
+
+  whatsapp:
+    name: Servicio WhatsApp
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: whatsapp-service
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: whatsapp-service/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+      - name: Revisar vulnerabilidades críticas
+        run: npm audit --omit=dev --audit-level=critical
