@@ -84,15 +84,19 @@ class PortfolioImportIntegrationTest {
     }
 
     @Test
-    void importsSpanishTextAndNativeExcelDates() throws Exception {
+    void importsDayFirstTextAndNativeExcelDates() throws Exception {
         var rows = validRows();
         rows.set(0, new Object[] {
-                "06/01/2025", "compra", "ECOPETROL.CL", "Ecopetrol",
-                100d, 1850d, 15000d, 200000d, "Fecha en español"
+                "06-01-2025", "compra", "ECOPETROL.CL", "Ecopetrol",
+                100d, 1850d, 15000d, 200000d, "Fecha colombiana con guiones"
         });
         rows.set(1, new Object[] {
                 LocalDate.of(2025, 2, 10), "venta", "PFBCOLOM.CL", "Preferencial Bancolombia",
                 10d, 46000d, 9000d, 451000d, "Fecha de Excel"
+        });
+        rows.set(2, new Object[] {
+                "03/04/2025", "dividendo", "ECOPETROL.CL", "Ecopetrol",
+                100d, 89d, 0d, 8900d, "Fecha colombiana con barras"
         });
 
         mockMvc.perform(multipart("/api/portfolio-import")
@@ -105,11 +109,14 @@ class PortfolioImportIntegrationTest {
 
         org.assertj.core.api.Assertions.assertThat(operationRepository.findAll())
                 .extracting(operation -> operation.getDate())
-                .contains(LocalDate.of(2025, 1, 6), LocalDate.of(2025, 2, 10));
+                .contains(
+                        LocalDate.of(2025, 1, 6),
+                        LocalDate.of(2025, 2, 10),
+                        LocalDate.of(2025, 4, 3));
     }
 
     @Test
-    void explainsBothAcceptedDateFormats() throws Exception {
+    void explainsAcceptedDateFormats() throws Exception {
         var rows = validRows();
         rows.set(0, new Object[] {
                 "31/02/2025", "compra", "ECOPETROL.CL", "Ecopetrol",
@@ -123,7 +130,7 @@ class PortfolioImportIntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors[0].field").value("fecha"))
                 .andExpect(jsonPath("$.errors[0].message")
-                        .value("Usa una fecha válida en formato dd/mm/aaaa o aaaa-mm-dd."));
+                        .value("Usa una fecha válida en formato dd-mm-aaaa, dd/mm/aaaa o aaaa-mm-dd."));
     }
 
     @Test

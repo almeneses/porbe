@@ -222,7 +222,7 @@
     "stepThreeTitle": "Importa",
     "stepThreeBody": "Validamos todo el archivo",
     "uploadTitle": "Carga tu archivo",
-    "uploadBody": "La hoja Operaciones debe conservar los encabezados. La fecha admite dd/mm/aaaa o aaaa-mm-dd.",
+    "uploadBody": "La hoja Operaciones debe conservar los encabezados. La fecha admite dd-mm-aaaa, dd/mm/aaaa o aaaa-mm-dd.",
     "dropTitle": "Arrastra aquí tu archivo de Excel",
     "dropBody": "o haz clic para seleccionarlo desde tu equipo",
     "dropHint": "Solo .xlsx · máximo 5 MB",

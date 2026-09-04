@@ -43,9 +43,11 @@ public class PortfolioImportService {
 
     private static final String OPERATIONS_SHEET = "Operaciones";
     private static final List<DateTimeFormatter> ACCEPTED_DATE_FORMATS = List.of(
+            DateTimeFormatter.ofPattern("dd-MM-uuuu", Locale.forLanguageTag("es-CO"))
+                    .withResolverStyle(ResolverStyle.STRICT),
             DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.forLanguageTag("es-CO"))
                     .withResolverStyle(ResolverStyle.STRICT),
-                    DateTimeFormatter.ofPattern("dd/MMM/uuuu", Locale.forLanguageTag("es-CO"))
+            DateTimeFormatter.ofPattern("dd/MMM/uuuu", Locale.forLanguageTag("es-CO"))
                     .withResolverStyle(ResolverStyle.STRICT),
             DateTimeFormatter.ISO_LOCAL_DATE);
     private static final Set<String> REQUIRED_HEADERS = Set.of(
@@ -349,7 +351,7 @@ public class PortfolioImportService {
         errors.add(new ImportRowError(
                 rowNumber,
                 "fecha",
-                "Usa una fecha válida en formato dd/mm/aaaa o aaaa-mm-dd."));
+                "Usa una fecha válida en formato dd-mm-aaaa, dd/mm/aaaa o aaaa-mm-dd."));
         return null;
     }
 
