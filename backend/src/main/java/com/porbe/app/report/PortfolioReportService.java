@@ -72,11 +72,27 @@ public class PortfolioReportService {
                 .orElseGet(() -> generate(portfolio.getId(), from, to, "SCHEDULED", "system"));
     }
 
-    public void deliver(Long reportId) {
+    public PortfolioReportListItem deliver(Long reportId) {
+        return deliver(reportId, null);
+    }
+
+    /** Registra el intento antes de llamar al servicio externo y conserva el resultado legible. */
+    public PortfolioReportListItem deliver(Long reportId, String recipient) {
         var report = report(reportId);
-        var result = deliveryProvider.deliver(report);
-        report.markDelivery(result.status(), result.message());
+        if (!"READY".equals(report.getStatus())) {
+            throw new IllegalArgumentException("El informe debe estar listo antes de enviarlo.");
+        }
+        report.markDelivery("PENDING", "Enviando el informe por WhatsApp Web…");
         repository.save(report);
+        try {
+            var result = deliveryProvider.deliver(report, recipient);
+            report.markDelivery(result.status(), result.message());
+            return item(repository.save(report));
+        } catch (RuntimeException exception) {
+            report.markDelivery("FAILED", exception.getMessage());
+            repository.save(report);
+            throw exception;
+        }
     }
 
     public List<PortfolioReportListItem> list(Long portfolioId) {
@@ -111,6 +127,14 @@ public class PortfolioReportService {
 
     public boolean deliveryConfigured() {
         return deliveryProvider.configured();
+    }
+
+    public WhatsAppConnectionStatus whatsAppStatus() {
+        return deliveryProvider.connectionStatus();
+    }
+
+    public String deliveryChannel() {
+        return deliveryProvider.channel();
     }
 
     private PortfolioReport report(Long id) {

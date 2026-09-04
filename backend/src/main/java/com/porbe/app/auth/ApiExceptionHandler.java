@@ -8,6 +8,7 @@ import com.porbe.app.operation.OperationResourceNotFoundException;
 import com.porbe.app.operation.OperationValidationException;
 import com.porbe.app.operation.OperationValidationResponse;
 import com.porbe.app.report.PortfolioReportNotFoundException;
+import com.porbe.app.report.WhatsAppDeliveryException;
 import com.porbe.app.portfolio.PortfolioNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,6 +81,12 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     ApiErrorResponse reportNotFound(PortfolioReportNotFoundException exception) {
         return new ApiErrorResponse("INFORME_NO_ENCONTRADO", exception.getMessage());
+    }
+
+    @ExceptionHandler(WhatsAppDeliveryException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    ApiErrorResponse whatsAppDelivery(WhatsAppDeliveryException exception) {
+        return new ApiErrorResponse("WHATSAPP_NO_DISPONIBLE", exception.getMessage());
     }
 
     @ExceptionHandler(PortfolioNotFoundException.class)

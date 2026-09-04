@@ -51,6 +51,18 @@ public class PortfolioReportController {
         return scheduleService.current();
     }
 
+    @GetMapping("/whatsapp/status")
+    WhatsAppConnectionStatus whatsAppStatus() {
+        return reportService.whatsAppStatus();
+    }
+
+    @PostMapping("/{id}/whatsapp")
+    PortfolioReportListItem sendByWhatsApp(
+            @PathVariable Long id,
+            @Valid @RequestBody WhatsAppReportDeliveryRequest request) {
+        return reportService.deliver(id, request.recipient());
+    }
+
     @GetMapping("/{id}/image")
     ResponseEntity<byte[]> image(
             @PathVariable Long id,

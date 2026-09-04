@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '../i18n'
 import type { PortfolioReport, PortfolioReportSchedule } from '../report/api'
 import { reportApi } from '../report/api'
@@ -13,7 +13,9 @@ vi.mock('../report/api', () => ({
   reportApi: {
     list: vi.fn(),
     schedule: vi.fn(),
+    whatsAppStatus: vi.fn(),
     generate: vi.fn(),
+    sendByWhatsApp: vi.fn(),
     imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
     pdfUrl: (id: number) => `/api/reports/${id}/pdf`,
   },
@@ -24,6 +26,13 @@ describe('ReportsPage', () => {
   beforeEach(() => {
     vi.mocked(reportApi.list).mockResolvedValue([report])
     vi.mocked(reportApi.schedule).mockResolvedValue(schedule)
+    vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
+    vi.mocked(reportApi.sendByWhatsApp).mockResolvedValue({ ...report, deliveryStatus: 'SENT' })
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
   })
 
   it('muestra el último informe generado y su programación semanal', async () => {
@@ -34,7 +43,20 @@ describe('ReportsPage', () => {
     expect(screen.getByRole('link', { name: /PNG/ })).toHaveAttribute('href', '/api/reports/7/image?download=true')
     expect(screen.getByRole('link', { name: /PDF/ })).toHaveAttribute('href', '/api/reports/7/pdf')
     expect(screen.getByText('Viernes · 5:30 p. m.')).toBeInTheDocument()
-    expect(screen.getByText('WhatsApp pendiente de configuración')).toBeInTheDocument()
+    expect(screen.getByText('WhatsApp conectado')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar por WhatsApp' })).toBeDisabled()
+  })
+
+  it('confirma y envía el informe al número escrito', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<ReportsPage />)
+
+    const input = await screen.findByLabelText('Número de WhatsApp')
+    fireEvent.change(input, { target: { value: '573001234567' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }))
+
+    await waitFor(() => expect(reportApi.sendByWhatsApp).toHaveBeenCalledWith(7, '573001234567'))
+    expect(await screen.findByText('El informe fue enviado por WhatsApp.')).toBeInTheDocument()
   })
 })
 
@@ -67,5 +89,14 @@ const schedule: PortfolioReportSchedule = {
   timezone: 'America/Bogota',
   nextRunAt: '2026-09-04T17:30:00-05:00',
   deliveryConfigured: false,
-  deliveryChannel: 'WHATSAPP_BUSINESS',
+  deliveryChannel: 'WHATSAPP_WEB',
+}
+
+const whatsAppStatus = {
+  state: 'READY' as const,
+  ready: true,
+  qrDataUrl: null,
+  accountLabel: '•••• 4567',
+  message: 'WhatsApp está conectado y listo para enviar.',
+  updatedAt: '2026-09-02T10:00:00-05:00',
 }

@@ -113,7 +113,13 @@ class PortfolioReportIntegrationTest {
                 .andExpect(jsonPath("$.dayOfWeek").value("FRIDAY"))
                 .andExpect(jsonPath("$.runTime").value("17:30"))
                 .andExpect(jsonPath("$.timezone").value("America/Bogota"))
-                .andExpect(jsonPath("$.deliveryConfigured").value(false));
+                .andExpect(jsonPath("$.deliveryConfigured").value(false))
+                .andExpect(jsonPath("$.deliveryChannel").value("WHATSAPP_WEB"));
+
+        mockMvc.perform(get("/api/reports/whatsapp/status").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("DISABLED"))
+                .andExpect(jsonPath("$.ready").value(false));
     }
 
     private OperationContext operationContext() {

@@ -19,6 +19,7 @@ replay_pid*
 
 # Node
 frontend/node_modules/
+whatsapp-service/node_modules/
 frontend/dist/
 frontend/coverage/
 *.tsbuildinfo

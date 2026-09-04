@@ -34,13 +34,28 @@ export interface PortfolioReportSchedule {
   deliveryChannel: string
 }
 
+/** Estado de la sesión administrada por whatsapp-web.js en el contenedor Node. */
+export interface WhatsAppConnectionStatus {
+  state: 'DISABLED' | 'STARTING' | 'QR_REQUIRED' | 'AUTHENTICATING' | 'READY' | 'AUTH_FAILURE' | 'DISCONNECTED' | 'FAILED' | 'UNAVAILABLE'
+  ready: boolean
+  qrDataUrl: string | null
+  accountLabel: string | null
+  message: string
+  updatedAt: string | null
+}
+
 export const reportApi = {
   list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
+  whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
   generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',
     body: JSON.stringify({ portfolioId, from, to }),
   }),
   imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
   pdfUrl: (id: number) => `/api/reports/${id}/pdf`,
+  sendByWhatsApp: (id: number, recipient: string) => apiRequest<PortfolioReport>(`/api/reports/${id}/whatsapp`, {
+    method: 'POST',
+    body: JSON.stringify({ recipient }),
+  }),
 }

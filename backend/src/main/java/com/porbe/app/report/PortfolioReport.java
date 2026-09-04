@@ -112,7 +112,7 @@ public class PortfolioReport {
         this.imageSize = 0;
         this.pdfSize = 0;
         this.deliveryStatus = "NOT_CONFIGURED";
-        this.deliveryMessage = "WhatsApp Business se configurará en un incremento posterior.";
+        this.deliveryMessage = "WhatsApp Web todavía no ha enviado este informe.";
     }
 
     public void markReady(byte[] imageData, byte[] pdfData, OffsetDateTime generatedAt) {

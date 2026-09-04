@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -94,18 +95,15 @@ public class PortfolioReportCalculator {
         var baselinePositions = baseline.positions().stream()
                 .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()));
         var icons = iconsByTicker(end.positions(), operations);
-        var appreciations = appreciationHighlights(baselinePositions, end.positions(), icons);
-        var profitability = profitabilityHighlights(end.positions(), icons);
+        var periodImpact = periodImpactHighlights(baselinePositions, end.positions(), icons);
         var displayedMovements = recentMovements(operations, icons);
         var chart = history.weeks().stream()
                 .filter(week -> !week.weekEnding().isAfter(end.weekEnding()))
                 .map(week -> new PortfolioReportChartPoint(
                         week.weekEnding(), week.portfolioValue(), week.netContributions()))
                 .toList();
-        var sixMonthStart = end.weekEnding().minusMonths(6);
-        var sixMonthChart = chart.stream()
-                .filter(point -> !point.date().isBefore(sixMonthStart))
-                .toList();
+        var assetAllocation = assetAllocation(end.positions(), icons);
+        var sectorAllocation = sectorAllocation(end.positions());
         var provisionalPrices = (int) end.positions().stream()
                 .filter(position -> position.quantity().signum() != 0 && position.provisionalPrice())
                 .count();
@@ -120,10 +118,8 @@ public class PortfolioReportCalculator {
                 history.baseCurrency().toUpperCase(Locale.ROOT),
                 money(periodGain),
                 rate(periodReturn),
-                appreciations.best(),
-                appreciations.worst(),
-                profitability.best(),
-                profitability.worst(),
+                periodImpact.best(),
+                periodImpact.worst(),
                 end.dividends(),
                 end.totalGain(),
                 end.returnRate(),
@@ -133,7 +129,8 @@ public class PortfolioReportCalculator {
                 operations.size(),
                 displayedMovements,
                 chart,
-                sixMonthChart,
+                assetAllocation,
+                sectorAllocation,
                 end.valuationComplete() && provisionalPrices == 0,
                 provisionalPrices,
                 end.unpricedPositions());
@@ -143,52 +140,106 @@ public class PortfolioReportCalculator {
         return calculate(null, from, to);
     }
 
-    private Highlights appreciationHighlights(
+    /**
+     * Compara la ganancia contable de cada acción al inicio y al final. Así el
+     * informe explica en pesos qué acción ayudó o redujo más el resultado.
+     */
+    private Highlights periodImpactHighlights(
             Map<String, PortfolioWeeklyPositionResponse> baseline,
             List<PortfolioWeeklyPositionResponse> endPositions,
             Map<String, byte[]> icons) {
-        var values = endPositions.stream()
-                .filter(position -> position.quantity().signum() != 0 && position.closePrice() != null)
-                .map(position -> {
-                    var start = baseline.get(position.ticker());
-                    if (start == null || start.closePrice() == null || start.closePrice().signum() == 0) {
-                        return null;
-                    }
-                    var change = position.closePrice()
-                            .divide(start.closePrice(), RATE_SCALE, RoundingMode.HALF_UP)
-                            .subtract(BigDecimal.ONE);
-                    return new PortfolioReportAssetHighlight(
-                            position.ticker(), position.name(), rate(change), null, icons.get(position.ticker()));
-                })
-                .filter(java.util.Objects::nonNull)
+        var endByTicker = endPositions.stream()
+                .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()));
+        var tickers = java.util.stream.Stream.concat(baseline.keySet().stream(), endByTicker.keySet().stream())
+                .collect(Collectors.toSet());
+        var values = tickers.stream()
+                .map(ticker -> periodImpact(ticker, baseline.get(ticker), endByTicker.get(ticker), icons.get(ticker)))
+                .filter(Objects::nonNull)
                 .toList();
-        return highlights(values);
+        var comparator = Comparator.comparing(PortfolioReportAssetHighlight::amount);
+        return new Highlights(
+                values.stream().filter(value -> value.amount().signum() > 0).max(comparator).orElse(null),
+                values.stream().filter(value -> value.amount().signum() < 0).min(comparator).orElse(null));
     }
 
-    private Highlights profitabilityHighlights(
+    private PortfolioReportAssetHighlight periodImpact(
+            String ticker,
+            PortfolioWeeklyPositionResponse start,
+            PortfolioWeeklyPositionResponse end,
+            byte[] icon) {
+        if ((start == null || start.totalGain() == null) && (end == null || end.totalGain() == null)) {
+            return null;
+        }
+        var impact = safe(end == null ? null : end.totalGain()).subtract(safe(start == null ? null : start.totalGain()));
+        var priceChange = start == null || end == null || start.closePrice() == null || end.closePrice() == null
+                || start.closePrice().signum() == 0
+                ? BigDecimal.ZERO
+                : end.closePrice().divide(start.closePrice(), RATE_SCALE, RoundingMode.HALF_UP)
+                        .subtract(BigDecimal.ONE);
+        var name = end != null ? end.name() : start.name();
+        return new PortfolioReportAssetHighlight(ticker, name, rate(priceChange), money(impact), icon);
+    }
+
+    private List<PortfolioReportAllocation> assetAllocation(
             List<PortfolioWeeklyPositionResponse> positions,
             Map<String, byte[]> icons) {
-        var values = positions.stream()
-                .filter(position -> position.quantity().signum() != 0
-                        && position.costBasis() != null
-                        && position.costBasis().signum() > 0
-                        && position.totalGain() != null)
-                .map(position -> new PortfolioReportAssetHighlight(
-                        position.ticker(),
-                        position.name(),
-                        rate(position.totalGain().divide(
-                                position.costBasis(), RATE_SCALE, RoundingMode.HALF_UP)),
-                        money(position.totalGain()),
-                        icons.get(position.ticker())))
+        var candidates = positions.stream()
+                .filter(this::includedInAllocation)
+                .map(position -> new AllocationCandidate(
+                        position.ticker(), position.name(), position.marketValue(), icons.get(position.ticker())))
+                .sorted(Comparator.comparing(AllocationCandidate::value).reversed())
                 .toList();
-        return highlights(values);
+        return allocations(candidates, "Otras acciones");
     }
 
-    private Highlights highlights(List<PortfolioReportAssetHighlight> values) {
-        var comparator = Comparator.comparing(PortfolioReportAssetHighlight::rate);
-        return new Highlights(
-                values.stream().max(comparator).orElse(null),
-                values.stream().min(comparator).orElse(null));
+    private List<PortfolioReportAllocation> sectorAllocation(List<PortfolioWeeklyPositionResponse> positions) {
+        var grouped = positions.stream()
+                .filter(this::includedInAllocation)
+                .collect(Collectors.groupingBy(
+                        position -> position.sector() == null || position.sector().isBlank()
+                                ? "Sin clasificar"
+                                : position.sector(),
+                        Collectors.reducing(
+                                BigDecimal.ZERO,
+                                PortfolioWeeklyPositionResponse::marketValue,
+                                BigDecimal::add)));
+        var candidates = grouped.entrySet().stream()
+                .map(entry -> new AllocationCandidate(entry.getKey(), entry.getKey(), entry.getValue(), null))
+                .sorted(Comparator.comparing(AllocationCandidate::value).reversed())
+                .toList();
+        return allocations(candidates, "Otros sectores");
+    }
+
+    private boolean includedInAllocation(PortfolioWeeklyPositionResponse position) {
+        return !position.foreignCurrency()
+                && position.quantity().signum() != 0
+                && position.marketValue() != null
+                && position.marketValue().signum() > 0;
+    }
+
+    /** Conserva los cuatro grupos principales y reúne el resto para mantener el informe legible. */
+    private List<PortfolioReportAllocation> allocations(
+            List<AllocationCandidate> candidates,
+            String remainderName) {
+        var total = candidates.stream().map(AllocationCandidate::value).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (total.signum() == 0) {
+            return List.of();
+        }
+        var result = new ArrayList<PortfolioReportAllocation>();
+        candidates.stream().limit(4).forEach(candidate -> result.add(new PortfolioReportAllocation(
+                candidate.key(),
+                candidate.name(),
+                rate(candidate.value().divide(total, RATE_SCALE, RoundingMode.HALF_UP)),
+                candidate.icon())));
+        if (candidates.size() > 4) {
+            var remainder = candidates.stream().skip(4)
+                    .map(AllocationCandidate::value)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            result.add(new PortfolioReportAllocation(
+                    "OTROS", remainderName,
+                    rate(remainder.divide(total, RATE_SCALE, RoundingMode.HALF_UP)), null));
+        }
+        return List.copyOf(result);
     }
 
     private List<PortfolioReportMovement> recentMovements(
@@ -266,5 +317,12 @@ public class PortfolioReportCalculator {
     private record Highlights(
             PortfolioReportAssetHighlight best,
             PortfolioReportAssetHighlight worst) {
+    }
+
+    private record AllocationCandidate(
+            String key,
+            String name,
+            BigDecimal value,
+            byte[] icon) {
     }
 }

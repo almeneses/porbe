@@ -8,13 +8,15 @@ import {
   FileText,
   LoaderCircle,
   MessageCircleMore,
+  QrCode,
+  Send,
   Sparkles,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
-import type { PortfolioReport, PortfolioReportSchedule } from '../report/api'
+import type { PortfolioReport, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
 import { formatDate, formatDateTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 
@@ -27,16 +29,25 @@ export function ReportsPage() {
   const [to, setTo] = useState(initialRange.to)
   const [reports, setReports] = useState<PortfolioReport[]>([])
   const [schedule, setSchedule] = useState<PortfolioReportSchedule | null>(null)
+  const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppConnectionStatus | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [recipient, setRecipient] = useState('')
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [items, configuredSchedule] = await Promise.all([reportApi.list(activePortfolio.id), reportApi.schedule()])
+      const [items, configuredSchedule, connection] = await Promise.all([
+        reportApi.list(activePortfolio.id),
+        reportApi.schedule(),
+        reportApi.whatsAppStatus(),
+      ])
       setReports(items)
       setSchedule(configuredSchedule)
+      setWhatsAppStatus(connection)
       setSelectedId(items.find((item) => item.status === 'READY')?.id ?? null)
       setError(null)
     } catch (requestError) {
@@ -48,6 +59,13 @@ export function ReportsPage() {
 
   useEffect(() => { void load() }, [load])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void reportApi.whatsAppStatus().then(setWhatsAppStatus).catch(() => undefined)
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   async function generate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setGenerating(true)
@@ -55,11 +73,31 @@ export function ReportsPage() {
     try {
       const generated = await reportApi.generate(activePortfolio.id, from, to)
       setSelectedId(generated.id)
+      setFeedback(null)
       await load()
     } catch (requestError) {
       setError(requestError instanceof ApiRequestError ? requestError.message : t('reports.generateError'))
     } finally {
       setGenerating(false)
+    }
+  }
+
+  /** El diálogo del navegador evita envíos accidentales mientras el botón sea temporal. */
+  async function sendByWhatsApp() {
+    if (!selected || !recipient.trim()) return
+    if (!window.confirm(t('reports.sendConfirm', { recipient }))) return
+
+    setSending(true)
+    setError(null)
+    setFeedback(null)
+    try {
+      const delivered = await reportApi.sendByWhatsApp(selected.id, recipient)
+      setReports((current) => current.map((report) => report.id === delivered.id ? delivered : report))
+      setFeedback(t('reports.sendSuccess'))
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('reports.sendError'))
+    } finally {
+      setSending(false)
     }
   }
 
@@ -77,6 +115,7 @@ export function ReportsPage() {
       </header>
 
       {error && <div className="inline-alert inline-alert--error"><AlertCircle size={19} /><strong>{error}</strong></div>}
+      {feedback && <div className="inline-alert inline-alert--success"><CheckCircle2 size={19} /><strong>{feedback}</strong></div>}
 
       <section className="report-builder-card">
         <div className="report-builder-card__intro">
@@ -98,8 +137,15 @@ export function ReportsPage() {
         <div className="page-state"><LoaderCircle className="spin" size={26} /><span>{t('reports.loading')}</span></div>
       ) : (
         <div className="report-workspace">
-          <ReportPreview report={selected} />
-          <ReportScheduleCard schedule={schedule} />
+          <ReportPreview
+            report={selected}
+            whatsAppStatus={whatsAppStatus}
+            recipient={recipient}
+            sending={sending}
+            onRecipientChange={setRecipient}
+            onSend={sendByWhatsApp}
+          />
+          <ReportScheduleCard schedule={schedule} whatsAppStatus={whatsAppStatus} />
         </div>
       )}
 
@@ -108,7 +154,16 @@ export function ReportsPage() {
   )
 }
 
-function ReportPreview({ report }: { report: PortfolioReport | null }) {
+interface ReportPreviewProps {
+  report: PortfolioReport | null
+  whatsAppStatus: WhatsAppConnectionStatus | null
+  recipient: string
+  sending: boolean
+  onRecipientChange: (value: string) => void
+  onSend: () => void
+}
+
+function ReportPreview({ report, whatsAppStatus, recipient, sending, onRecipientChange, onSend }: ReportPreviewProps) {
   const { t } = useTranslation()
   if (!report) {
     return <section className="report-preview-card report-preview-card--empty"><span><FileImage size={28} /></span><h2>{t('reports.emptyPreviewTitle')}</h2><p>{t('reports.emptyPreviewBody')}</p></section>
@@ -123,6 +178,29 @@ function ReportPreview({ report }: { report: PortfolioReport | null }) {
         </div>
       </header>
       {!report.valuationComplete && <div className="report-warning"><AlertCircle size={16} /><span>{t('reports.partialReport')}</span></div>}
+      <div className="report-send-panel">
+        <div>
+          <label htmlFor="whatsapp-recipient">{t('reports.recipient')}</label>
+          <p>{t(whatsAppStatus?.ready ? 'reports.recipientReadyHelp' : 'reports.recipientWaitingHelp')}</p>
+        </div>
+        <input
+          id="whatsapp-recipient"
+          type="tel"
+          inputMode="tel"
+          placeholder="573001234567"
+          value={recipient}
+          onChange={(event) => onRecipientChange(event.target.value)}
+        />
+        <button
+          className="whatsapp-send-button"
+          type="button"
+          disabled={!whatsAppStatus?.ready || sending || !recipient.trim()}
+          onClick={onSend}
+        >
+          {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
+          {t(sending ? 'reports.sending' : 'reports.sendWhatsApp')}
+        </button>
+      </div>
       <div className="report-image-frame"><img src={reportApi.imageUrl(report.id)} alt={t('reports.previewAlt', { from: formatDate(report.from), to: formatDate(report.to) })} /></div>
     </section>
   )
@@ -133,7 +211,7 @@ function ScheduleBadge({ schedule }: { schedule: PortfolioReportSchedule }) {
   return <div className="system-pill"><span />{t(schedule.enabled ? 'reports.scheduleActive' : 'reports.scheduleInactive')}</div>
 }
 
-function ReportScheduleCard({ schedule }: { schedule: PortfolioReportSchedule | null }) {
+function ReportScheduleCard({ schedule, whatsAppStatus }: { schedule: PortfolioReportSchedule | null; whatsAppStatus: WhatsAppConnectionStatus | null }) {
   const { t } = useTranslation()
   return (
     <aside className="report-schedule-panel">
@@ -148,8 +226,20 @@ function ReportScheduleCard({ schedule }: { schedule: PortfolioReportSchedule | 
       </dl>
       <div className="report-delivery-state">
         <MessageCircleMore size={19} />
-        <div><strong>{t('reports.whatsappPending')}</strong><span>{t('reports.whatsappPendingBody')}</span></div>
+        <div>
+          <strong>{t(`reports.whatsappState.${whatsAppStatus?.state ?? 'STARTING'}`)}</strong>
+          <span>{whatsAppStatus?.message ?? t('reports.whatsappStartingBody')}</span>
+          {whatsAppStatus?.accountLabel && <small>{t('reports.connectedAccount', { account: whatsAppStatus.accountLabel })}</small>}
+        </div>
       </div>
+      {whatsAppStatus?.state === 'QR_REQUIRED' && whatsAppStatus.qrDataUrl && (
+        <div className="whatsapp-qr">
+          <div className="whatsapp-qr__heading"><QrCode size={18} /><strong>{t('reports.qrTitle')}</strong></div>
+          <img src={whatsAppStatus.qrDataUrl} alt={t('reports.qrAlt')} />
+          <p>{t('reports.qrInstructions')}</p>
+        </div>
+      )}
+      <p className="whatsapp-disclaimer">{t('reports.whatsappDisclaimer')}</p>
     </aside>
   )
 }

@@ -42,6 +42,6 @@ public class PortfolioReportScheduleService {
                 timezone,
                 next == null ? null : next.toOffsetDateTime(),
                 reportService.deliveryConfigured(),
-                "WHATSAPP_BUSINESS");
+                reportService.deliveryChannel());
     }
 }

@@ -7,14 +7,11 @@ RUN mvn --batch-mode dependency:go-offline
 COPY src ./src
 RUN mvn --batch-mode package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine
+FROM mcr.microsoft.com/playwright/java:v1.61.0-noble
 WORKDIR /app
 
-RUN apk add --no-cache fontconfig ttf-dejavu \
-    && addgroup -S porbe \
-    && adduser -S porbe -G porbe
-COPY --from=build /workspace/target/porbe-backend-*.jar app.jar
+COPY --from=build --chown=pwuser:pwuser /workspace/target/porbe-backend-*.jar app.jar
 
-USER porbe
+USER pwuser
 EXPOSE 8080
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]

@@ -53,6 +53,14 @@ app:
     weekly-enabled: ${PORTFOLIO_REPORT_WEEKLY_ENABLED:true}
     weekly-cron: ${PORTFOLIO_REPORT_WEEKLY_CRON:0 30 17 * * FRI}
     timezone: ${PORTFOLIO_REPORT_TIMEZONE:America/Bogota}
+    browser-executable: ${PORTFOLIO_REPORT_BROWSER_EXECUTABLE:}
+  whatsapp:
+    enabled: ${WHATSAPP_ENABLED:false}
+    base-url: ${WHATSAPP_SERVICE_URL:http://localhost:3001}
+    internal-token: ${WHATSAPP_INTERNAL_TOKEN:porbe_whatsapp_local}
+    default-recipient: ${WHATSAPP_DEFAULT_RECIPIENT:}
+    connect-timeout-seconds: ${WHATSAPP_CONNECT_TIMEOUT_SECONDS:3}
+    read-timeout-seconds: ${WHATSAPP_READ_TIMEOUT_SECONDS:45}
   security:
     admin:
       username: ${APP_SECURITY_ADMIN_USERNAME:admin}

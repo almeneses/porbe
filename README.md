@@ -139,17 +139,24 @@ Endpoints principales:
 
 - Informe de rendimiento para un rango de fechas elegido por el usuario.
 - Imagen vertical PNG consistente con la identidad visual de Porbe.
-- PDF de una página generado desde la misma composición gráfica.
-- Resultado nominal y TWR del periodo, descontando depósitos y retiros.
-- Mayor y menor valorización del periodo y rentabilidad acumulada por activo.
+- PDF A4 de dos páginas generado desde el mismo HTML de la imagen.
+- Resultado en pesos y porcentaje del periodo, descontando depósitos y retiros.
+- Acciones que más aumentaron o redujeron el resultado durante las fechas elegidas.
 - Dividendos, ganancia, rentabilidad, aportes, efectivo y valor del portafolio.
-- Gráfico de valor del portafolio frente a los aportes y movimientos recientes.
+- Gráfico histórico completo con valores de referencia fáciles de leer.
+- Distribución del dinero por acción y por tipo de empresa.
 - Historial persistente de informes con descargas posteriores.
 - Actualización de precios y generación automática cada viernes a las 17:30 en `America/Bogota`.
-- Interfaz de entrega desacoplada; WhatsApp Business permanece sin configurar y no envía mensajes.
+- Interfaz de entrega desacoplada, preparada para conectar distintos proveedores de mensajería.
 - La sección de notas se mantiene oculta hasta incorporar un resumen asistido por IA.
 
-La generación se realiza completamente en el backend. Java2D construye la imagen y Apache PDFBox 3.0.8 crea el PDF, por lo que la tarea automática no necesita que el navegador permanezca abierto.
+La generación se realiza completamente en el backend a partir de
+`backend/src/main/resources/templates/reports/portfolio-report.html`. Thymeleaf resuelve los datos y
+Chromium, controlado por Playwright, genera el PNG y el PDF desde el mismo HTML. La tarea automática
+abre su propio navegador sin interfaz; no depende de que el navegador del usuario permanezca abierto.
+
+Docker ya incluye una versión compatible de Chromium. En desarrollo local se detecta Chromium en las
+rutas comunes o puede indicarse explícitamente con `PORTFOLIO_REPORT_BROWSER_EXECUTABLE`.
 
 Endpoints principales:
 
@@ -159,9 +166,44 @@ Endpoints principales:
 - `GET /api/reports/{id}/pdf`: descarga el PDF.
 - `GET /api/reports/schedule`: informa la próxima ejecución y el estado del canal de entrega.
 
+### Incremento 9: envío temporal por WhatsApp Web
+
+- Servicio Node independiente basado en `whatsapp-web.js` 1.34.7 y Chromium.
+- Sesión `LocalAuth` persistida en el volumen Docker `porbe-whatsapp-data`.
+- Código QR visible solamente en la pantalla autenticada de **Informes**.
+- Comunicación Java–Node por HTTP dentro de la red privada de Docker; el servicio Node no publica puertos al host.
+- Token compartido `X-Porbe-Internal-Token` para autenticar las solicitudes internas.
+- Envío del PNG del informe con un texto corto y un número internacional elegido desde la UI.
+- Confirmación antes de cada envío manual y estado de entrega conservado en el historial.
+- Número predeterminado opcional para el envío automático de los viernes.
+
+Para vincular una cuenta por primera vez:
+
+1. Inicie la aplicación con `docker compose up --build`.
+2. Abra **Informes** y espere a que aparezca el código QR.
+3. En el celular abra WhatsApp → **Dispositivos vinculados** → **Vincular un dispositivo**.
+4. Escanee el QR. Al aparecer **WhatsApp conectado**, escriba un número con código de país y use el botón temporal de envío.
+
+Para que el informe semanal se envíe sin intervención, configure
+`WHATSAPP_DEFAULT_RECIPIENT` con el número internacional sin espacios ni `+`, por ejemplo
+`573001234567`. En un despliegue que no sea exclusivamente local también debe reemplazar
+`WHATSAPP_INTERNAL_TOKEN` por un secreto largo y aleatorio.
+
+Endpoints añadidos:
+
+- `GET /api/reports/whatsapp/status`: estado, cuenta enmascarada y QR vigente.
+- `POST /api/reports/{id}/whatsapp`: envía manualmente el PNG ya generado.
+
+`whatsapp-web.js` automatiza WhatsApp Web y no es una API oficial de Meta. Puede dejar de funcionar
+si WhatsApp cambia su cliente web y existe riesgo de desconexión o bloqueo de la cuenta. Se recomienda
+usar una cuenta separada para pruebas y migrar a la API oficial antes de un uso productivo. El árbol de
+Puppeteer también mantiene una alerta de `npm audit` en su descargador de Chromium; Porbe desactiva esa
+ruta, instala Chromium desde Debian y ejecuta el contenedor sin privilegios, pero la alerta transitiva
+seguirá apareciendo hasta que el proyecto publique una dependencia corregida.
+
 ## Ejecución con Docker
 
-1. Copie `.env.example` como `.env` si desea cambiar puertos o credenciales.
+1. Copie `.env.example` como `.env` si desea cambiar puertos, credenciales o el número de WhatsApp.
 2. Ejecute `docker compose up --build`.
 3. Abra `http://localhost:3000`.
 4. Ingrese con `admin` / `admin` en el entorno local.
@@ -190,4 +232,7 @@ npm run build
 
 ## Seguridad
 
-`admin/admin` es exclusivamente el valor inicial de desarrollo. Para cualquier despliegue, configure `APP_SECURITY_ADMIN_USERNAME`, `APP_SECURITY_ADMIN_PASSWORD` y habilite cookies seguras detrás de HTTPS.
+`admin/admin` y `porbe_whatsapp_local` son exclusivamente valores iniciales de desarrollo. Para cualquier
+despliegue, configure `APP_SECURITY_ADMIN_USERNAME`, `APP_SECURITY_ADMIN_PASSWORD`,
+`WHATSAPP_INTERNAL_TOKEN` y habilite cookies seguras detrás de HTTPS. El volumen
+`porbe-whatsapp-data` contiene la sesión vinculada y debe tratarse como una credencial sensible.

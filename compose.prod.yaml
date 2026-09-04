@@ -1,4 +1,10 @@
-name: porbe
+name: porbe-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   database:
@@ -6,69 +12,29 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-porbe}
       POSTGRES_USER: ${POSTGRES_USER:-porbe}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-porbe_local}
-    ports:
-      - "${PORBE_DB_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatorio}
     volumes:
       - porbe-postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-porbe} -d ${POSTGRES_DB:-porbe}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-porbe} -d ${POSTGRES_DB:-porbe}
       interval: 5s
       timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  backend:
-    build:
-      context: ./backend
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/${POSTGRES_DB:-porbe}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-porbe}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-porbe_local}
-      SERVER_PORT: 8080
-      APP_SECURITY_ADMIN_USERNAME: ${APP_SECURITY_ADMIN_USERNAME:-admin}
-      APP_SECURITY_ADMIN_PASSWORD: ${APP_SECURITY_ADMIN_PASSWORD:-admin}
-      APP_SESSION_COOKIE_SECURE: ${APP_SESSION_COOKIE_SECURE:-false}
-      YAHOO_FINANCE_BASE_URL: ${YAHOO_FINANCE_BASE_URL:-https://query1.finance.yahoo.com}
-      YAHOO_FINANCE_USER_AGENT: ${YAHOO_FINANCE_USER_AGENT:-Porbe/0.1}
-      YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS: ${YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS:-5}
-      YAHOO_FINANCE_READ_TIMEOUT_SECONDS: ${YAHOO_FINANCE_READ_TIMEOUT_SECONDS:-15}
-      MARKET_DATA_SCHEDULE_POLL_MS: ${MARKET_DATA_SCHEDULE_POLL_MS:-60000}
-      MARKET_DATA_SCHEDULE_INITIAL_DELAY_MS: ${MARKET_DATA_SCHEDULE_INITIAL_DELAY_MS:-30000}
-      PORTFOLIO_REPORT_WEEKLY_ENABLED: ${PORTFOLIO_REPORT_WEEKLY_ENABLED:-true}
-      PORTFOLIO_REPORT_WEEKLY_CRON: ${PORTFOLIO_REPORT_WEEKLY_CRON:-0 30 17 * * FRI}
-      PORTFOLIO_REPORT_TIMEZONE: ${PORTFOLIO_REPORT_TIMEZONE:-America/Bogota}
-      PORTFOLIO_REPORT_BROWSER_EXECUTABLE: ${PORTFOLIO_REPORT_BROWSER_EXECUTABLE:-}
-      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
-      WHATSAPP_SERVICE_URL: http://whatsapp-web:3001
-      WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:-porbe_whatsapp_local}
-      WHATSAPP_DEFAULT_RECIPIENT: ${WHATSAPP_DEFAULT_RECIPIENT:-}
-      WHATSAPP_CONNECT_TIMEOUT_SECONDS: ${WHATSAPP_CONNECT_TIMEOUT_SECONDS:-3}
-      WHATSAPP_READ_TIMEOUT_SECONDS: ${WHATSAPP_READ_TIMEOUT_SECONDS:-45}
-    ports:
-      - "${PORBE_API_PORT:-8080}:8080"
-    shm_size: "256mb"
-    depends_on:
-      database:
-        condition: service_healthy
-      whatsapp-web:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
-      interval: 10s
-      timeout: 5s
       retries: 12
-      start_period: 20s
     restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - porbe-internal
 
   whatsapp-web:
     build:
       context: ./whatsapp-service
     environment:
       PORT: 3001
-      WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:-porbe_whatsapp_local}
+      WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:?WHATSAPP_INTERNAL_TOKEN es obligatorio}
       WHATSAPP_SESSION_PATH: /app/data/auth
-      WHATSAPP_CLIENT_ID: porbe
+      WHATSAPP_CLIENT_ID: porbe-prod
       PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
     volumes:
       - porbe-whatsapp-data:/app/data
@@ -80,27 +46,95 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 10s
+      start_period: 15s
+    stop_grace_period: 30s
     restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - porbe-internal
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/${POSTGRES_DB:-porbe}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-porbe}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatorio}
+      SERVER_PORT: 8080
+
+      APP_SECURITY_ADMIN_USERNAME: ${APP_SECURITY_ADMIN_USERNAME:-admin}
+      APP_SECURITY_ADMIN_PASSWORD: ${APP_SECURITY_ADMIN_PASSWORD:?APP_SECURITY_ADMIN_PASSWORD es obligatorio}
+      APP_SESSION_COOKIE_SECURE: ${APP_SESSION_COOKIE_SECURE:-false}
+
+      YAHOO_FINANCE_BASE_URL: ${YAHOO_FINANCE_BASE_URL:-https://query1.finance.yahoo.com}
+      YAHOO_FINANCE_USER_AGENT: ${YAHOO_FINANCE_USER_AGENT:-Porbe/1.0}
+      YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS: ${YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS:-5}
+      YAHOO_FINANCE_READ_TIMEOUT_SECONDS: ${YAHOO_FINANCE_READ_TIMEOUT_SECONDS:-15}
+
+      MARKET_DATA_SCHEDULE_POLL_MS: ${MARKET_DATA_SCHEDULE_POLL_MS:-60000}
+      MARKET_DATA_SCHEDULE_INITIAL_DELAY_MS: ${MARKET_DATA_SCHEDULE_INITIAL_DELAY_MS:-30000}
+
+      PORTFOLIO_REPORT_WEEKLY_ENABLED: ${PORTFOLIO_REPORT_WEEKLY_ENABLED:-true}
+      PORTFOLIO_REPORT_WEEKLY_CRON: ${PORTFOLIO_REPORT_WEEKLY_CRON:-0 30 17 * * FRI}
+      PORTFOLIO_REPORT_TIMEZONE: ${PORTFOLIO_REPORT_TIMEZONE:-America/Bogota}
+      PORTFOLIO_REPORT_BROWSER_EXECUTABLE: ${PORTFOLIO_REPORT_BROWSER_EXECUTABLE:-}
+
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
+      WHATSAPP_SERVICE_URL: http://whatsapp-web:3001
+      WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:?WHATSAPP_INTERNAL_TOKEN es obligatorio}
+      WHATSAPP_DEFAULT_RECIPIENT: ${WHATSAPP_DEFAULT_RECIPIENT:-}
+      WHATSAPP_CONNECT_TIMEOUT_SECONDS: ${WHATSAPP_CONNECT_TIMEOUT_SECONDS:-3}
+      WHATSAPP_READ_TIMEOUT_SECONDS: ${WHATSAPP_READ_TIMEOUT_SECONDS:-45}
+    shm_size: "256mb"
+    depends_on:
+      database:
+        condition: service_healthy
+      whatsapp-web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8080/actuator/health | grep -q UP
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - porbe-internal
 
   frontend:
     build:
       context: ./frontend
     ports:
-      - "${PORBE_WEB_PORT:-3000}:80"
+      - "${PORBE_BIND_ADDRESS:-127.0.0.1}:${PORBE_WEB_PORT}:80"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1/ >/dev/null
       interval: 10s
       timeout: 5s
-      retries: 6
+      retries: 8
     restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - porbe-internal
+
+networks:
+  porbe-internal:
+    driver: bridge
 
 volumes:
   porbe-postgres-data:
