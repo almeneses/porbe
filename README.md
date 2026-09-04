@@ -18,7 +18,7 @@ Seguimiento y análisis de portafolios de inversión, inicialmente enfocado en a
 
 - Plantilla oficial descargable desde la pantalla **Importar portafolio**.
 - Importación `.xlsx` transaccional: si alguna fila es inválida no se guarda ninguna operación.
-- Validación de encabezados, fechas en formato `dd/mm/aaaa`, `aaaa-mm-dd` o como fecha nativa de Excel, tipos de operación, ticker Yahoo, valores numéricos y coherencia del total.
+- Validación de encabezados, fechas en formato `dd-mm-aaaa`, `dd/mm/aaaa`, `aaaa-mm-dd` o como fecha nativa de Excel, tipos de operación, ticker Yahoo, valores numéricos y coherencia del total.
 - Prevención de importaciones duplicadas mediante la huella SHA-256 del archivo.
 - Consulta de las últimas 200 operaciones en tabla para computador y tarjetas para móvil.
 - Mensajes y errores de validación completamente en español.
@@ -27,7 +27,7 @@ El archivo contiene las hojas `Instrucciones`, `Operaciones` y `Ejemplos`. La ho
 
 | Columna | Regla principal |
 | --- | --- |
-| `fecha` | Fecha de la operación en `dd/mm/aaaa` o `aaaa-mm-dd`; también admite una fecha nativa de Excel y no puede estar en el futuro. |
+| `fecha` | Fecha de la operación en `dd-mm-aaaa`, `dd/mm/aaaa` o `aaaa-mm-dd`; también admite una fecha nativa de Excel y no puede estar en el futuro. |
 | `operación` | `compra`, `venta`, `dividendo`, `depósito` o `retiro`. |
 | `ticker` | Símbolo de Yahoo Finance, por ejemplo `ECOPETROL.CL`. |
 | `nombre` | Nombre del activo. |
