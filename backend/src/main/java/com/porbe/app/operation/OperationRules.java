@@ -64,7 +64,7 @@ public class OperationRules {
         validatePositiveDecimal(data.quantity(), 8, "quantity", "La cantidad", errors);
         validatePositiveDecimal(data.unitPrice(), 8, "unitPrice", "El precio", errors);
         validateMoney(data.commission(), true, "commission", "La comisión", errors);
-        validateMoney(data.totalAmount(), false, "totalAmount", "El total", errors);
+        validateMoney(data.totalAmount(), true, "totalAmount", "El total", errors);
         if (data.type() != null) {
             validateByType(data, errors);
         }
@@ -134,7 +134,7 @@ public class OperationRules {
             String field,
             String label,
             List<OperationFieldError> errors) {
-        if (value != null && (value.signum() <= 0 || decimalScale(value) > scale)) {
+        if (value != null && (value.signum() < 0 || decimalScale(value) > scale)) {
             errors.add(error(field, label + " debe ser mayor que 0 y tener máximo " + scale + " decimales."));
         }
     }
