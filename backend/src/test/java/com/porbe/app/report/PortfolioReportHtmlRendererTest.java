@@ -83,8 +83,10 @@ class PortfolioReportHtmlRendererTest {
                 "Mantener una mezcla de empresas ayuda a repartir el riesgo."));
 
         assertThat(html)
-                .contains("COMENTARIO DE PRUEBA")
+                .contains("COMENTARIO DEL PERIODO")
+                .contains("Lo más importante de este periodo")
                 .contains("Tu portafolio creció y recibió dividendos.")
+                .contains("Mantener una mezcla de empresas ayuda a repartir el riesgo.")
                 .doesNotContain("th:text", "th:if", "${report");
     }
 
