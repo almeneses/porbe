@@ -108,3 +108,71 @@ jobs:
 
       - name: Revisar vulnerabilidades críticas
         run: npm audit --omit=dev --audit-level=critical
+
+  deploy:
+    name: Desplegar en producción
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs:
+      - backend
+      - frontend
+      - whatsapp
+    runs-on: ubuntu-24.04
+    environment: prod
+    timeout-minutes: 30
+    concurrency:
+      group: porbe-prod
+      cancel-in-progress: false
+
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v6
+
+      - name: Preparar conexión SSH
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/porbe_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/porbe_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Copiar versión al servidor
+        run: |
+          RELEASE_DIR="/opt/porbe/releases/$GITHUB_SHA"
+
+          ssh -i "$HOME/.ssh/porbe_deploy" -p "$VPS_PORT" \
+            "$VPS_USER@$VPS_HOST" "mkdir -p '$RELEASE_DIR'"
+
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude 'backend/target/' \
+            --exclude 'frontend/node_modules/' \
+            --exclude 'frontend/dist/' \
+            --exclude 'whatsapp-service/node_modules/' \
+            -e "ssh -i $HOME/.ssh/porbe_deploy -p $VPS_PORT" \
+            ./ "$VPS_USER@$VPS_HOST:$RELEASE_DIR/"
+
+      - name: Construir e iniciar Porbe
+        run: |
+          RELEASE_DIR="/opt/porbe/releases/$GITHUB_SHA"
+
+          ssh -i "$HOME/.ssh/porbe_deploy" -p "$VPS_PORT" \
+            "$VPS_USER@$VPS_HOST" "
+              set -eu
+              cd '$RELEASE_DIR'
+              docker compose --env-file /opt/porbe/config/porbe.env \
+                -f compose.prod.yaml config --quiet
+              docker compose --env-file /opt/porbe/config/porbe.env \
+                -f compose.prod.yaml build --pull
+              docker compose --env-file /opt/porbe/config/porbe.env \
+                -f compose.prod.yaml up -d --remove-orphans --wait
+              ln -sfn '$RELEASE_DIR' /opt/porbe/current
+              docker compose --env-file /opt/porbe/config/porbe.env \
+                -f compose.prod.yaml ps
+            "
