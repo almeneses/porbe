@@ -117,6 +117,7 @@ jobs:
       - frontend
       - whatsapp
     runs-on: ubuntu-24.04
+    
     environment: prod
     timeout-minutes: 30
     concurrency:
