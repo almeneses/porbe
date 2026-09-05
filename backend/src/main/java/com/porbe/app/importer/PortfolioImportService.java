@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
@@ -326,18 +327,11 @@ public class PortfolioImportService {
             return null;
         }
         try {
-            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                return cell.getLocalDateTimeCellValue().toLocalDate();
-            }
-            if (cell.getCellType() == CellType.FORMULA) {
-                var evaluated = evaluator.evaluate(cell);
-                if (evaluated != null
-                        && evaluated.getCellType() == CellType.NUMERIC
-                        && DateUtil.isCellDateFormatted(cell)) {
-                    return DateUtil.getLocalDateTime(evaluated.getNumberValue()).toLocalDate();
-                }
-            }
-            var text = readText(cell, evaluator);
+            var formattedDate = (cell.getCellType() == CellType.NUMERIC || cell.getCellType() == CellType.FORMULA)
+                    && DateUtil.isCellDateFormatted(cell);
+            var text = formattedDate
+                    ? new DataFormatter(Locale.forLanguageTag("es-CO")).formatCellValue(cell, evaluator).trim()
+                    : readText(cell, evaluator);
             for (var formatter : ACCEPTED_DATE_FORMATS) {
                 try {
                     return LocalDate.parse(text, formatter);
