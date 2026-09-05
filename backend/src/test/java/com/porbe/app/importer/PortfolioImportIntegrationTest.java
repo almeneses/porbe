@@ -116,6 +116,26 @@ class PortfolioImportIntegrationTest {
     }
 
     @Test
+    void interpretsDisplayedExcelDateAsDayMonthYear() throws Exception {
+        var rows = validRows();
+        rows.set(0, new Object[] {
+                LocalDate.of(2026, 8, 4), "compra", "ECOPETROL.CL", "Ecopetrol",
+                100d, 1850d, 15000d, 200000d, "Excel muestra 08/04/2026"
+        });
+
+        mockMvc.perform(multipart("/api/portfolio-import")
+                        .file(workbookFile(rows, "portafolio-fecha-ambigua.xlsx", "mm/dd/yyyy"))
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        org.assertj.core.api.Assertions.assertThat(operationRepository.findAll())
+                .extracting(operation -> operation.getDate())
+                .contains(LocalDate.of(2026, 4, 8));
+    }
+
+    @Test
     void explainsAcceptedDateFormats() throws Exception {
         var rows = validRows();
         rows.set(0, new Object[] {
@@ -182,10 +202,14 @@ class PortfolioImportIntegrationTest {
     }
 
     private MockMultipartFile workbookFile(List<Object[]> rows, String filename) throws IOException {
+        return workbookFile(rows, filename, "dd/mm/yyyy");
+    }
+
+    private MockMultipartFile workbookFile(List<Object[]> rows, String filename, String dateFormat) throws IOException {
         try (var workbook = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Operaciones");
             var dateStyle = workbook.createCellStyle();
-            dateStyle.setDataFormat(workbook.createDataFormat().getFormat("dd/mm/yyyy"));
+            dateStyle.setDataFormat(workbook.createDataFormat().getFormat(dateFormat));
             var header = sheet.createRow(0);
             var headers = List.of(
                     "fecha",

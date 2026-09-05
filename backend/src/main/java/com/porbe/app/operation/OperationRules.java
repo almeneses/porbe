@@ -121,7 +121,7 @@ public class OperationRules {
             BigDecimal expected,
             BigDecimal actual,
             List<OperationFieldError> errors) {
-        if (expected.signum() <= 0) {
+        if (expected.signum() < 0) {
             errors.add(error("totalAmount", "El cálculo de la operación debe producir un total positivo."));
         } else if (expected.subtract(actual).abs().compareTo(TOTAL_TOLERANCE) > 0) {
             errors.add(error("totalAmount", "El total no coincide con cantidad × precio y la comisión."));
