@@ -280,7 +280,8 @@
         .impact h2,
         .chart-card h2,
         .composition h2,
-        .movements h2 {
+        .movements h2,
+        .note h2 {
             font-family: Georgia, "Times New Roman", serif;
             font-size: 31px;
         }
@@ -509,6 +510,25 @@
         .movement-detail { margin-top: 6px; color: var(--text-soft); font-size: 15px; }
         .empty-movements { margin-top: 50px; color: var(--text-soft); font-size: 19px; }
 
+        .note {
+            margin-top: 30px;
+            padding: 31px 32px;
+            break-inside: avoid;
+        }
+
+        .note h2 { margin-top: 10px; }
+        .note-body { margin-top: 18px; font-size: 18px; line-height: 1.55; }
+        .note-suggestion {
+            margin-top: 18px;
+            padding: 16px 18px;
+            border-left: 7px solid var(--gold);
+            border-radius: 12px;
+            background: #f8f5ef;
+            color: var(--text-soft);
+            font-size: 17px;
+            line-height: 1.45;
+        }
+
         .report-footer {
             justify-content: space-between;
             height: 100px;
@@ -720,6 +740,15 @@
                     </div>
                 </article>
             </div>
+        </section>
+
+        <section class="card note" th:if="${report.note() != null}" th:with="note=${report.note()}">
+            <p class="eyebrow">COMENTARIO DEL PERIODO</p>
+            <h2 th:text="${note.title()}">Lo más importante de este periodo</h2>
+            <p class="note-body" th:text="${note.body()}">Resumen sencillo del comportamiento del portafolio.</p>
+            <p class="note-suggestion"
+               th:if="${note.suggestion() != null and !note.suggestion().isBlank()}"
+               th:text="${note.suggestion()}">Una recomendación sencilla para tener en cuenta.</p>
         </section>
     </main>
 
