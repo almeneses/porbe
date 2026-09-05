@@ -117,10 +117,11 @@ jobs:
       - frontend
       - whatsapp
     runs-on: ubuntu-24.04
-    environment: production
+    
+    environment: prod
     timeout-minutes: 30
     concurrency:
-      group: porbe-production
+      group: porbe-prod
       cancel-in-progress: false
 
     env:
