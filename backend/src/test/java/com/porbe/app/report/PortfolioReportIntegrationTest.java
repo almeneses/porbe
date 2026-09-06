@@ -24,9 +24,11 @@ import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
 import com.porbe.app.portfolio.PortfolioRepository;
 import com.porbe.app.portfolio.PortfolioService;
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,9 +90,16 @@ class PortfolioReportIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("image/png"))
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")))
-                .andExpect(result -> org.junit.jupiter.api.Assertions.assertArrayEquals(
-                        new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47},
-                        java.util.Arrays.copyOf(result.getResponse().getContentAsByteArray(), 4)));
+                .andExpect(result -> {
+                    var bytes = result.getResponse().getContentAsByteArray();
+                    org.junit.jupiter.api.Assertions.assertArrayEquals(
+                            new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47},
+                            java.util.Arrays.copyOf(bytes, 4));
+                    org.junit.jupiter.api.Assertions.assertEquals(
+                            PortfolioReportArtifactRenderer.REPORT_WIDTH
+                                    * PortfolioReportArtifactRenderer.IMAGE_SCALE,
+                            ImageIO.read(new ByteArrayInputStream(bytes)).getWidth());
+                });
 
         mockMvc.perform(get("/api/reports/{id}/pdf", id).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())

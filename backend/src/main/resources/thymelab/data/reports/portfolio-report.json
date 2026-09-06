@@ -1,0 +1,163 @@
+{
+  "reportStyles": "@import url('/reports/portfolio-report.css');",
+  "report": {
+    "portfolioName": "PORTAFOLIO FAMILIAR",
+    "period": "1 Ago 2026 - 31 Ago 2026",
+    "statusLabel": "DATOS AL DÍA",
+    "statusTone": "positive",
+    "periodGain": "+$ 1.482.600",
+    "periodReturn": "+4,32%",
+    "periodTone": "positive",
+    "bestImpact": {
+      "available": true,
+      "ticker": "ECOPETROL.CL",
+      "name": "Ecopetrol",
+      "result": "Sumó $ 890 mil",
+      "tone": "positive",
+      "initials": "EC",
+      "iconDataUri": null
+    },
+    "worstImpact": {
+      "available": true,
+      "ticker": "PFBCOLOM.CL",
+      "name": "Bancolombia preferencial",
+      "result": "Restó $ 260 mil",
+      "tone": "negative",
+      "initials": "PF",
+      "iconDataUri": null
+    },
+    "accumulatedDividends": "$ 1,4 M",
+    "accumulatedGain": "$ 6,5 M",
+    "totalPerformance": "23,54%",
+    "netContributions": "$ 31,6 M",
+    "historicalChart": {
+      "empty": false,
+      "portfolioPoints": "100.00,167.68 176.67,149.61 253.33,147.55 330.00,132.06 406.67,118.65 483.33,99.03 560.00,82.52 636.67,58.77 713.33,41.23 790.00,10.00",
+      "contributionPoints": "100.00,168.71 176.67,150.65 253.33,150.65 330.00,142.90 406.67,132.58 483.33,119.68 560.00,104.19 636.67,91.29 713.33,75.81 790.00,46.90",
+      "areaPoints": "100.00,210.00 100.00,167.68 176.67,149.61 253.33,147.55 330.00,132.06 406.67,118.65 483.33,99.03 560.00,82.52 636.67,58.77 713.33,41.23 790.00,10.00 790.00,210.00",
+      "firstDate": "19 ene 24",
+      "lastDate": "28 ago 26",
+      "portfolioEnd": {
+        "pointX": 790,
+        "pointY": 10,
+        "labelX": 804,
+        "labelY": 16,
+        "value": "$ 38,8 M"
+      },
+      "contributionEnd": {
+        "pointX": 790,
+        "pointY": 46.9,
+        "labelX": 804,
+        "labelY": 46.9,
+        "value": "$ 31,6 M"
+      },
+      "gridLines": [
+        { "y": 10, "label": "$ 38,8 M" },
+        { "y": 60, "label": "$ 29,1 M" },
+        { "y": 110, "label": "$ 19,4 M" },
+        { "y": 160, "label": "$ 9,7 M" },
+        { "y": 210, "label": "$ 0" }
+      ]
+    },
+    "gainsByAsset": [
+      { "name": "Ecopetrol", "amount": "+$ 3,1 M", "width": "100.00%", "tone": "positive", "color": "#6f5bd3" },
+      { "name": "Grupo Sura", "amount": "+$ 1,8 M", "width": "58.97%", "tone": "positive", "color": "#268bd2" },
+      { "name": "ISA", "amount": "+$ 1,3 M", "width": "40.38%", "tone": "positive", "color": "#2d896c" },
+      { "name": "Bancolombia preferencial", "amount": "-$ 420 mil", "width": "13.46%", "tone": "negative", "color": "#e76f51" }
+    ],
+    "dividendsByAsset": [
+      { "name": "Ecopetrol", "amount": "$ 680 mil", "width": "100.00%", "tone": "", "color": "#6f5bd3" },
+      { "name": "ISA", "amount": "$ 390 mil", "width": "57.35%", "tone": "", "color": "#268bd2" },
+      { "name": "Bancolombia preferencial", "amount": "$ 230 mil", "width": "33.82%", "tone": "", "color": "#2d896c" },
+      { "name": "Grupo Sura", "amount": "$ 120 mil", "width": "17.65%", "tone": "", "color": "#e76f51" }
+    ],
+    "assetAllocation": [
+      {
+        "key": "ECOPETROL.CL",
+        "name": "Ecopetrol",
+        "percentage": "34%",
+        "color": "#6f5bd3",
+        "donutDash": "34.0000 66.0000",
+        "donutOffset": "0.0000",
+        "donutLabelX": 191.86,
+        "donutLabelY": 80.47
+      },
+      {
+        "key": "PFBCOLOM.CL",
+        "name": "Bancolombia preferencial",
+        "percentage": "27%",
+        "color": "#268bd2",
+        "donutDash": "27.0000 73.0000",
+        "donutOffset": "-34.0000",
+        "donutLabelX": 132.83,
+        "donutLabelY": 200.99
+      },
+      {
+        "key": "GRUPOSURA.CL",
+        "name": "Grupo Sura",
+        "percentage": "22%",
+        "color": "#2d896c",
+        "donutDash": "22.0000 78.0000",
+        "donutOffset": "-61.0000",
+        "donutLabelX": 39.45,
+        "donutLabelY": 135.37
+      },
+      {
+        "key": "ISA.CL",
+        "name": "ISA",
+        "percentage": "17%",
+        "color": "#e76f51",
+        "donutDash": "17.0000 83.0000",
+        "donutOffset": "-83.0000",
+        "donutLabelX": 78.26,
+        "donutLabelY": 49.43
+      }
+    ],
+    "movementCount": 4,
+    "movements": [
+      {
+        "type": "compra",
+        "ticker": "ECOPETROL.CL",
+        "title": "Compra · ECOPETROL.CL",
+        "detail": "120 acciones · $ 3,1 M",
+        "tone": "positive",
+        "initials": "EC",
+        "iconDataUri": null
+      },
+      {
+        "type": "venta",
+        "ticker": "PFBCOLOM.CL",
+        "title": "Venta · PFBCOLOM.CL",
+        "detail": "18 acciones · $ 716,4 mil",
+        "tone": "negative",
+        "initials": "PF",
+        "iconDataUri": null
+      },
+      {
+        "type": "dividendo",
+        "ticker": "ISA.CL",
+        "title": "Dividendo · ISA.CL",
+        "detail": "$ 186,5 mil",
+        "tone": "accent",
+        "initials": "IS",
+        "iconDataUri": null
+      },
+      {
+        "type": "depósito",
+        "ticker": null,
+        "title": "Depósito",
+        "detail": "$ 1,5 M",
+        "tone": "positive",
+        "initials": null,
+        "iconDataUri": null
+      }
+    ],
+    "note": {
+      "title": "Un mes tranquilo y con buen crecimiento",
+      "body": "Tu portafolio terminó el periodo por encima de donde comenzó. Ecopetrol fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
+      "suggestion": "Para el próximo mes: no necesitas hacer cambios apresurados. Mantener el dinero repartido entre diferentes tipos de empresas ayuda a que una sola caída tenga menos efecto."
+    },
+    "valuationMessage": "Precios actualizados hasta el 28 ago 2026",
+    "valuationTone": "neutral"
+  }
+}

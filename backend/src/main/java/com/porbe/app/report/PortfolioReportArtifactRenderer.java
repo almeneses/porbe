@@ -20,6 +20,7 @@ public class PortfolioReportArtifactRenderer {
 
     static final int REPORT_WIDTH = 1080;
     static final int INITIAL_REPORT_HEIGHT = 2280;
+    static final int IMAGE_SCALE = 2;
     private static final List<Path> LOCAL_BROWSER_CANDIDATES = List.of(
             Path.of("/snap/bin/chromium"),
             Path.of("/usr/bin/chromium"),
@@ -57,7 +58,7 @@ public class PortfolioReportArtifactRenderer {
              var browser = playwright.chromium().launch(launchOptions())) {
             var page = browser.newPage(new Browser.NewPageOptions()
                     .setViewportSize(REPORT_WIDTH, INITIAL_REPORT_HEIGHT)
-                    .setDeviceScaleFactor(1));
+                    .setDeviceScaleFactor(IMAGE_SCALE));
             page.setContent(html, new Page.SetContentOptions().setWaitUntil(WaitUntilState.LOAD));
             page.evaluate("() => document.fonts.ready");
 

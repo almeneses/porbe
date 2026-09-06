@@ -3,565 +3,8 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title th:text="'Informe de ' + ${report.portfolioName()}">Informe del portafolio</title>
-    <style>
-        :root {
-            --background: #f5f1e9;
-            --surface: #fffdf9;
-            --text: #172a36;
-            --text-soft: #68746f;
-            --border: #ded7cc;
-            --gold: #c49a3a;
-            --navy: #0d3755;
-            --navy-deep: #0a304a;
-            --green: #2d896c;
-            --green-soft: #dcefe8;
-            --coral: #c84b43;
-            --coral-soft: #f5dfdc;
-            --report-width: 1080px;
-        }
-
-        * { box-sizing: border-box; }
-
-        html,
-        body {
-            width: var(--report-width);
-            margin: 0;
-            padding: 0;
-            background: var(--background);
-            color: var(--text);
-            font-family: Inter, Aptos, "Segoe UI", Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        h1, h2, h3, p { margin: 0; }
-
-        .report {
-            width: var(--report-width);
-            min-height: 2280px;
-            overflow: hidden;
-            background:
-                radial-gradient(circle at 92% 12%, rgba(196, 154, 58, 0.13), transparent 18%),
-                radial-gradient(circle at 7% 74%, rgba(45, 137, 108, 0.09), transparent 16%),
-                var(--background);
-        }
-
-        .report-header {
-            position: relative;
-            height: 250px;
-            padding: 42px 60px 34px;
-            overflow: hidden;
-            background: var(--navy);
-            color: var(--surface);
-        }
-
-        .report-header::before {
-            content: "";
-            position: absolute;
-            inset: 0 auto 0 0;
-            width: 18px;
-            background: var(--gold);
-        }
-
-        .report-header::after {
-            content: "";
-            position: absolute;
-            width: 390px;
-            height: 390px;
-            right: -115px;
-            top: -245px;
-            border: 58px solid rgba(255, 255, 255, 0.05);
-            border-radius: 50%;
-        }
-
-        .brand-row,
-        .title-row,
-        .summary-values,
-        .impact-grid,
-        .impact-asset,
-        .section-heading,
-        .legend,
-        .breakdown-heading,
-        .breakdown-label,
-        .movement-heading,
-        .movement-item,
-        .report-footer {
-            display: flex;
-            align-items: center;
-        }
-
-        .brand-row {
-            position: relative;
-            z-index: 1;
-            gap: 24px;
-        }
-
-        .brand-mark {
-            position: relative;
-            width: 76px;
-            height: 76px;
-            flex: 0 0 76px;
-            border-radius: 20px;
-            background: var(--gold);
-        }
-
-        .brand-mark span {
-            position: absolute;
-            width: 6px;
-            border-radius: 6px;
-            background: var(--navy-deep);
-            transform-origin: bottom center;
-        }
-
-        .brand-mark span:nth-child(1) { left: 23px; top: 37px; height: 20px; transform: rotate(40deg); }
-        .brand-mark span:nth-child(2) { left: 38px; top: 27px; height: 25px; transform: rotate(-43deg); }
-        .brand-mark span:nth-child(3) { left: 51px; top: 17px; height: 34px; transform: rotate(22deg); }
-
-        .brand-name {
-            max-width: 610px;
-            overflow: hidden;
-            color: var(--surface);
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 31px;
-            font-weight: 700;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .brand-subtitle {
-            margin-top: 8px;
-            color: #adc0cb;
-            font-size: 17px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-        }
-
-        .status-badge {
-            margin-left: auto;
-            padding: 10px 16px;
-            border-radius: 999px;
-            background: var(--green-soft);
-            color: var(--green);
-            font-size: 15px;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-        }
-
-        .status-badge.negative {
-            background: var(--coral-soft);
-            color: var(--coral) !important;
-        }
-
-        .title-row {
-            position: relative;
-            z-index: 1;
-            justify-content: space-between;
-            margin-top: 38px;
-        }
-
-        h1 {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 49px;
-            line-height: 1;
-        }
-
-        .period {
-            align-self: flex-end;
-            color: #d8c997;
-            font-size: 24px;
-        }
-
-        main { padding: 0.5rem 1rem 0; }
-
-        .card {
-            border: 1.5px solid var(--border);
-            border-radius: 26px;
-            background: var(--surface);
-            box-shadow: 3px 8px 0 rgba(23, 42, 54, 0.045);
-        }
-
-        .eyebrow {
-            color: var(--gold);
-            font-size: 1rem;
-            font-weight: 800;
-            letter-spacing: 0.07em;
-        }
-
-        .positive { color: var(--green) !important; }
-        .negative { color: var(--coral) !important; }
-        .neutral { color: var(--text-soft) !important; }
-        .accent { color: var(--gold) !important; }
-
-        .summary {
-            height: 220px;
-            padding: 36px 34px 28px;
-        }
-
-        .summary h2 {
-            margin-top: 12px;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 34px;
-        }
-
-        .summary-values {
-            justify-content: space-between;
-            margin-top: 25px;
-        }
-
-        .summary-value {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 46px;
-            font-weight: 700;
-        }
-
-        .summary-label {
-            margin-top: 5px;
-            color: var(--text-soft);
-            font-size: 17px;
-            font-weight: 700;
-        }
-
-        .summary-percent { text-align: right; }
-
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            margin-top: 30px;
-        }
-
-        .kpi {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
-            align-items: center;
-            column-gap: 12px;
-            padding: 1rem;
-        }
-
-        .kpi-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-            background: var(--green-soft);
-            color: var(--green);
-            font-size: 24px;
-            font-weight: 800;
-        }
-
-        .kpi-value {
-            margin-top: 0;
-            color: var(--navy);
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 2rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .kpi-label {
-            grid-column: 1 / -1;
-            margin-top: 7px;
-            color: var(--text-soft);
-            font-size: 16px;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-
-        .impact {
-            height: 310px;
-            margin-top: 30px;
-            padding: 31px 32px;
-        }
-
-        .impact h2,
-        .chart-card h2,
-        .composition h2,
-        .movements h2,
-        .note h2 {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 31px;
-        }
-
-        .section-subtitle {
-            margin-top: 6px;
-            color: var(--text-soft);
-            font-size: 16px;
-        }
-
-        .impact-grid {
-            gap: 22px;
-            margin-top: 25px;
-        }
-
-        .impact-box {
-            width: calc(50% - 11px);
-            min-width: 0;
-            padding: 18px 20px;
-            border-radius: 20px;
-            background: #f8f5ef;
-        }
-
-        .impact-caption {
-            color: var(--text-soft);
-            font-size: 16px;
-            font-weight: 800;
-        }
-
-        .impact-asset { margin-top: 13px; }
-
-        .ticker-avatar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 88px;
-            height: 88px;
-            margin-right: 18px;
-            overflow: hidden;
-            flex: 0 0 88px;
-            border-radius: 50%;
-            background: var(--green);
-            color: white;
-            font-size: 28px;
-            font-weight: 800;
-        }
-
-        .ticker-avatar.negative { background: var(--coral); color: white !important; }
-        .ticker-avatar.positive { background: var(--green); color: white !important; }
-        .ticker-avatar.neutral { background: var(--text-soft); color: white !important; }
-
-        .ticker-avatar img {
-            width: 100%;
-            height: 100%;
-            border: 2px solid var(--border);
-            border-radius: inherit;
-            object-fit: cover;
-            background: white;
-        }
-
-        .impact-copy { min-width: 0; }
-
-        .impact-name,
-        .impact-ticker {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .impact-name {
-            display: -webkit-box;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 23px;
-            font-weight: 700;
-            line-height: 1.12;
-            white-space: normal;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
-        }
-
-        .impact-ticker {
-            margin-top: 5px;
-            color: var(--text-soft);
-            font-size: 15px;
-        }
-
-        .impact-result {
-            margin-top: 11px;
-            font-size: 25px;
-            font-weight: 800;
-        }
-
-        .impact-empty .impact-name {
-            overflow: visible;
-            text-overflow: clip;
-        }
-
-        .chart-card {
-            height: 430px;
-            margin-top: 30px;
-            padding: 30px 32px 25px;
-        }
-
-        .section-heading { justify-content: space-between; }
-
-        .legend { gap: 25px; color: var(--text-soft); font-size: 15px; font-weight: 700; }
-        .legend-item { display: flex; align-items: center; gap: 9px; }
-        .legend-line { width: 31px; height: 7px; border-radius: 7px; background: var(--gold); }
-        .legend-line.contributions { height: 4px; background: var(--text-soft); }
-
-        .chart { position: relative; height: 300px; margin-top: 18px; }
-        .chart svg { display: block; width: 100%; height: 260px; overflow: visible; }
-        .chart-grid { stroke: var(--border); stroke-width: 1; }
-        .chart-grid-label { fill: var(--text-soft); font-family: Inter, Aptos, Arial, sans-serif; font-size: 14px; }
-        .portfolio-area { fill: rgba(196, 154, 58, 0.16); }
-        .portfolio-line { fill: none; stroke: var(--gold); stroke-linecap: round; stroke-linejoin: round; stroke-width: 7; }
-        .contribution-line { fill: none; stroke: var(--text-soft); stroke-linecap: round; stroke-linejoin: round; stroke-width: 4; }
-        .chart-empty { display: flex; align-items: center; justify-content: center; height: 250px; color: var(--text-soft); font-size: 20px; }
-        .chart-dates { display: flex; justify-content: space-between; margin: 7px 0 0 100px; color: var(--text-soft); font-size: 16px; font-weight: 600; }
-
-        .composition {
-            height: 370px;
-            margin-top: 30px;
-            padding: 28px 32px;
-        }
-
-        .composition-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 34px;
-            margin-top: 20px;
-        }
-
-        .composition-column h3 {
-            color: var(--text-soft);
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-        .breakdown-list { margin-top: 13px; }
-        .breakdown-row + .breakdown-row { margin-top: 9px; }
-        .breakdown-heading { justify-content: space-between; margin-bottom: 6px; }
-        .breakdown-label { min-width: 0; flex: 1 1 auto; gap: 9px; }
-
-        .breakdown-avatar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            overflow: hidden;
-            flex: 0 0 36px;
-            border-radius: 50%;
-            background: var(--navy);
-            color: white;
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .breakdown-avatar img { width: 100%; height: 100%; object-fit: cover; background: white; }
-        .breakdown-name { min-width: 0; overflow: hidden; flex: 1 1 auto; font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-        .breakdown-percentage { margin-left: 10px; color: var(--navy); flex: 0 0 auto; font-size: 16px; font-weight: 800; }
-        .breakdown-track { height: 8px; margin-left: 45px; overflow: hidden; border-radius: 8px; background: #e9e3d9; }
-        .breakdown-fill { height: 100%; border-radius: inherit; background: var(--gold); }
-        .composition-column:nth-child(2) .breakdown-fill { background: var(--green); }
-        .empty-breakdown { margin-top: 24px; color: var(--text-soft); font-size: 16px; }
-
-        .movements {
-            height: 250px;
-            margin-top: 30px;
-            padding: 28px 32px 24px;
-        }
-
-        .movement-heading { justify-content: space-between; }
-        .movement-count { color: var(--text-soft); font-size: 16px; font-weight: 700; }
-
-        .movement-list {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            column-gap: 38px;
-            row-gap: 17px;
-            margin-top: 27px;
-        }
-
-        .movement-item {
-            position: relative;
-            min-width: 0;
-            height: 56px;
-            padding-left: 18px;
-        }
-
-        .movement-item::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 5px;
-            width: 8px;
-            height: 46px;
-            border-radius: 8px;
-            background: var(--gold);
-        }
-
-        .movement-item.positive::before { background: var(--green); }
-        .movement-item.negative::before { background: var(--coral); }
-
-        .movement-avatar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 50px;
-            height: 50px;
-            margin-right: 12px;
-            overflow: hidden;
-            flex: 0 0 50px;
-            border-radius: 50%;
-            background: var(--gold);
-            color: white;
-            font-size: 15px;
-            font-weight: 800;
-        }
-
-        .movement-avatar img { width: 100%; height: 100%; object-fit: cover; background: white; }
-        .movement-copy { min-width: 0; }
-        .movement-title, .movement-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .movement-title { font-size: 18px; font-weight: 700; }
-        .movement-detail { margin-top: 6px; color: var(--text-soft); font-size: 15px; }
-        .empty-movements { margin-top: 50px; color: var(--text-soft); font-size: 19px; }
-
-        .note {
-            margin-top: 30px;
-            padding: 31px 32px;
-            break-inside: avoid;
-        }
-
-        .note h2 { margin-top: 10px; }
-        .note-body { margin-top: 18px; font-size: 18px; line-height: 1.55; }
-        .note-suggestion {
-            margin-top: 18px;
-            padding: 16px 18px;
-            border-left: 7px solid var(--gold);
-            border-radius: 12px;
-            background: #f8f5ef;
-            color: var(--text-soft);
-            font-size: 17px;
-            line-height: 1.45;
-        }
-
-        .report-footer {
-            justify-content: space-between;
-            height: 100px;
-            padding: 32px 60px 38px;
-            color: var(--text-soft);
-            font-size: 16px;
-        }
-
-        @page { size: A4; margin: 0; }
-
-        @media print {
-            html, body, .report { width: 210mm; }
-            .report { min-height: 0; overflow: visible; }
-            .page-break-before { break-before: page; margin-top: 0; padding-top: 25px; }
-            .chart-card { height: 390px; }
-            .chart { height: 270px; }
-            .chart svg { height: 230px; }
-            .kpi-value { font-size: 28px; }
-            .kpi-label { font-size: 15px; line-height: 1.08; }
-            .impact-grid { margin-top: 15px; }
-            .impact-box { padding: 12px 15px; }
-            .impact-box .ticker-avatar { width: 72px; height: 72px; flex-basis: 72px; }
-            .impact-name { font-size: 20px; }
-            .impact-result { margin-top: 7px; font-size: 22px; }
-            .composition { height: 340px; margin-top: 20px; }
-            .composition-grid { margin-top: 13px; }
-            .breakdown-row + .breakdown-row { margin-top: 7px; }
-            .breakdown-avatar { width: 30px; height: 30px; flex-basis: 30px; }
-            .breakdown-track { margin-left: 39px; }
-            .movements { height: 210px; margin-top: 20px; }
-            .report-footer { height: 80px; padding-top: 22px; padding-bottom: 24px; }
-        }
-    </style>
+    <title th:text="'Informe de ' + ${report.portfolioName}">Informe del portafolio</title>
+    <style th:utext="${reportStyles}"></style>
 </head>
 <body>
 <article class="report" id="portfolio-report">
@@ -569,14 +12,14 @@
         <div class="brand-row">
             <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
             <div>
-                <div class="brand-name" th:text="${report.portfolioName()}">PORTAFOLIO PRINCIPAL</div>
+                <div class="brand-name" th:text="${report.portfolioName}">PORTAFOLIO PRINCIPAL</div>
                 <div class="brand-subtitle">INFORME DE TU PORTAFOLIO</div>
             </div>
-            <span class="status-badge" th:classappend="${report.statusTone()}" th:text="${report.statusLabel()}">DATOS AL DÍA</span>
+            <span class="status-badge" th:classappend="${report.statusTone}" th:text="${report.statusLabel}">DATOS AL DÍA</span>
         </div>
         <div class="title-row">
             <h1>Así va tu dinero</h1>
-            <p class="period" th:text="${report.period()}">1 ene 2026 - 31 ene 2026</p>
+            <p class="period" th:text="${report.period}">1 ene 2026 - 31 ene 2026</p>
         </div>
     </header>
 
@@ -586,66 +29,57 @@
             <h2>¿Cómo te fue durante este periodo?</h2>
             <div class="summary-values">
                 <div>
-                    <p class="summary-value" th:classappend="${report.periodTone()}" th:text="${report.periodGain()}">+$ 0</p>
+                    <p class="summary-value" th:classappend="${report.periodTone}" th:text="${report.periodGain}">+$ 0</p>
                     <p class="summary-label">Resultado en pesos</p>
                 </div>
                 <div class="summary-percent">
-                    <p class="summary-value" th:classappend="${report.periodTone()}" th:text="${report.periodReturn()}">+0,00%</p>
+                    <p class="summary-value" th:classappend="${report.periodTone}" th:text="${report.periodReturn}">+0,00%</p>
                     <p class="summary-label">Cambio en porcentaje</p>
                 </div>
             </div>
-        </section>
-
-        <section class="kpi-grid">
-            <div class="card kpi"><div class="kpi-icon">$</div><div class="kpi-value" th:text="${report.portfolioValue()}">$ 0</div><p class="kpi-label">Valor actual</p></div>
-            <div class="card kpi"><div class="kpi-icon">+</div><div class="kpi-value" th:text="${report.accumulatedGain()}">$ 0</div><p class="kpi-label">Ganancia desde el inicio</p></div>
-            <div class="card kpi"><div class="kpi-icon">♥</div><div class="kpi-value" th:text="${report.accumulatedDividends()}">$ 0</div><p class="kpi-label">Dividendos recibidos</p></div>
-            <div class="card kpi"><div class="kpi-icon">↗</div><div class="kpi-value" th:text="${report.accumulatedReturn()}">0,00%</div><p class="kpi-label">Crecimiento desde el inicio</p></div>
         </section>
 
         <section class="card impact">
             <h2>Las acciones que más cambiaron tu resultado</h2>
             <p class="section-subtitle">Comparamos cuánto sumó o restó cada acción durante estas fechas.</p>
             <div class="impact-grid">
-                <article class="impact-box" th:with="asset=${report.bestImpact()}">
+                <article class="impact-box" th:with="asset=${report.bestImpact}">
                     <p class="impact-caption">La que más ayudó</p>
-                    <div class="impact-asset" th:if="${asset.available()}">
-                        <div class="ticker-avatar" th:classappend="${asset.tone()}">
-                            <img th:if="${asset.iconDataUri() != null}" th:src="${asset.iconDataUri()}" alt=""/>
-                            <span th:unless="${asset.iconDataUri() != null}" th:text="${asset.initials()}">EC</span>
+                    <div class="impact-asset" th:if="${asset.available}">
+                        <div class="ticker-avatar" th:classappend="${asset.tone}">
+                            <img th:if="${asset.iconDataUri != null}" th:src="${asset.iconDataUri}" alt=""/>
+                            <span th:unless="${asset.iconDataUri != null}" th:text="${asset.initials}">EC</span>
                         </div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name()}">Ecopetrol</p>
-                            <p class="impact-ticker" th:text="${asset.ticker()}">ECOPETROL.CL</p>
-                            <p class="impact-result" th:classappend="${asset.tone()}" th:text="${asset.result()}">Sumó $ 0</p>
+                            <p class="impact-name" th:text="${asset.name}">Ecopetrol</p>
+                            <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">+ $ 0</p>
                         </div>
                     </div>
-                    <div class="impact-asset impact-empty" th:unless="${asset.available()}">
-                        <div class="ticker-avatar" th:classappend="${asset.tone()}" th:text="${asset.initials()}">✓</div>
+                    <div class="impact-asset impact-empty" th:unless="${asset.available}">
+                        <div class="ticker-avatar" th:classappend="${asset.tone}" th:text="${asset.initials}">✓</div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name()}">Todavía no hay una acción destacada</p>
-                            <p class="impact-result" th:classappend="${asset.tone()}" th:text="${asset.result()}">Sin aumento registrado</p>
+                            <p class="impact-name" th:text="${asset.name}">Todavía no hay una acción destacada</p>
+                            <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">Sin aumento registrado</p>
                         </div>
                     </div>
                 </article>
-                <article class="impact-box" th:with="asset=${report.worstImpact()}">
+                <article class="impact-box" th:with="asset=${report.worstImpact}">
                     <p class="impact-caption">La que más redujo el resultado</p>
-                    <div class="impact-asset" th:if="${asset.available()}">
-                        <div class="ticker-avatar" th:classappend="${asset.tone()}">
-                            <img th:if="${asset.iconDataUri() != null}" th:src="${asset.iconDataUri()}" alt=""/>
-                            <span th:unless="${asset.iconDataUri() != null}" th:text="${asset.initials()}">PF</span>
+                    <div class="impact-asset" th:if="${asset.available}">
+                        <div class="ticker-avatar" th:classappend="${asset.tone}">
+                            <img th:if="${asset.iconDataUri != null}" th:src="${asset.iconDataUri}" alt=""/>
+                            <span th:unless="${asset.iconDataUri != null}" th:text="${asset.initials}">PF</span>
                         </div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name()}">Acción</p>
-                            <p class="impact-ticker" th:text="${asset.ticker()}">TICKER.CL</p>
-                            <p class="impact-result" th:classappend="${asset.tone()}" th:text="${asset.result()}">Restó $ 0</p>
+                            <p class="impact-name" th:text="${asset.name}">Acción</p>
+                            <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">- $ 0</p>
                         </div>
                     </div>
-                    <div class="impact-asset impact-empty" th:unless="${asset.available()}">
-                        <div class="ticker-avatar" th:classappend="${asset.tone()}" th:text="${asset.initials()}">✓</div>
+                    <div class="impact-asset impact-empty" th:unless="${asset.available}">
+                        <div class="ticker-avatar" th:classappend="${asset.tone}" th:text="${asset.initials}">✓</div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name()}">Ninguna acción redujo el resultado</p>
-                            <p class="impact-result" th:classappend="${asset.tone()}" th:text="${asset.result()}">Buena señal para este periodo</p>
+                            <p class="impact-name" th:text="${asset.name}">Ninguna acción redujo el resultado</p>
+                            <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">Buena señal para este periodo</p>
                         </div>
                     </div>
                 </article>
@@ -658,65 +92,110 @@
                     <h2>Cómo ha cambiado tu portafolio</h2>
                     <p class="section-subtitle">Desde la primera operación hasta la fecha de este informe.</p>
                 </div>
+                
+            </div>
+            
+            <div class="chart" th:with="chart=${report.historicalChart}">
                 <div class="legend">
                     <span class="legend-item"><i class="legend-line"></i>Valor de tu portafolio</span>
                     <span class="legend-item"><i class="legend-line contributions"></i>Dinero que has agregado</span>
                 </div>
-            </div>
-            <div class="chart" th:with="chart=${report.historicalChart()}">
-                <div class="chart-empty" th:if="${chart.empty()}">Aún no hay suficientes datos para mostrar la gráfica.</div>
-                <th:block th:unless="${chart.empty()}">
+                <div class="chart-empty" th:if="${chart.empty}">Aún no hay suficientes datos para mostrar la gráfica.</div>
+                <th:block th:unless="${chart.empty}">
                     <svg viewBox="0 0 900 220" preserveAspectRatio="none" role="img" aria-label="Cambio histórico del portafolio">
-                        <g th:each="grid : ${chart.gridLines()}">
-                            <text class="chart-grid-label" x="0" th:attr="y=${grid.y() + 5}" th:text="${grid.label()}">$ 0</text>
-                            <line class="chart-grid" x1="100" x2="900" th:attr="y1=${grid.y()},y2=${grid.y()}"/>
+                        <g th:each="grid : ${chart.gridLines}">
+                            <text class="chart-grid-label" x="0" th:attr="y=${grid.y + 5}" th:text="${grid.label}">$ 0</text>
+                            <line class="chart-grid" x1="100" x2="900" th:attr="y1=${grid.y},y2=${grid.y}"/>
                         </g>
-                        <polygon class="portfolio-area" th:attr="points=${chart.areaPoints()}"/>
-                        <polyline class="contribution-line" th:attr="points=${chart.contributionPoints()}"/>
-                        <polyline class="portfolio-line" th:attr="points=${chart.portfolioPoints()}"/>
+                        <polygon class="portfolio-area" th:attr="points=${chart.areaPoints}"/>
+                        <polyline class="contribution-line" th:attr="points=${chart.contributionPoints}"/>
+                        <polyline class="portfolio-line" th:attr="points=${chart.portfolioPoints}"/>
+                        <circle class="chart-end-dot contribution" r="6"
+                                th:attr="cx=${chart.contributionEnd.pointX},cy=${chart.contributionEnd.pointY}"/>
+                        <circle class="chart-end-dot portfolio" r="6"
+                                th:attr="cx=${chart.portfolioEnd.pointX},cy=${chart.portfolioEnd.pointY}"/>
+                        <text class="chart-end-label contribution"
+                              th:attr="x=${chart.contributionEnd.labelX},y=${chart.contributionEnd.labelY}"
+                              th:text="${chart.contributionEnd.value}">$ 0</text>
+                        <text class="chart-end-label portfolio"
+                              th:attr="x=${chart.portfolioEnd.labelX},y=${chart.portfolioEnd.labelY}"
+                              th:text="${chart.portfolioEnd.value}">$ 0</text>
                     </svg>
-                    <div class="chart-dates"><span th:text="${chart.firstDate()}"></span><span th:text="${chart.lastDate()}"></span></div>
+                    <div class="chart-dates"><span th:text="${chart.firstDate}"></span><span th:text="${chart.lastDate}"></span></div>
                 </th:block>
             </div>
         </section>
 
-        <section class="card composition">
-            <h2>¿Dónde está invertido tu dinero?</h2>
-            <p class="section-subtitle">Las barras muestran qué parte del portafolio representa cada grupo.</p>
-            <div class="composition-grid">
-                <div class="composition-column">
-                    <h3>Por acción</h3>
-                    <p class="empty-breakdown" th:if="${report.assetAllocation().isEmpty()}">Aún no hay información para mostrar.</p>
-                    <div class="breakdown-list" th:unless="${report.assetAllocation().isEmpty()}">
-                        <div class="breakdown-row" th:each="item : ${report.assetAllocation()}">
-                            <div class="breakdown-heading">
-                                <div class="breakdown-label">
-                                    <span class="breakdown-avatar">
-                                        <img th:if="${item.iconDataUri() != null}" th:src="${item.iconDataUri()}" alt=""/>
-                                        <span th:unless="${item.iconDataUri() != null}" th:text="${item.initials()}">EC</span>
-                                    </span>
-                                    <span class="breakdown-name" th:text="${item.name()}">Ecopetrol</span>
-                                </div>
-                                <span class="breakdown-percentage" th:text="${item.percentage()}">25%</span>
-                            </div>
-                            <div class="breakdown-track"><div class="breakdown-fill" th:style="'width:' + ${item.width()}"></div></div>
+         <section class="kpi-grid">
+            <div class="card kpi"><div class="kpi-icon">↗</div><div class="kpi-value" th:text="${report.totalPerformance}">0,00%</div><p class="kpi-label">Rendimiento total</p></div>
+            <div class="card kpi"><div class="kpi-icon">+</div><div class="kpi-value" th:text="${report.accumulatedGain}">$ 0</div><p class="kpi-label">Ganancia desde el inicio</p></div>
+            <div class="card kpi"><div class="kpi-icon">♥</div><div class="kpi-value" th:text="${report.accumulatedDividends}">$ 0</div><p class="kpi-label">Dividendos recibidos</p></div>
+            <div class="card kpi"><div class="kpi-icon">$</div><div class="kpi-value" th:text="${report.netContributions}">$ 0</div><p class="kpi-label">Dinero aportado</p></div>
+        </section>
+
+
+        <section class="performance-grid" aria-label="Resultados por acción">
+            <article class="card performance-card">
+                <header>
+                    <h3>Ganancias por acción</h3>
+                    <p>Ganancia o pérdida acumulada de cada posición.</p>
+                </header>
+                <p class="performance-empty" th:if="${report.gainsByAsset.isEmpty()}">Aún no hay ganancias o pérdidas para mostrar.</p>
+                <div class="performance-bars" th:unless="${report.gainsByAsset.isEmpty()}">
+                    <div class="performance-bar" th:each="item : ${report.gainsByAsset}">
+                        <div class="performance-heading">
+                            <strong th:text="${item.name}">Ecopetrol</strong>
+                            <span th:classappend="${item.tone}" th:text="${item.amount}">+$ 0</span>
                         </div>
+                        <span class="performance-track"><i class="performance-fill" th:classappend="${item.tone}" th:style="'width:' + ${item.width} + ';background-color:' + ${item.color}"></i></span>
                     </div>
                 </div>
-                <div class="composition-column">
-                    <h3>Por tipo de empresa</h3>
-                    <p class="empty-breakdown" th:if="${report.sectorAllocation().isEmpty()}">Aún no hay información para mostrar.</p>
-                    <div class="breakdown-list" th:unless="${report.sectorAllocation().isEmpty()}">
-                        <div class="breakdown-row" th:each="item : ${report.sectorAllocation()}">
-                            <div class="breakdown-heading">
-                                <div class="breakdown-label">
-                                    <span class="breakdown-avatar" th:text="${item.initials()}">EN</span>
-                                    <span class="breakdown-name" th:text="${item.name()}">Energía</span>
-                                </div>
-                                <span class="breakdown-percentage" th:text="${item.percentage()}">25%</span>
-                            </div>
-                            <div class="breakdown-track"><div class="breakdown-fill" th:style="'width:' + ${item.width()}"></div></div>
+            </article>
+            <article class="card performance-card">
+                <header>
+                    <h3>Dividendos por acción</h3>
+                    <p>Dividendos acumulados recibidos por cada acción.</p>
+                </header>
+                <p class="performance-empty" th:if="${report.dividendsByAsset.isEmpty()}">Aún no hay dividendos para mostrar.</p>
+                <div class="performance-bars" th:unless="${report.dividendsByAsset.isEmpty()}">
+                    <div class="performance-bar" th:each="item : ${report.dividendsByAsset}">
+                        <div class="performance-heading">
+                            <strong th:text="${item.name}">Ecopetrol</strong>
+                            <span th:text="${item.amount}">$ 0</span>
                         </div>
+                        <span class="performance-track"><i class="performance-fill" th:style="'width:' + ${item.width} + ';background-color:' + ${item.color}"></i></span>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="card composition">
+            <h2>¿Dónde está invertido tu dinero?</h2>
+            <p class="section-subtitle">El gráfico muestra qué parte del portafolio representa cada acción.</p>
+            <div class="composition-grid">
+                <div class="composition-column">
+                    <p class="empty-breakdown" th:if="${report.assetAllocation.isEmpty()}">Aún no hay información para mostrar.</p>
+                    <div class="asset-donut-layout" th:unless="${report.assetAllocation.isEmpty()}">
+                        <svg class="asset-donut" viewBox="0 0 240 240" role="img" aria-label="Composición por acción">
+                            <circle class="donut-base" cx="120" cy="120" r="82"/>
+                            <circle class="donut-segment" cx="120" cy="120" r="82" pathLength="100"
+                                    transform="rotate(-90 120 120)"
+                                    th:each="item : ${report.assetAllocation}"
+                                    th:attr="stroke=${item.color},stroke-dasharray=${item.donutDash},stroke-dashoffset=${item.donutOffset}"/>
+                            <text class="donut-percentage" text-anchor="middle" dominant-baseline="middle"
+                                  th:each="item : ${report.assetAllocation}"
+                                  th:attr="x=${item.donutLabelX},y=${item.donutLabelY}"
+                                  th:text="${item.percentage}">25%</text>
+                        </svg>
+                        <ul class="donut-legend">
+                            <li th:each="item : ${report.assetAllocation}">
+                                <i th:style="'background-color:' + ${item.color}"></i>
+                                <span>
+                                    <strong th:text="${item.name}">Ecopetrol</strong>
+                                    <small th:text="${item.key}">ECOPETROL.CL</small>
+                                </span>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -725,35 +204,35 @@
         <section class="card movements">
             <div class="movement-heading">
                 <h2>Lo que pasó durante estas fechas</h2>
-                <p class="movement-count" th:text="${report.movementCount()} + ' movimientos'">0 movimientos</p>
+                <p class="movement-count" th:text="${report.movementCount} + ' movimientos'">0 movimientos</p>
             </div>
-            <p class="empty-movements" th:if="${report.movements().isEmpty()}">No hubo compras, ventas, dividendos, depósitos ni retiros.</p>
-            <div class="movement-list" th:unless="${report.movements().isEmpty()}">
-                <article class="movement-item" th:each="movement : ${report.movements()}" th:classappend="${movement.tone()}">
-                    <div class="movement-avatar" th:if="${movement.ticker() != null}">
-                        <img th:if="${movement.iconDataUri() != null}" th:src="${movement.iconDataUri()}" alt=""/>
-                        <span th:unless="${movement.iconDataUri() != null}" th:text="${movement.initials()}">EC</span>
+            <p class="empty-movements" th:if="${report.movements.isEmpty()}">No hubo compras, ventas, dividendos, depósitos ni retiros.</p>
+            <div class="movement-list" th:unless="${report.movements.isEmpty()}">
+                <article class="movement-item" th:each="movement : ${report.movements}" th:classappend="${movement.tone}">
+                    <div class="movement-avatar" th:if="${movement.ticker != null}">
+                        <img th:if="${movement.iconDataUri != null}" th:src="${movement.iconDataUri}" alt=""/>
+                        <span th:unless="${movement.iconDataUri != null}" th:text="${movement.initials}">EC</span>
                     </div>
                     <div class="movement-copy">
-                        <p class="movement-title" th:text="${movement.title()}">Compra · ECOPETROL.CL</p>
-                        <p class="movement-detail" th:text="${movement.detail()}">10 acciones · $ 1 mil</p>
+                        <p class="movement-title" th:text="${movement.title}">Compra · ECOPETROL.CL</p>
+                        <p class="movement-detail" th:text="${movement.detail}">10 acciones · $ 1 mil</p>
                     </div>
                 </article>
             </div>
         </section>
 
-        <section class="card note" th:if="${report.note() != null}" th:with="note=${report.note()}">
+        <section class="card note" th:if="${report.note != null}" th:with="note=${report.note}">
             <p class="eyebrow">COMENTARIO DEL PERIODO</p>
-            <h2 th:text="${note.title()}">Lo más importante de este periodo</h2>
-            <p class="note-body" th:text="${note.body()}">Resumen sencillo del comportamiento del portafolio.</p>
+            <h2 th:text="${note.title}">Lo más importante de este periodo</h2>
+            <p class="note-body" th:text="${note.body}">Resumen sencillo del comportamiento del portafolio.</p>
             <p class="note-suggestion"
-               th:if="${note.suggestion() != null and !note.suggestion().isBlank()}"
-               th:text="${note.suggestion()}">Una recomendación sencilla para tener en cuenta.</p>
+               th:if="${note.suggestion != null and !note.suggestion.isBlank()}"
+               th:text="${note.suggestion}">Una recomendación sencilla para tener en cuenta.</p>
         </section>
     </main>
 
     <footer class="report-footer">
-        <p th:classappend="${report.valuationTone()}" th:text="${report.valuationMessage()}">Precios actualizados</p>
+        <p th:classappend="${report.valuationTone}" th:text="${report.valuationMessage}">Precios actualizados</p>
         <p>Precios obtenidos de Yahoo Finance</p>
     </footer>
 </article>

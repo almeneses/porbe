@@ -34,6 +34,7 @@ class PortfolioReportHtmlRendererTest {
                 new BigDecimal("20"),
                 new BigDecimal("220"),
                 new BigDecimal("0.11"),
+                new BigDecimal("0.09"),
                 new BigDecimal("2000"),
                 new BigDecimal("1000"),
                 new BigDecimal("2200"),
@@ -42,6 +43,8 @@ class PortfolioReportHtmlRendererTest {
                         LocalDate.of(2026, 1, 5), "compra", "ECOPETROL.CL", "Ecopetrol",
                         BigDecimal.TEN, new BigDecimal("1000"), null)),
                 List.of(point),
+                List.of(new PortfolioReportAssetValue("ECOPETROL.CL", "Ecopetrol", new BigDecimal("200"))),
+                List.of(new PortfolioReportAssetValue("ECOPETROL.CL", "Ecopetrol", new BigDecimal("20"))),
                 List.of(new PortfolioReportAllocation(
                         "ECOPETROL.CL", "Ecopetrol", new BigDecimal("0.75"), null)),
                 List.of(new PortfolioReportAllocation(
@@ -57,11 +60,21 @@ class PortfolioReportHtmlRendererTest {
                 .contains("PORTAFOLIO DE PRUEBA")
                 .contains("Cómo ha cambiado tu portafolio")
                 .contains("La que más ayudó")
+                .contains("Ganancias por acción")
+                .contains("Dividendos por acción")
+                .contains("Rendimiento total")
                 .contains("¿Dónde está invertido tu dinero?")
+                .contains("aria-label=\"Composición por acción\"")
+                .contains("class=\"donut-percentage\"")
+                .contains("class=\"chart-end-label portfolio\"")
+                .contains("<strong>Ecopetrol</strong>")
+                .contains(".report-header")
                 .contains("<svg")
+                .doesNotContain("Por tipo de empresa")
+                .doesNotContain("class=\"impact-ticker\"")
                 .doesNotContain("TWR", "últimos 6 meses")
                 .doesNotContain("COMENTARIO DE PRUEBA")
-                .doesNotContain("th:text", "th:if", "${report");
+                .doesNotContain("th:text", "th:if", "th:utext", "${report");
     }
 
     @Test
@@ -74,8 +87,8 @@ class PortfolioReportHtmlRendererTest {
                 new BigDecimal("200"), new BigDecimal("0.10"),
                 highlight("ECOPETROL.CL", "Ecopetrol", "0.10", "180"), null,
                 new BigDecimal("20"), new BigDecimal("220"), new BigDecimal("0.11"),
-                new BigDecimal("2000"), new BigDecimal("1000"), new BigDecimal("2200"),
-                0, List.of(), List.of(point), List.of(), List.of(), true, 0, 0);
+                new BigDecimal("0.09"), new BigDecimal("2000"), new BigDecimal("1000"), new BigDecimal("2200"),
+                0, List.of(), List.of(point), List.of(), List.of(), List.of(), List.of(), true, 0, 0);
 
         var html = renderer.render(data, new PortfolioReportTemplateModel.Note(
                 "Lo más importante de este periodo",

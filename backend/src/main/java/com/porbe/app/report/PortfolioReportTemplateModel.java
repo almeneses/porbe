@@ -15,13 +15,12 @@ public record PortfolioReportTemplateModel(
         Asset worstImpact,
         String accumulatedDividends,
         String accumulatedGain,
-        String accumulatedReturn,
-        String portfolioValue,
+        String totalPerformance,
         String netContributions,
-        String cashBalance,
         Chart historicalChart,
+        List<Performance> gainsByAsset,
+        List<Performance> dividendsByAsset,
         List<Breakdown> assetAllocation,
-        List<Breakdown> sectorAllocation,
         int movementCount,
         List<Movement> movements,
         Note note,
@@ -47,7 +46,18 @@ public record PortfolioReportTemplateModel(
             String areaPoints,
             String firstDate,
             String lastDate,
+            EndLabel portfolioEnd,
+            EndLabel contributionEnd,
             List<GridLine> gridLines) {
+    }
+
+    /** Valor rotulado al final de una serie del gráfico. */
+    public record EndLabel(
+            double pointX,
+            double pointY,
+            double labelX,
+            double labelY,
+            String value) {
     }
 
     /** Etiqueta y posición vertical de una guía del gráfico. */
@@ -61,9 +71,20 @@ public record PortfolioReportTemplateModel(
             String key,
             String name,
             String percentage,
+            String color,
+            String donutDash,
+            String donutOffset,
+            double donutLabelX,
+            double donutLabelY) {
+    }
+
+    /** Barra proporcional para comparar montos acumulados entre acciones. */
+    public record Performance(
+            String name,
+            String amount,
             String width,
-            String initials,
-            String iconDataUri) {
+            String tone,
+            String color) {
     }
 
     /** Movimiento breve mostrado al final del resumen. */
