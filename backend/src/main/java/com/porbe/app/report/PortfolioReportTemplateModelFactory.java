@@ -20,10 +20,14 @@ public class PortfolioReportTemplateModelFactory {
     private static final DateTimeFormatter CHART_DATE = DateTimeFormatter.ofPattern("dd MMM yy", SPANISH);
     private static final BigDecimal ONE_MILLION = new BigDecimal("1000000");
     private static final BigDecimal ONE_THOUSAND = new BigDecimal("1000");
-    private static final double CHART_WIDTH = 900d;
+    private static final int RATE_SCALE = 8;
+    private static final double CHART_RIGHT = 790d;
     private static final double CHART_LEFT = 100d;
     private static final double CHART_TOP = 10d;
     private static final double CHART_BOTTOM = 210d;
+    private static final String[] CHART_COLORS = {
+        "#6f5bd3", "#268bd2", "#2d896c", "#e76f51", "#d3a52f", "#9b4dca", "#0f9d8a", "#d1495b"
+    };
 
     public PortfolioReportTemplateModel create(PortfolioReportData data) {
         return create(data, null);
@@ -46,18 +50,42 @@ public class PortfolioReportTemplateModelFactory {
                 impactAsset(data.worstPeriodImpact(), false),
                 compactMoney(data.accumulatedDividends()),
                 compactMoney(data.accumulatedGain()),
-                percent(data.accumulatedReturn()),
-                compactMoney(data.portfolioValue()),
+                percent(data.timeWeightedReturn()),
                 compactMoney(data.netContributions()),
-                compactMoney(data.cashBalance()),
                 chart(data.chart()),
-                data.assetAllocation().stream().map(this::breakdown).toList(),
-                data.sectorAllocation().stream().map(this::breakdown).toList(),
+                performance(data.gainsByAsset(), true),
+                performance(data.dividendsByAsset(), false),
+                breakdowns(data.assetAllocation()),
                 data.movementCount(),
                 data.movements().stream().map(this::movement).toList(),
                 note,
                 valuationMessage(data),
                 data.valuationComplete() ? "neutral" : "negative");
+    }
+
+    private List<PortfolioReportTemplateModel.Performance> performance(
+            List<PortfolioReportAssetValue> values,
+            boolean signed) {
+        var maximum = values.stream()
+                .map(value -> value.amount().abs())
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ONE)
+                .max(BigDecimal.ONE);
+        return java.util.stream.IntStream.range(0, values.size())
+                .mapToObj(index -> {
+                    var value = values.get(index);
+                    var width = value.amount().abs()
+                            .divide(maximum, RATE_SCALE, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .max(BigDecimal.valueOf(3));
+                    return new PortfolioReportTemplateModel.Performance(
+                            value.name() == null || value.name().isBlank() ? value.ticker() : value.name(),
+                            signed ? signedCompactMoney(value.amount()) : compactMoney(value.amount()),
+                            String.format(Locale.ROOT, "%.2f%%", width.doubleValue()),
+                            signed ? tone(value.amount()) : "",
+                            CHART_COLORS[index % CHART_COLORS.length]);
+                })
+                .toList();
     }
 
     private PortfolioReportTemplateModel.Asset impactAsset(
@@ -77,21 +105,33 @@ public class PortfolioReportTemplateModelFactory {
                 true,
                 asset.ticker(),
                 asset.name() == null || asset.name().isBlank() ? asset.ticker() : asset.name(),
-                (positive ? "Sumó " : "Restó ") + compactMoney(asset.amount().abs()),
+                (positive ? "+ " : "- ") + compactMoney(asset.amount().abs()),
                 positive ? "positive" : "negative",
                 initials(asset.ticker()),
                 iconDataUri(asset.icon()));
     }
 
-    private PortfolioReportTemplateModel.Breakdown breakdown(PortfolioReportAllocation allocation) {
-        var percentage = allocation.rate().multiply(BigDecimal.valueOf(100));
-        return new PortfolioReportTemplateModel.Breakdown(
-                allocation.key(),
-                allocation.name(),
-                new DecimalFormat("0.#", DecimalFormatSymbols.getInstance(SPANISH)).format(percentage) + "%",
-                String.format(Locale.ROOT, "%.2f%%", percentage.doubleValue()),
-                allocation.icon() == null ? wordInitials(allocation.name()) : initials(allocation.key()),
-                iconDataUri(allocation.icon()));
+    private List<PortfolioReportTemplateModel.Breakdown> breakdowns(
+            List<PortfolioReportAllocation> allocations) {
+        var result = new ArrayList<PortfolioReportTemplateModel.Breakdown>();
+        double offset = 0;
+        for (var index = 0; index < allocations.size(); index++) {
+            var allocation = allocations.get(index);
+            var rate = allocation.rate().max(BigDecimal.ZERO).doubleValue();
+            var percentage = allocation.rate().multiply(BigDecimal.valueOf(100));
+            var angle = Math.toRadians(-90 + (offset + rate / 2) * 360);
+            result.add(new PortfolioReportTemplateModel.Breakdown(
+                    allocation.key(),
+                    allocation.name(),
+                    new DecimalFormat("0.#", DecimalFormatSymbols.getInstance(SPANISH)).format(percentage) + "%",
+                    CHART_COLORS[index % CHART_COLORS.length],
+                    String.format(Locale.ROOT, "%.4f %.4f", rate * 100, (1 - rate) * 100),
+                    String.format(Locale.ROOT, "%.4f", -offset * 100),
+                    120 + 82 * Math.cos(angle),
+                    120 + 82 * Math.sin(angle)));
+            offset += rate;
+        }
+        return List.copyOf(result);
     }
 
     private PortfolioReportTemplateModel.Movement movement(PortfolioReportMovement movement) {
@@ -113,7 +153,8 @@ public class PortfolioReportTemplateModelFactory {
     /** Escala ambas series sobre el mismo máximo y devuelve polilíneas SVG deterministas. */
     private PortfolioReportTemplateModel.Chart chart(List<PortfolioReportChartPoint> points) {
         if (points.isEmpty()) {
-            return new PortfolioReportTemplateModel.Chart(true, "", "", "", "", "", List.of());
+            return new PortfolioReportTemplateModel.Chart(
+                    true, "", "", "", "", "", null, null, List.of());
         }
         var maximum = points.stream()
                 .flatMap(point -> java.util.stream.Stream.of(point.portfolioValue(), point.netContributions()))
@@ -125,20 +166,30 @@ public class PortfolioReportTemplateModelFactory {
         for (var index = 0; index < points.size(); index++) {
             var point = points.get(index);
             var x = points.size() == 1
-                    ? (CHART_LEFT + CHART_WIDTH) / 2
-                    : CHART_LEFT + (CHART_WIDTH - CHART_LEFT) * index / (points.size() - 1d);
+                    ? (CHART_LEFT + CHART_RIGHT) / 2
+                    : CHART_LEFT + (CHART_RIGHT - CHART_LEFT) * index / (points.size() - 1d);
             portfolioPoints.add(svgPoint(x, coordinate(point.portfolioValue(), maximum)));
             contributionPoints.add(svgPoint(x, coordinate(point.netContributions(), maximum)));
         }
         var portfolioLine = String.join(" ", portfolioPoints);
         var area = svgPoint(CHART_LEFT, CHART_BOTTOM) + " " + portfolioLine + " "
-                + svgPoint(CHART_WIDTH, CHART_BOTTOM);
+                + svgPoint(CHART_RIGHT, CHART_BOTTOM);
         var gridLines = new ArrayList<PortfolioReportTemplateModel.GridLine>();
         for (var index = 0; index <= 4; index++) {
             var y = CHART_TOP + (CHART_BOTTOM - CHART_TOP) * index / 4d;
             var value = maximum.multiply(BigDecimal.valueOf(4 - index))
                     .divide(BigDecimal.valueOf(4), 2, RoundingMode.HALF_UP);
             gridLines.add(new PortfolioReportTemplateModel.GridLine(y, compactMoney(value)));
+        }
+        var last = points.getLast();
+        var portfolioY = coordinate(last.portfolioValue(), maximum);
+        var contributionY = coordinate(last.netContributions(), maximum);
+        var portfolioLabelY = portfolioY;
+        var contributionLabelY = contributionY;
+        if (Math.abs(portfolioY - contributionY) < 18) {
+            var portfolioAbove = last.portfolioValue().compareTo(last.netContributions()) >= 0;
+            portfolioLabelY += portfolioAbove ? -9 : 9;
+            contributionLabelY += portfolioAbove ? 9 : -9;
         }
         return new PortfolioReportTemplateModel.Chart(
                 false,
@@ -147,7 +198,21 @@ public class PortfolioReportTemplateModelFactory {
                 area,
                 points.getFirst().date().format(CHART_DATE),
                 points.getLast().date().format(CHART_DATE),
+                endLabel(portfolioY, portfolioLabelY, last.portfolioValue()),
+                endLabel(contributionY, contributionLabelY, last.netContributions()),
                 List.copyOf(gridLines));
+    }
+
+    private PortfolioReportTemplateModel.EndLabel endLabel(
+            double pointY,
+            double labelY,
+            BigDecimal value) {
+        return new PortfolioReportTemplateModel.EndLabel(
+                CHART_RIGHT,
+                pointY,
+                CHART_RIGHT + 14,
+                Math.max(CHART_TOP + 6, Math.min(CHART_BOTTOM - 4, labelY)),
+                compactMoney(value));
     }
 
     private double coordinate(BigDecimal value, BigDecimal maximum) {
@@ -194,6 +259,11 @@ public class PortfolioReportTemplateModelFactory {
                 + suffix;
     }
 
+    private String signedCompactMoney(BigDecimal value) {
+        return (value.signum() > 0 ? "+" : value.signum() < 0 ? "-" : "")
+                + compactMoney(value.abs());
+    }
+
     private String percent(BigDecimal value) {
         var safeValue = value == null ? BigDecimal.ZERO : value;
         return new DecimalFormat("0.00", DecimalFormatSymbols.getInstance(SPANISH))
@@ -227,18 +297,6 @@ public class PortfolioReportTemplateModelFactory {
             return "-";
         }
         return clean.substring(0, Math.min(2, clean.length())).toUpperCase(SPANISH);
-    }
-
-    private String wordInitials(String value) {
-        if (value == null || value.isBlank()) {
-            return "-";
-        }
-        return java.util.Arrays.stream(value.trim().split("\\s+"))
-                .filter(word -> !word.isBlank())
-                .limit(2)
-                .map(word -> word.substring(0, 1))
-                .collect(java.util.stream.Collectors.joining())
-                .toUpperCase(SPANISH);
     }
 
     private String iconDataUri(byte[] icon) {

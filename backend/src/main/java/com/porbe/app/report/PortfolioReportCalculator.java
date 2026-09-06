@@ -102,6 +102,8 @@ public class PortfolioReportCalculator {
                 .map(week -> new PortfolioReportChartPoint(
                         week.weekEnding(), week.portfolioValue(), week.netContributions()))
                 .toList();
+        var gainsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::totalGain);
+        var dividendsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::dividends);
         var assetAllocation = assetAllocation(end.positions(), icons);
         var sectorAllocation = sectorAllocation(end.positions());
         var provisionalPrices = (int) end.positions().stream()
@@ -123,17 +125,34 @@ public class PortfolioReportCalculator {
                 end.dividends(),
                 end.totalGain(),
                 end.returnRate(),
+                end.timeWeightedReturn(),
                 end.netContributions(),
                 end.cashBalance(),
                 end.portfolioValue(),
                 operations.size(),
                 displayedMovements,
                 chart,
+                gainsByAsset,
+                dividendsByAsset,
                 assetAllocation,
                 sectorAllocation,
                 end.valuationComplete() && provisionalPrices == 0,
                 provisionalPrices,
                 end.unpricedPositions());
+    }
+
+    /** Replica los gráficos del resumen: hasta cinco montos, ordenados por impacto absoluto. */
+    private List<PortfolioReportAssetValue> assetValues(
+            List<PortfolioWeeklyPositionResponse> positions,
+            Function<PortfolioWeeklyPositionResponse, BigDecimal> extractor) {
+        return positions.stream()
+                .map(position -> new PortfolioReportAssetValue(
+                        position.ticker(), position.name(), extractor.apply(position)))
+                .filter(value -> value.amount() != null && value.amount().signum() != 0)
+                .sorted(Comparator.comparing(
+                        (PortfolioReportAssetValue value) -> value.amount().abs()).reversed())
+                .limit(5)
+                .toList();
     }
 
     public PortfolioReportData calculate(LocalDate from, LocalDate to) {

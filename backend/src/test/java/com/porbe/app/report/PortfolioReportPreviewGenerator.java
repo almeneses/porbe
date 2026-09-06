@@ -50,12 +50,23 @@ class PortfolioReportPreviewGenerator {
                 new BigDecimal("1420000"),
                 new BigDecimal("6480000"),
                 new BigDecimal("0.2354"),
+                new BigDecimal("0.2176"),
                 new BigDecimal("31600000"),
                 new BigDecimal("850000"),
                 new BigDecimal("38750000"),
                 4,
                 movements(),
                 chart(),
+                List.of(
+                        assetValue("ECOPETROL.CL", "Ecopetrol", "3120000"),
+                        assetValue("GRUPOSURA.CL", "Grupo Sura", "1840000"),
+                        assetValue("ISA.CL", "ISA", "1260000"),
+                        assetValue("PFBCOLOM.CL", "Bancolombia preferencial", "-420000")),
+                List.of(
+                        assetValue("ECOPETROL.CL", "Ecopetrol", "680000"),
+                        assetValue("ISA.CL", "ISA", "390000"),
+                        assetValue("PFBCOLOM.CL", "Bancolombia preferencial", "230000"),
+                        assetValue("GRUPOSURA.CL", "Grupo Sura", "120000")),
                 List.of(
                         allocation("ECOPETROL.CL", "Ecopetrol", "0.34"),
                         allocation("PFBCOLOM.CL", "Bancolombia preferencial", "0.27"),
@@ -69,6 +80,10 @@ class PortfolioReportPreviewGenerator {
                 true,
                 0,
                 0);
+    }
+
+    private PortfolioReportAssetValue assetValue(String ticker, String name, String amount) {
+        return new PortfolioReportAssetValue(ticker, name, new BigDecimal(amount));
     }
 
     private List<PortfolioReportMovement> movements() {
