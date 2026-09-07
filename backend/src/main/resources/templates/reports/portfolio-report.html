@@ -225,9 +225,9 @@
             <p class="eyebrow">COMENTARIO DEL PERIODO</p>
             <h2 th:text="${note.title}">Lo más importante de este periodo</h2>
             <p class="note-body" th:text="${note.body}">Resumen sencillo del comportamiento del portafolio.</p>
-            <p class="note-suggestion"
-               th:if="${note.suggestion != null and !note.suggestion.isBlank()}"
-               th:text="${note.suggestion}">Una recomendación sencilla para tener en cuenta.</p>
+            <div class="note-actions" th:if="${note.actions != null and !note.actions.isEmpty()}">
+                <p class="note-suggestion" th:each="action : ${note.actions}" th:text="${action}">Una posibilidad para tener en cuenta.</p>
+            </div>
         </section>
     </main>
 

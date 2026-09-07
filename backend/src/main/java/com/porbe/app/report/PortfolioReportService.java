@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class PortfolioReportService {
 
     private final PortfolioReportCalculator calculator;
+    private final PortfolioReportAiNoteService aiNoteService;
     private final PortfolioReportArtifactRenderer renderer;
     private final PortfolioReportRepository repository;
     private final PortfolioReportDeliveryProvider deliveryProvider;
@@ -20,12 +21,14 @@ public class PortfolioReportService {
 
     public PortfolioReportService(
             PortfolioReportCalculator calculator,
+            PortfolioReportAiNoteService aiNoteService,
             PortfolioReportArtifactRenderer renderer,
             PortfolioReportRepository repository,
             PortfolioReportDeliveryProvider deliveryProvider,
             com.porbe.app.portfolio.PortfolioService portfolioService,
             Clock clock) {
         this.calculator = calculator;
+        this.aiNoteService = aiNoteService;
         this.renderer = renderer;
         this.repository = repository;
         this.deliveryProvider = deliveryProvider;
@@ -43,7 +46,7 @@ public class PortfolioReportService {
         var data = calculator.calculate(portfolio.getId(), from, to);
         var report = repository.save(new PortfolioReport(portfolio, data, triggerType, generatedBy));
         try {
-            var artifacts = renderer.render(data);
+            var artifacts = renderer.render(data, aiNoteService.create(data));
             report.markReady(
                     artifacts.image(),
                     artifacts.pdf(),

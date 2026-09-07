@@ -93,13 +93,16 @@ class PortfolioReportHtmlRendererTest {
         var html = renderer.render(data, new PortfolioReportTemplateModel.Note(
                 "Lo más importante de este periodo",
                 "Tu portafolio creció y recibió dividendos.",
-                "Mantener una mezcla de empresas ayuda a repartir el riesgo."));
+                List.of(
+                        "Mantener una mezcla de empresas ayuda a repartir el riesgo.",
+                        "Revisar la concentración antes del próximo aporte.")));
 
         assertThat(html)
                 .contains("COMENTARIO DEL PERIODO")
                 .contains("Lo más importante de este periodo")
                 .contains("Tu portafolio creció y recibió dividendos.")
                 .contains("Mantener una mezcla de empresas ayuda a repartir el riesgo.")
+                .contains("Revisar la concentración antes del próximo aporte.")
                 .doesNotContain("th:text", "th:if", "${report");
     }
 

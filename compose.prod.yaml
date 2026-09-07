@@ -86,6 +86,9 @@ services:
       PORTFOLIO_REPORT_WEEKLY_CRON: ${PORTFOLIO_REPORT_WEEKLY_CRON:-0 30 17 * * FRI}
       PORTFOLIO_REPORT_TIMEZONE: ${PORTFOLIO_REPORT_TIMEZONE:-America/Bogota}
       PORTFOLIO_REPORT_BROWSER_EXECUTABLE: ${PORTFOLIO_REPORT_BROWSER_EXECUTABLE:-}
+      CODEX_COMMAND: codex
+      CODEX_SANDBOX: danger-full-access
+      CODEX_TIMEOUT_SECONDS: ${CODEX_TIMEOUT_SECONDS:-120}
 
       WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
       WHATSAPP_SERVICE_URL: http://whatsapp-web:3001
@@ -93,6 +96,8 @@ services:
       WHATSAPP_DEFAULT_RECIPIENT: ${WHATSAPP_DEFAULT_RECIPIENT:-}
       WHATSAPP_CONNECT_TIMEOUT_SECONDS: ${WHATSAPP_CONNECT_TIMEOUT_SECONDS:-3}
       WHATSAPP_READ_TIMEOUT_SECONDS: ${WHATSAPP_READ_TIMEOUT_SECONDS:-45}
+    volumes:
+      - porbe-codex-home:/home/pwuser/.codex
     shm_size: "256mb"
     depends_on:
       database:
@@ -139,3 +144,4 @@ networks:
 volumes:
   porbe-postgres-data:
   porbe-whatsapp-data:
+  porbe-codex-home:
