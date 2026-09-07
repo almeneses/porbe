@@ -54,6 +54,10 @@ app:
     weekly-cron: ${PORTFOLIO_REPORT_WEEKLY_CRON:0 30 17 * * FRI}
     timezone: ${PORTFOLIO_REPORT_TIMEZONE:America/Bogota}
     browser-executable: ${PORTFOLIO_REPORT_BROWSER_EXECUTABLE:}
+    ai:
+      codex-command: ${CODEX_COMMAND:codex}
+      sandbox: ${CODEX_SANDBOX:read-only}
+      timeout-seconds: ${CODEX_TIMEOUT_SECONDS:120}
   whatsapp:
     enabled: ${WHATSAPP_ENABLED:false}
     base-url: ${WHATSAPP_SERVICE_URL:http://localhost:3001}

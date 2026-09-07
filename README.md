@@ -148,7 +148,7 @@ Endpoints principales:
 - Historial persistente de informes con descargas posteriores.
 - Actualización de precios y generación automática cada viernes a las 17:30 en `America/Bogota`.
 - Interfaz de entrega desacoplada, preparada para conectar distintos proveedores de mensajería.
-- La sección de notas se mantiene oculta hasta incorporar un resumen asistido por IA.
+- Comentario opcional generado con IA, con un resumen sencillo y hasta dos posibilidades de acción.
 
 La generación se realiza completamente en el backend a partir de
 `backend/src/main/resources/templates/reports/portfolio-report.html`. Thymeleaf resuelve los datos y
@@ -157,6 +157,25 @@ abre su propio navegador sin interfaz; no depende de que el navegador del usuari
 
 Docker ya incluye una versión compatible de Chromium. En desarrollo local se detecta Chromium en las
 rutas comunes o puede indicarse explícitamente con `PORTFOLIO_REPORT_BROWSER_EXECUTABLE`.
+Para incluir el comentario al ejecutar el backend directamente, inicie sesión una vez con `codex login`
+y exporte `CODEX_COMMAND=codex` antes de iniciar Spring. Fuera de Docker, Codex se ejecuta en un
+directorio temporal de solo lectura. Sin el comando, o si Codex falla, el informe omite la sección.
+Si el IDE no encuentra `codex`, use la ruta absoluta mostrada por `command -v codex`.
+
+En Docker, Codex ya viene instalado en la imagen del backend. Después de construirla, autentique el
+contenedor una sola vez:
+
+```bash
+docker compose up -d --build backend
+docker compose exec backend codex login --device-auth
+docker compose exec backend codex login status
+```
+
+La sesión queda persistida en el volumen `porbe-codex-home`. Como Docker bloquea el sandbox Linux
+anidado, el propio contenedor actúa como límite y Codex usa `danger-full-access` dentro de él. Trate el
+volumen como una contraseña y use esta integración solo en un despliegue personal o de confianza.
+Codex pertenece al backend; el contenedor de WhatsApp no lo necesita. En producción use los mismos
+comandos agregando `-f compose.prod.yaml`.
 
 Endpoints principales:
 

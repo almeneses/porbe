@@ -102,6 +102,6 @@ public record PortfolioReportTemplateModel(
     public record Note(
             String title,
             String body,
-            String suggestion) {
+            List<String> actions) {
     }
 }

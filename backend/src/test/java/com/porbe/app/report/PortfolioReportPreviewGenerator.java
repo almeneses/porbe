@@ -26,7 +26,9 @@ class PortfolioReportPreviewGenerator {
         var note = new PortfolioReportTemplateModel.Note(
                 "Un mes tranquilo y con buen crecimiento",
                 "Tu portafolio terminó el periodo por encima de donde comenzó. Ecopetrol fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
-                "Para el próximo mes: no necesitas hacer cambios apresurados. Mantener el dinero repartido entre diferentes tipos de empresas ayuda a que una sola caída tenga menos efecto.");
+                List.of(
+                        "No necesitas hacer cambios apresurados para el próximo mes.",
+                        "Mantener el dinero repartido ayuda a reducir el efecto de una sola caída."));
 
         var data = sampleData();
         Files.writeString(OUTPUT, renderer.render(data, note));
