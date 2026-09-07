@@ -27,7 +27,7 @@ class PortfolioReportAiNoteServiceTest {
                 printf '%s' '{"title":"Un periodo positivo","body":"El portafolio creció con apoyo de Ecopetrol.","actions":["Mantener la diversificación.","Revisar la concentración."]}'
                 """);
         Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwx------"));
-        var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5);
+        var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5, "test-model", "test-effort");
 
         var note = service.create(data());
 
