@@ -113,6 +113,7 @@ export function ReportsPage() {
         <div>
           <span className="eyebrow">{t('reports.eyebrow')}</span>
           <h1>{t('reports.title')}</h1>
+          <p>{t('reports.subtitle')}</p>
         </div>
         {schedule && <ScheduleBadge schedule={schedule} />}
       </header>
