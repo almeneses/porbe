@@ -47,6 +47,7 @@ export interface WhatsAppConnectionStatus {
 export const reportApi = {
   list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
+  aiInfo: () => apiRequest<{ model: string, effort: string }>('/api/reports/ai-info'),
   whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
   generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',

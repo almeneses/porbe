@@ -3,6 +3,7 @@ package com.porbe.app.report;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -73,6 +74,11 @@ public class PortfolioReportController {
     @GetMapping("/{id}/pdf")
     ResponseEntity<byte[]> pdf(@PathVariable Long id) {
         return file(reportService.pdf(id), true);
+    }
+
+    @GetMapping("/ai-info")
+    ResponseEntity<Map<String, String>> aiInfo() {
+        return ResponseEntity.ok(reportService.aiInfo());
     }
 
     private ResponseEntity<byte[]> file(PortfolioReportFile file, boolean download) {

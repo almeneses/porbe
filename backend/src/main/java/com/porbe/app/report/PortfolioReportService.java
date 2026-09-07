@@ -4,7 +4,9 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /** Coordina cálculo, renderizado, persistencia, descarga y entrega de informes. */
@@ -138,6 +140,10 @@ public class PortfolioReportService {
 
     public String deliveryChannel() {
         return deliveryProvider.channel();
+    }
+
+    public Map<String, String> aiInfo() {
+        return new HashMap<>(Map.of("model", aiNoteService.model, "effort", aiNoteService.effort));
     }
 
     private PortfolioReport report(Long id) {

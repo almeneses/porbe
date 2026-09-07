@@ -8,7 +8,6 @@ import com.porbe.app.market.MarketInstrumentRepository;
 import com.porbe.app.portfolio.PortfolioHistoryService;
 import com.porbe.app.portfolio.PortfolioService;
 import com.porbe.app.portfolio.PortfolioWeeklyPositionResponse;
-import com.porbe.app.portfolio.PortfolioWeeklySnapshot;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -40,7 +39,7 @@ public class PortfolioReportCalculator {
     private final PortfolioOperationRepository operationRepository;
     private final MarketInstrumentRepository instrumentRepository;
     private final Clock clock;
-
+    
     public PortfolioReportCalculator(
             PortfolioHistoryService historyService,
             PortfolioService portfolioService,
