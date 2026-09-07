@@ -18,6 +18,7 @@ vi.mock('../report/api', () => ({
     sendByWhatsApp: vi.fn(),
     imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
     pdfUrl: (id: number) => `/api/reports/${id}/pdf`,
+    aiInfo: vi.fn()
   },
 }))
 
@@ -28,6 +29,7 @@ describe('ReportsPage', () => {
     vi.mocked(reportApi.schedule).mockResolvedValue(schedule)
     vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
     vi.mocked(reportApi.sendByWhatsApp).mockResolvedValue({ ...report, deliveryStatus: 'SENT' })
+    vi.mocked(reportApi.aiInfo).mockResolvedValue({ model: 'test-model', effort: 'test-effort' })
   })
 
   afterEach(() => {

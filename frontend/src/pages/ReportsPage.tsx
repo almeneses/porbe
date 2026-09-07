@@ -22,6 +22,7 @@ import { usePortfolio } from '../portfolio/PortfolioProvider'
 
 /** Genera, previsualiza y conserva los informes periódicos del portafolio. */
 export function ReportsPage() {
+  // TODO: simplify and enhance this
   const { t } = useTranslation()
   const { activePortfolio } = usePortfolio()
   const initialRange = useMemo(defaultReportRange, [])
@@ -37,17 +38,20 @@ export function ReportsPage() {
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [aiInfo, setAiInfo] = useState<{ model: string; effort: string } | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [items, configuredSchedule, connection] = await Promise.all([
+      const [items, configuredSchedule, connection, aiInfo] = await Promise.all([
         reportApi.list(activePortfolio.id),
         reportApi.schedule(),
         reportApi.whatsAppStatus(),
+        reportApi.aiInfo(),
       ])
       setReports(items)
       setSchedule(configuredSchedule)
       setWhatsAppStatus(connection)
+      setAiInfo(aiInfo)
       setSelectedId(items.find((item) => item.status === 'READY')?.id ?? null)
       setError(null)
     } catch (requestError) {
@@ -131,6 +135,7 @@ export function ReportsPage() {
           </button>
         </form>
         <small>{t('reports.notesHidden')}</small>
+        <small>{aiInfo && `AI Model: ${aiInfo.model}, Model Effort: ${aiInfo.effort}`}</small>
       </section>
 
       {loading ? (

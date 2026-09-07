@@ -45,7 +45,7 @@ app:
     schedule-poll-ms: ${MARKET_DATA_SCHEDULE_POLL_MS:60000}
     schedule-initial-delay-ms: ${MARKET_DATA_SCHEDULE_INITIAL_DELAY_MS:30000}
     yahoo:
-      base-url: ${YAHOO_FINANCE_BASE_URL:https://query1.finance.yahoo.com}
+      base-url: ${YAHOO_FINANCE_BASE_URL:-}
       user-agent: ${YAHOO_FINANCE_USER_AGENT:Porbe/0.1}
       connect-timeout-seconds: ${YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS:5}
       read-timeout-seconds: ${YAHOO_FINANCE_READ_TIMEOUT_SECONDS:15}
@@ -58,6 +58,8 @@ app:
       codex-command: ${CODEX_COMMAND:codex}
       sandbox: ${CODEX_SANDBOX:read-only}
       timeout-seconds: ${CODEX_TIMEOUT_SECONDS:120}
+      model: ${AI_MODEL:}
+      effort: ${AI_EFFORT:}
   whatsapp:
     enabled: ${WHATSAPP_ENABLED:false}
     base-url: ${WHATSAPP_SERVICE_URL:http://localhost:3001}
