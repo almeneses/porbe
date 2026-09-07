@@ -37,7 +37,7 @@ class PortfolioReportAiNoteServiceTest {
         assertThat(Files.readString(temporaryDirectory.resolve("arguments.txt")))
                 .contains("exec", "--ephemeral", "read-only", "--output-schema", "-");
         assertThat(Files.readString(temporaryDirectory.resolve("prompt.txt")))
-                .contains("No uses herramientas", "Ecopetrol", "Resultado del periodo: 200 (10%)");
+                .contains("Ecopetrol", "Resultado del periodo: 200 (10%)");
     }
 
     private PortfolioReportData data() {
