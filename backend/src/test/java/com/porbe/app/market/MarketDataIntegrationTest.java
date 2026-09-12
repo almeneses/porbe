@@ -119,6 +119,10 @@ class MarketDataIntegrationTest {
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf().asHeader()))
                 .andExpect(status().isOk());
+        verify(provider).fetchDaily(
+                eq("ECOPETROL.CL"),
+                eq(LocalDate.of(2026, 8, 25)),
+                any(LocalDate.class));
         org.assertj.core.api.Assertions.assertThat(priceRepository.count()).isEqualTo(2);
     }
 

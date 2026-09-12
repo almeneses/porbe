@@ -84,7 +84,10 @@ public class MarketDataSyncService {
 
         for (var tickerRange : tickerRanges) {
             var ticker = tickerRange.getTicker().toUpperCase(Locale.ROOT);
-            var from = MARKET_HISTORY_START;
+            var from = instrumentRepository.findByTicker(ticker)
+                    .flatMap(priceRepository::findTopByInstrumentOrderByPriceDateDesc)
+                    .map(MarketPriceDaily::getPriceDate)
+                    .orElse(MARKET_HISTORY_START);
             try {
                 var series = provider.fetchDaily(ticker, from, toExclusive);
                 var stored = persistenceService.save(series, provider.source());
