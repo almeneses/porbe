@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
 import type { PortfolioReport, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
-import { formatDate, formatDateTime } from '../utils/formatters'
+import { formatDate, formatDateTime, formatTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 
 /** Genera, previsualiza y conserva los informes periódicos del portafolio. */
@@ -225,9 +225,9 @@ function ReportScheduleCard({ schedule, whatsAppStatus }: { schedule: PortfolioR
       <h2>{t('reports.automationTitle')}</h2>
       <p>{t('reports.automationBody')}</p>
       <dl>
-        <div><dt>{t('reports.schedule')}</dt><dd>{t('reports.fridayTime')}</dd></div>
+        <div><dt>{t('reports.schedule')}</dt><dd>{schedule ? t('reports.scheduleValue', { day: t(`market.days.${schedule.dayOfWeek}`), time: formatTime(schedule.runTime) }) : '—'}</dd></div>
         <div><dt>{t('reports.timezone')}</dt><dd>{schedule?.timezone ?? 'America/Bogota'}</dd></div>
-        <div><dt>{t('reports.nextRun')}</dt><dd>{schedule?.nextRunAt ? formatDateTime(schedule.nextRunAt) : '—'}</dd></div>
+        <div><dt>{t('reports.nextRun')}</dt><dd>{schedule?.nextRunAt ? formatDateTime(schedule.nextRunAt, schedule.timezone) : '—'}</dd></div>
       </dl>
       <div className="report-delivery-state">
         <MessageCircleMore size={19} />

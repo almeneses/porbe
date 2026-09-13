@@ -4,18 +4,25 @@ import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
 import type { MarketDataSchedule, WeekDay } from '../market/api'
+import { reportApi } from '../report/api'
+import type { PortfolioReportSchedule } from '../report/api'
 import { formatDateTime } from '../utils/formatters'
 
 /** Reúne las preferencias operativas que pueden modificarse desde la aplicación. */
 export function SettingsPage() {
   const { t } = useTranslation()
-  const [schedule, setSchedule] = useState<MarketDataSchedule | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [marketSchedule, setMarketSchedule] = useState<MarketDataSchedule | null>(null)
+  const [reportSchedule, setReportSchedule] = useState<PortfolioReportSchedule | null>(null)
+  const [marketError, setMarketError] = useState<string | null>(null)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   useEffect(() => {
     marketDataApi.schedule()
-      .then(setSchedule)
-      .catch((requestError) => setError(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleLoadError')))
+      .then(setMarketSchedule)
+      .catch((requestError) => setMarketError(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleLoadError')))
+    reportApi.schedule()
+      .then(setReportSchedule)
+      .catch((requestError) => setReportError(requestError instanceof ApiRequestError ? requestError.message : t('settings.reportLoadError')))
   }, [t])
 
   return (
@@ -28,6 +35,29 @@ export function SettingsPage() {
         </div>
       </header>
 
+      <section className="settings-section" aria-labelledby="report-settings-title">
+        <header className="settings-section__heading">
+          <span className="eyebrow">{t('settings.automationEyebrow')}</span>
+          <h2 id="report-settings-title">{t('settings.reportTitle')}</h2>
+          <p>{t('settings.reportBody')}</p>
+        </header>
+
+        {!reportSchedule && !reportError && <LoadingSettings />}
+        {reportError && <SettingsError message={reportError} />}
+        {reportSchedule && (
+          <SchedulePanel
+            schedule={reportSchedule}
+            title={t('settings.reportScheduleTitle')}
+            body={t('settings.reportScheduleBody')}
+            timezoneEditable
+            savedMessage={t('settings.reportSaved')}
+            errorMessage={t('settings.reportSaveError')}
+            onSave={reportApi.updateSchedule}
+            onSaved={setReportSchedule}
+          />
+        )}
+      </section>
+
       <section className="settings-section" aria-labelledby="market-settings-title">
         <header className="settings-section__heading">
           <span className="eyebrow">{t('settings.automationEyebrow')}</span>
@@ -35,20 +65,71 @@ export function SettingsPage() {
           <p>{t('settings.marketBody')}</p>
         </header>
 
-        {!schedule && !error && <div className="page-state"><LoaderCircle className="spin" size={25} /><span>{t('settings.loading')}</span></div>}
-        {error && <div className="page-state page-state--error"><AlertCircle size={28} /><strong>{error}</strong></div>}
-        {schedule && <MarketSchedulePanel schedule={schedule} onSaved={setSchedule} />}
+        {!marketSchedule && !marketError && <LoadingSettings />}
+        {marketError && <SettingsError message={marketError} />}
+        {marketSchedule && (
+          <SchedulePanel
+            schedule={marketSchedule}
+            title={t('market.scheduleTitle')}
+            body={t('market.scheduleBody')}
+            savedMessage={t('market.scheduleSaved')}
+            errorMessage={t('market.scheduleSaveError')}
+            onSave={({ enabled, dayOfWeek, runTime }) => marketDataApi.updateSchedule({ enabled, dayOfWeek, runTime })}
+            onSaved={setMarketSchedule}
+          />
+        )}
       </section>
     </div>
   )
 }
 
-/** Permite activar y modificar el día y hora de la actualización semanal. */
-function MarketSchedulePanel({ schedule, onSaved }: { schedule: MarketDataSchedule; onSaved: (schedule: MarketDataSchedule) => void }) {
+function LoadingSettings() {
+  const { t } = useTranslation()
+  return <div className="page-state"><LoaderCircle className="spin" size={25} /><span>{t('settings.loading')}</span></div>
+}
+
+function SettingsError({ message }: { message: string }) {
+  return <div className="page-state page-state--error"><AlertCircle size={28} /><strong>{message}</strong></div>
+}
+
+interface ScheduleForm {
+  enabled: boolean
+  dayOfWeek: WeekDay
+  runTime: string
+  timezone: string
+}
+
+interface EditableSchedule extends ScheduleForm {
+  nextRunAt: string | null
+  lastRunAt: string | null
+  lastRunStatus: string | null
+}
+
+/** Editor compartido por las dos automatizaciones semanales. */
+function SchedulePanel<T extends EditableSchedule>({
+  schedule,
+  title,
+  body,
+  timezoneEditable = false,
+  savedMessage,
+  errorMessage,
+  onSave,
+  onSaved,
+}: {
+  schedule: T
+  title: string
+  body: string
+  timezoneEditable?: boolean
+  savedMessage: string
+  errorMessage: string
+  onSave: (schedule: ScheduleForm) => Promise<T>
+  onSaved: (schedule: T) => void
+}) {
   const { t } = useTranslation()
   const [enabled, setEnabled] = useState(schedule.enabled)
   const [dayOfWeek, setDayOfWeek] = useState<WeekDay>(schedule.dayOfWeek)
   const [runTime, setRunTime] = useState(schedule.runTime.slice(0, 5))
+  const [timezone, setTimezone] = useState(schedule.timezone)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -57,29 +138,30 @@ function MarketSchedulePanel({ schedule, onSaved }: { schedule: MarketDataSchedu
     setSaving(true)
     setMessage(null)
     try {
-      const updated = await marketDataApi.updateSchedule({ enabled, dayOfWeek, runTime })
+      const updated = await onSave({ enabled, dayOfWeek, runTime, timezone })
       onSaved(updated)
-      setMessage(t('market.scheduleSaved'))
+      setMessage(savedMessage)
     } catch (requestError) {
-      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleSaveError'))
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : errorMessage)
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="market-schedule-card">
-      <div className="market-schedule-card__intro"><span><Clock3 size={20} /></span><div><h2>{t('market.scheduleTitle')}</h2><p>{t('market.scheduleBody')}</p></div></div>
+    <div className={`market-schedule-card${timezoneEditable ? ' report-settings-card' : ''}`}>
+      <div className="market-schedule-card__intro"><span><Clock3 size={20} /></span><div><h3>{title}</h3><p>{body}</p></div></div>
       <form onSubmit={saveSchedule}>
         <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'market.scheduleEnabled' : 'market.scheduleDisabled')}</span></label>
         <label><span>{t('market.scheduleDay')}</span><select value={dayOfWeek} onChange={(event) => setDayOfWeek(event.target.value as WeekDay)}>{(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as WeekDay[]).map((day) => <option key={day} value={day}>{t(`market.days.${day}`)}</option>)}</select></label>
         <label><span>{t('market.scheduleTime')}</span><input type="time" value={runTime} onChange={(event) => setRunTime(event.target.value)} required /></label>
+        {timezoneEditable && <label className="schedule-timezone"><span>{t('settings.timezone')}</span><input list="report-timezones" value={timezone} onChange={(event) => setTimezone(event.target.value)} required /><datalist id="report-timezones"><option value="America/Bogota" /><option value="America/Lima" /><option value="America/Mexico_City" /><option value="America/New_York" /><option value="Europe/Madrid" /><option value="UTC" /></datalist></label>}
         <button className="secondary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('market.saveSchedule')}</button>
       </form>
       <div className="market-schedule-card__status">
         <span>{t('market.scheduleTimezone', { timezone: schedule.timezone })}</span>
-        <span>{schedule.nextRunAt ? t('market.nextRun', { date: formatDateTime(schedule.nextRunAt) }) : t('market.noNextRun')}</span>
-        {schedule.lastRunAt && <span>{t('market.lastRun', { date: formatDateTime(schedule.lastRunAt), status: t(`market.runStatus.${schedule.lastRunStatus}`) })}</span>}
+        <span>{schedule.nextRunAt ? t('market.nextRun', { date: formatDateTime(schedule.nextRunAt, schedule.timezone) }) : t('market.noNextRun')}</span>
+        {schedule.lastRunAt && <span>{t('market.lastRun', { date: formatDateTime(schedule.lastRunAt, schedule.timezone), status: t(`market.runStatus.${schedule.lastRunStatus}`) })}</span>}
         {message && <strong>{message}</strong>}
       </div>
     </div>

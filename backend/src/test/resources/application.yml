@@ -11,6 +11,8 @@ spring:
       ddl-auto: validate
 
 app:
+  reports:
+    schedule-initial-delay-ms: 3600000
   security:
     admin:
       username: admin

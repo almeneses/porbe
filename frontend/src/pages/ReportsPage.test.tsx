@@ -90,6 +90,11 @@ const schedule: PortfolioReportSchedule = {
   runTime: '17:30',
   timezone: 'America/Bogota',
   nextRunAt: '2026-09-04T17:30:00-05:00',
+  lastRunAt: null,
+  lastRunStatus: null,
+  lastRunMessage: null,
+  updatedBy: 'system',
+  updatedAt: '2026-09-01T10:00:00-05:00',
   deliveryConfigured: false,
   deliveryChannel: 'WHATSAPP_WEB',
 }

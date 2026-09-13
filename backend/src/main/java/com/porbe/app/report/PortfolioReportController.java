@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -50,6 +51,13 @@ public class PortfolioReportController {
     @GetMapping("/schedule")
     PortfolioReportScheduleResponse schedule() {
         return scheduleService.current();
+    }
+
+    @PutMapping("/schedule")
+    PortfolioReportScheduleResponse updateSchedule(
+            @Valid @RequestBody PortfolioReportScheduleRequest request,
+            Principal principal) {
+        return scheduleService.update(request, principal.getName());
     }
 
     @GetMapping("/whatsapp/status")

@@ -28,13 +28,10 @@ const dateFormatter = new Intl.DateTimeFormat('es-CO', {
   timeZone: 'UTC',
 })
 
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
-  year: 'numeric',
-  month: 'short',
-  day: '2-digit',
-  hour: '2-digit',
+const timeFormatter = new Intl.DateTimeFormat('es-CO', {
+  hour: 'numeric',
   minute: '2-digit',
-  timeZone: 'America/Bogota',
+  timeZone: 'UTC',
 })
 
 export function formatCop(value: number) {
@@ -58,8 +55,19 @@ export function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T00:00:00Z`))
 }
 
-export function formatDateTime(value: string) {
-  return dateTimeFormatter.format(new Date(value))
+export function formatDateTime(value: string, timeZone = 'America/Bogota') {
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(value))
+}
+
+export function formatTime(value: string) {
+  return timeFormatter.format(new Date(`1970-01-01T${value}Z`))
 }
 
 export function formatCurrency(value: number, currency: string) {
