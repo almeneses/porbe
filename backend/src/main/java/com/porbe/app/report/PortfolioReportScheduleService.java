@@ -21,15 +21,15 @@ public class PortfolioReportScheduleService {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final PortfolioReportScheduleRepository repository;
-    private final PortfolioReportService reportService;
+    private final PortfolioReportDeliveryProvider deliveryProvider;
     private final Clock clock;
 
     public PortfolioReportScheduleService(
             PortfolioReportScheduleRepository repository,
-            PortfolioReportService reportService,
+            PortfolioReportDeliveryProvider deliveryProvider,
             Clock clock) {
         this.repository = repository;
-        this.reportService = reportService;
+        this.deliveryProvider = deliveryProvider;
         this.clock = clock;
     }
 
@@ -44,6 +44,18 @@ public class PortfolioReportScheduleService {
         var schedule = schedule();
         schedule.update(request.enabled(), request.dayOfWeek(), request.runTime(), timezone.getId(), username);
         return response(repository.save(schedule));
+    }
+
+    @Transactional
+    public PortfolioReportAiSettings aiSettings() {
+        return aiSettings(schedule());
+    }
+
+    @Transactional
+    public PortfolioReportAiSettings updateAi(PortfolioReportAiSettingsRequest request, String username) {
+        var schedule = schedule();
+        schedule.updateAi(request.enabled(), request.model().trim(), request.effort(), username);
+        return aiSettings(repository.save(schedule));
     }
 
     /** Marca la ejecución antes de generar artefactos para impedir reclamos duplicados. */
@@ -95,8 +107,15 @@ public class PortfolioReportScheduleService {
                 schedule.getLastRunMessage(),
                 schedule.getUpdatedBy(),
                 schedule.getUpdatedAt(),
-                reportService.deliveryConfigured(),
-                reportService.deliveryChannel());
+                deliveryProvider.configured(),
+                deliveryProvider.channel());
+    }
+
+    private PortfolioReportAiSettings aiSettings(PortfolioReportSchedule schedule) {
+        return new PortfolioReportAiSettings(
+                schedule.isAiEnabled(),
+                schedule.getAiModel(),
+                schedule.getAiEffort());
     }
 
     private OffsetDateTime nextRun(PortfolioReportSchedule schedule) {

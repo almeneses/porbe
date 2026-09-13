@@ -29,7 +29,13 @@ describe('ReportsPage', () => {
     vi.mocked(reportApi.schedule).mockResolvedValue(schedule)
     vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
     vi.mocked(reportApi.sendByWhatsApp).mockResolvedValue({ ...report, deliveryStatus: 'SENT' })
-    vi.mocked(reportApi.aiInfo).mockResolvedValue({ model: 'test-model', effort: 'test-effort' })
+    vi.mocked(reportApi.aiInfo).mockResolvedValue({
+      enabled: true,
+      model: 'test-model',
+      effort: 'low',
+      catalogAvailable: false,
+      models: [{ model: 'test-model', name: 'test-model', defaultEffort: 'low', efforts: ['low'] }],
+    })
   })
 
   afterEach(() => {

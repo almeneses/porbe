@@ -4,9 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /** Coordina cálculo, renderizado, persistencia, descarga y entrega de informes. */
@@ -15,6 +13,7 @@ public class PortfolioReportService {
 
     private final PortfolioReportCalculator calculator;
     private final PortfolioReportAiNoteService aiNoteService;
+    private final PortfolioReportScheduleService scheduleService;
     private final PortfolioReportArtifactRenderer renderer;
     private final PortfolioReportRepository repository;
     private final PortfolioReportDeliveryProvider deliveryProvider;
@@ -24,6 +23,7 @@ public class PortfolioReportService {
     public PortfolioReportService(
             PortfolioReportCalculator calculator,
             PortfolioReportAiNoteService aiNoteService,
+            PortfolioReportScheduleService scheduleService,
             PortfolioReportArtifactRenderer renderer,
             PortfolioReportRepository repository,
             PortfolioReportDeliveryProvider deliveryProvider,
@@ -31,6 +31,7 @@ public class PortfolioReportService {
             Clock clock) {
         this.calculator = calculator;
         this.aiNoteService = aiNoteService;
+        this.scheduleService = scheduleService;
         this.renderer = renderer;
         this.repository = repository;
         this.deliveryProvider = deliveryProvider;
@@ -48,7 +49,7 @@ public class PortfolioReportService {
         var data = calculator.calculate(portfolio.getId(), from, to);
         var report = repository.save(new PortfolioReport(portfolio, data, triggerType, generatedBy));
         try {
-            var artifacts = renderer.render(data, aiNoteService.create(data));
+            var artifacts = renderer.render(data, aiNoteService.create(data, scheduleService.aiSettings()));
             report.markReady(
                     artifacts.image(),
                     artifacts.pdf(),
@@ -140,10 +141,6 @@ public class PortfolioReportService {
 
     public String deliveryChannel() {
         return deliveryProvider.channel();
-    }
-
-    public Map<String, String> aiInfo() {
-        return new HashMap<>(Map.of("model", aiNoteService.model, "effort", aiNoteService.effort));
     }
 
     private PortfolioReport report(Long id) {

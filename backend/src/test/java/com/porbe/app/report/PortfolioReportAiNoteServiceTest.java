@@ -22,20 +22,31 @@ class PortfolioReportAiNoteServiceTest {
         var executable = temporaryDirectory.resolve("codex");
         Files.writeString(executable, """
                 #!/bin/sh
+                if [ "$1" = "debug" ]; then
+                  printf '%s' '{"models":[{"slug":"gpt-5.5","display_name":"GPT-5.5","default_reasoning_level":"medium","supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"}],"visibility":"list"},{"slug":"hidden","display_name":"Hidden","default_reasoning_level":"high","supported_reasoning_levels":[],"visibility":"hide"}]}'
+                  exit 0
+                fi
                 printf '%s\n' "$@" > "$(dirname "$0")/arguments.txt"
                 cat > "$(dirname "$0")/prompt.txt"
                 printf '%s' '{"title":"Un periodo positivo","body":"El portafolio creció con apoyo de Ecopetrol.","actions":["Mantener la diversificación.","Revisar la concentración."]}'
                 """);
         Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwx------"));
-        var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5, "test-model", "test-effort");
+        var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5);
 
-        var note = service.create(data());
+        var info = service.info(new PortfolioReportAiSettings(true, "gpt-5.5", "medium"));
 
+        var note = service.create(data(), new PortfolioReportAiSettings(true, "test-model", "low"));
+
+        assertThat(info.catalogAvailable()).isTrue();
+        assertThat(info.models()).singleElement().satisfies(model -> {
+            assertThat(model.model()).isEqualTo("gpt-5.5");
+            assertThat(model.efforts()).containsExactly("low", "medium");
+        });
         assertThat(note.title()).isEqualTo("Un periodo positivo");
         assertThat(note.body()).contains("Ecopetrol");
         assertThat(note.actions()).containsExactly("Mantener la diversificación.", "Revisar la concentración.");
         assertThat(Files.readString(temporaryDirectory.resolve("arguments.txt")))
-                .contains("exec", "--ephemeral", "read-only", "--output-schema", "-");
+                .contains("exec", "--ephemeral", "test-model", "model_reasoning_effort=\"low\"", "read-only", "--output-schema", "-");
         assertThat(Files.readString(temporaryDirectory.resolve("prompt.txt")))
                 .contains("Ecopetrol", "Resultado del periodo: 200 (10%)");
     }

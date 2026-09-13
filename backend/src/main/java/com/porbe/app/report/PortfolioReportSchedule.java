@@ -36,6 +36,15 @@ public class PortfolioReportSchedule {
     @Column(nullable = false, length = 80)
     private String timezone;
 
+    @Column(name = "ai_enabled", nullable = false)
+    private boolean aiEnabled;
+
+    @Column(name = "ai_model", nullable = false, length = 120)
+    private String aiModel;
+
+    @Column(name = "ai_effort", nullable = false, length = 10)
+    private String aiEffort;
+
     @Column(name = "last_run_at")
     private OffsetDateTime lastRunAt;
 
@@ -65,6 +74,9 @@ public class PortfolioReportSchedule {
         this.dayOfWeek = dayOfWeek;
         this.runTime = runTime;
         this.timezone = timezone;
+        this.aiEnabled = true;
+        this.aiModel = "gpt-5.4-mini";
+        this.aiEffort = "low";
         this.updatedBy = updatedBy;
     }
 
@@ -73,6 +85,13 @@ public class PortfolioReportSchedule {
         this.dayOfWeek = dayOfWeek;
         this.runTime = runTime;
         this.timezone = timezone;
+        this.updatedBy = updatedBy;
+    }
+
+    void updateAi(boolean enabled, String model, String effort, String updatedBy) {
+        this.aiEnabled = enabled;
+        this.aiModel = model;
+        this.aiEffort = effort;
         this.updatedBy = updatedBy;
     }
 
@@ -101,6 +120,18 @@ public class PortfolioReportSchedule {
 
     public String getTimezone() {
         return timezone;
+    }
+
+    public boolean isAiEnabled() {
+        return aiEnabled;
+    }
+
+    public String getAiModel() {
+        return aiModel;
+    }
+
+    public String getAiEffort() {
+        return aiEffort;
     }
 
     public OffsetDateTime getLastRunAt() {

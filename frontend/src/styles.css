@@ -670,6 +670,7 @@ svg { stroke-width: 1.8; }
 .settings-section__heading p { max-width: 680px; margin: 0; color: var(--text-soft); font-size: 12px; line-height: 1.6; }
 .settings-section .market-schedule-card { margin-bottom: 0; }
 .report-settings-card form { grid-template-columns: minmax(120px, 1fr) minmax(100px, .75fr) 90px minmax(160px, 1.25fr) 155px; }
+.ai-settings-card form { grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.4fr) minmax(120px, .8fr) 155px; }
 .placeholder-page { width: min(100%, 640px); min-height: 65vh; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .placeholder-page__icon { width: 58px; height: 58px; margin-bottom: 22px; border-radius: 17px; color: var(--primary); background: var(--primary-soft); display: grid; place-items: center; }
 .placeholder-page h1 { margin: 12px 0 10px; font-size: 34px; letter-spacing: -.04em; }
@@ -686,6 +687,7 @@ svg { stroke-width: 1.8; }
   .market-schedule-card { grid-template-columns: 1fr; }
   .market-schedule-card form { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
   .report-settings-card form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ai-settings-card form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-settings-card form .secondary-button { grid-column: 1 / -1; }
   .report-builder-card { grid-template-columns: 1fr; }
   .report-workspace { grid-template-columns: 1fr; }

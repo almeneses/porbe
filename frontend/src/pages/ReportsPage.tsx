@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
-import type { PortfolioReport, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
+import type { PortfolioReport, PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
 import { formatDate, formatDateTime, formatTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 
@@ -38,7 +38,7 @@ export function ReportsPage() {
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [aiInfo, setAiInfo] = useState<{ model: string; effort: string } | null>(null)
+  const [aiInfo, setAiInfo] = useState<PortfolioReportAiSettings | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -135,7 +135,7 @@ export function ReportsPage() {
           </button>
         </form>
         <small>{t('reports.notesHidden')}</small>
-        <small>{aiInfo && `AI Model: ${aiInfo.model}, Model Effort: ${aiInfo.effort}`}</small>
+        <small>{aiInfo && t(aiInfo.enabled ? 'reports.aiInfo' : 'reports.aiDisabled', { model: aiInfo.model, effort: aiInfo.effort })}</small>
       </section>
 
       {loading ? (

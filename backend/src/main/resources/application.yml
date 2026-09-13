@@ -57,8 +57,6 @@ app:
       codex-command: ${CODEX_COMMAND:codex}
       sandbox: ${CODEX_SANDBOX:read-only}
       timeout-seconds: ${CODEX_TIMEOUT_SECONDS:120}
-      model: ${AI_MODEL:}
-      effort: ${AI_EFFORT:}
   whatsapp:
     enabled: ${WHATSAPP_ENABLED:false}
     base-url: ${WHATSAPP_SERVICE_URL:http://localhost:3001}

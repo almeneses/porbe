@@ -40,6 +40,22 @@ export interface PortfolioReportSchedule {
   deliveryChannel: string
 }
 
+export interface PortfolioReportAiModelOption {
+  model: string
+  name: string
+  defaultEffort: string
+  efforts: string[]
+}
+
+/** Configuración persistida del comentario generado con Codex. */
+export interface PortfolioReportAiSettings {
+  enabled: boolean
+  model: string
+  effort: string
+  catalogAvailable: boolean
+  models: PortfolioReportAiModelOption[]
+}
+
 /** Estado de la sesión administrada por whatsapp-web.js en el contenedor Node. */
 export interface WhatsAppConnectionStatus {
   state: 'DISABLED' | 'STARTING' | 'QR_REQUIRED' | 'AUTHENTICATING' | 'READY' | 'AUTH_FAILURE' | 'DISCONNECTED' | 'FAILED' | 'UNAVAILABLE'
@@ -58,7 +74,12 @@ export const reportApi = {
       method: 'PUT',
       body: JSON.stringify(schedule),
     }),
-  aiInfo: () => apiRequest<{ model: string, effort: string }>('/api/reports/ai-info'),
+  aiInfo: () => apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info'),
+  updateAiInfo: (settings: Pick<PortfolioReportAiSettings, 'enabled' | 'model' | 'effort'>) =>
+    apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
   whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
   generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',

@@ -1,11 +1,11 @@
-import { AlertCircle, Clock3, LoaderCircle, Save } from 'lucide-react'
+import { AlertCircle, Clock3, LoaderCircle, Save, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
 import type { MarketDataSchedule, WeekDay } from '../market/api'
 import { reportApi } from '../report/api'
-import type { PortfolioReportSchedule } from '../report/api'
+import type { PortfolioReportAiSettings, PortfolioReportSchedule } from '../report/api'
 import { formatDateTime } from '../utils/formatters'
 
 /** Reúne las preferencias operativas que pueden modificarse desde la aplicación. */
@@ -13,8 +13,10 @@ export function SettingsPage() {
   const { t } = useTranslation()
   const [marketSchedule, setMarketSchedule] = useState<MarketDataSchedule | null>(null)
   const [reportSchedule, setReportSchedule] = useState<PortfolioReportSchedule | null>(null)
+  const [aiSettings, setAiSettings] = useState<PortfolioReportAiSettings | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   useEffect(() => {
     marketDataApi.schedule()
@@ -23,6 +25,9 @@ export function SettingsPage() {
     reportApi.schedule()
       .then(setReportSchedule)
       .catch((requestError) => setReportError(requestError instanceof ApiRequestError ? requestError.message : t('settings.reportLoadError')))
+    reportApi.aiInfo()
+      .then(setAiSettings)
+      .catch((requestError) => setAiError(requestError instanceof ApiRequestError ? requestError.message : t('settings.aiLoadError')))
   }, [t])
 
   return (
@@ -56,6 +61,9 @@ export function SettingsPage() {
             onSaved={setReportSchedule}
           />
         )}
+        {!aiSettings && !aiError && <LoadingSettings />}
+        {aiError && <SettingsError message={aiError} />}
+        {aiSettings && <AiSettingsPanel settings={aiSettings} onSaved={setAiSettings} />}
       </section>
 
       <section className="settings-section" aria-labelledby="market-settings-title">
@@ -79,6 +87,62 @@ export function SettingsPage() {
           />
         )}
       </section>
+    </div>
+  )
+}
+
+function AiSettingsPanel({
+  settings,
+  onSaved,
+}: {
+  settings: PortfolioReportAiSettings
+  onSaved: (settings: PortfolioReportAiSettings) => void
+}) {
+  const { t } = useTranslation()
+  const [enabled, setEnabled] = useState(settings.enabled)
+  const [model, setModel] = useState(settings.model)
+  const [effort, setEffort] = useState(settings.effort)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const selectedModel = settings.models.find((option) => option.model === model)
+  const efforts = selectedModel?.efforts.length ? selectedModel.efforts : [effort]
+
+  function selectModel(value: string) {
+    const option = settings.models.find((candidate) => candidate.model === value)
+    setModel(value)
+    if (option && !option.efforts.includes(effort)) {
+      setEffort(option.defaultEffort || option.efforts[0])
+    }
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setMessage(null)
+    try {
+      const updated = await reportApi.updateAiInfo({ enabled, model, effort })
+      onSaved(updated)
+      setMessage(t('settings.aiSaved'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.aiSaveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="market-schedule-card ai-settings-card">
+      <div className="market-schedule-card__intro"><span><Sparkles size={20} /></span><div><h3>{t('settings.aiTitle')}</h3><p>{t('settings.aiBody')}</p></div></div>
+      <form aria-label={t('settings.aiTitle')} onSubmit={save}>
+        <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'settings.aiEnabled' : 'settings.aiDisabled')}</span></label>
+        <label><span>{t('settings.aiModel')}</span><select value={model} onChange={(event) => selectModel(event.target.value)} disabled={!enabled}>{settings.models.map((option) => <option key={option.model} value={option.model}>{option.name}</option>)}</select></label>
+        <label><span>{t('settings.aiEffort')}</span><select value={effort} onChange={(event) => setEffort(event.target.value)} disabled={!enabled}>{efforts.map((value) => <option key={value} value={value}>{t(`settings.efforts.${value}`)}</option>)}</select></label>
+        <button className="secondary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('settings.aiSave')}</button>
+      </form>
+      <div className="market-schedule-card__status">
+        <span>{t(settings.catalogAvailable ? 'settings.aiCatalogAvailable' : 'settings.aiCatalogUnavailable')}</span>
+        {message && <strong>{message}</strong>}
+      </div>
     </div>
   )
 }
