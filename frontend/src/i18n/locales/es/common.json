@@ -488,6 +488,15 @@
       "FAILED": "Fallido"
     }
   },
+  "settings": {
+    "eyebrow": "Preferencias de la aplicación",
+    "title": "Configuración",
+    "subtitle": "Administra desde un solo lugar las automatizaciones y opciones operativas de Porbe.",
+    "automationEyebrow": "Automatización",
+    "marketTitle": "Datos de mercado",
+    "marketBody": "Define cuándo se actualizan automáticamente los precios utilizados por el portafolio y los informes.",
+    "loading": "Cargando configuración…"
+  },
   "placeholder": {
     "eyebrow": "Próximo incremento",
     "historico": "Histórico del portafolio",
