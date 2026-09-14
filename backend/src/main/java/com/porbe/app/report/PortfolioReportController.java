@@ -3,7 +3,6 @@ package com.porbe.app.report;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -11,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,12 +25,15 @@ public class PortfolioReportController {
 
     private final PortfolioReportService reportService;
     private final PortfolioReportScheduleService scheduleService;
+    private final PortfolioReportAiNoteService aiNoteService;
 
     public PortfolioReportController(
             PortfolioReportService reportService,
-            PortfolioReportScheduleService scheduleService) {
+            PortfolioReportScheduleService scheduleService,
+            PortfolioReportAiNoteService aiNoteService) {
         this.reportService = reportService;
         this.scheduleService = scheduleService;
+        this.aiNoteService = aiNoteService;
     }
 
     @GetMapping
@@ -50,6 +53,13 @@ public class PortfolioReportController {
     @GetMapping("/schedule")
     PortfolioReportScheduleResponse schedule() {
         return scheduleService.current();
+    }
+
+    @PutMapping("/schedule")
+    PortfolioReportScheduleResponse updateSchedule(
+            @Valid @RequestBody PortfolioReportScheduleRequest request,
+            Principal principal) {
+        return scheduleService.update(request, principal.getName());
     }
 
     @GetMapping("/whatsapp/status")
@@ -77,8 +87,15 @@ public class PortfolioReportController {
     }
 
     @GetMapping("/ai-info")
-    ResponseEntity<Map<String, String>> aiInfo() {
-        return ResponseEntity.ok(reportService.aiInfo());
+    PortfolioReportAiSettingsResponse aiInfo() {
+        return aiNoteService.info(scheduleService.aiSettings());
+    }
+
+    @PutMapping("/ai-info")
+    PortfolioReportAiSettingsResponse updateAi(
+            @Valid @RequestBody PortfolioReportAiSettingsRequest request,
+            Principal principal) {
+        return aiNoteService.info(scheduleService.updateAi(request, principal.getName()));
     }
 
     private ResponseEntity<byte[]> file(PortfolioReportFile file, boolean download) {

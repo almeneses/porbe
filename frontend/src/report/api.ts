@@ -1,4 +1,5 @@
 import { apiRequest } from '../auth/api'
+import type { WeekDay } from '../market/api'
 
 /** Informe persistido y formatos disponibles para descarga. */
 export interface PortfolioReport {
@@ -23,15 +24,36 @@ export interface PortfolioReport {
   createdAt: string
 }
 
-/** Configuración fija del informe semanal ejecutado por Spring. */
+/** Programación semanal persistida del informe. */
 export interface PortfolioReportSchedule {
   enabled: boolean
-  dayOfWeek: string
+  dayOfWeek: WeekDay
   runTime: string
   timezone: string
   nextRunAt: string | null
+  lastRunAt: string | null
+  lastRunStatus: 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED' | null
+  lastRunMessage: string | null
+  updatedBy: string
+  updatedAt: string
   deliveryConfigured: boolean
   deliveryChannel: string
+}
+
+export interface PortfolioReportAiModelOption {
+  model: string
+  name: string
+  defaultEffort: string
+  efforts: string[]
+}
+
+/** Configuración persistida del comentario generado con Codex. */
+export interface PortfolioReportAiSettings {
+  enabled: boolean
+  model: string
+  effort: string
+  catalogAvailable: boolean
+  models: PortfolioReportAiModelOption[]
 }
 
 /** Estado de la sesión administrada por whatsapp-web.js en el contenedor Node. */
@@ -47,7 +69,17 @@ export interface WhatsAppConnectionStatus {
 export const reportApi = {
   list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
-  aiInfo: () => apiRequest<{ model: string, effort: string }>('/api/reports/ai-info'),
+  updateSchedule: (schedule: Pick<PortfolioReportSchedule, 'enabled' | 'dayOfWeek' | 'runTime' | 'timezone'>) =>
+    apiRequest<PortfolioReportSchedule>('/api/reports/schedule', {
+      method: 'PUT',
+      body: JSON.stringify(schedule),
+    }),
+  aiInfo: () => apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info'),
+  updateAiInfo: (settings: Pick<PortfolioReportAiSettings, 'enabled' | 'model' | 'effort'>) =>
+    apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
   whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
   generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',

@@ -8,7 +8,7 @@ import { ImportPage } from './pages/ImportPage'
 import { MarketDataPage } from './pages/MarketDataPage'
 import { OperationsPage } from './pages/OperationsPage'
 import { ReportsPage } from './pages/ReportsPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 /** Define las rutas públicas y privadas que componen la aplicación. */
 export function App() {
@@ -24,7 +24,7 @@ export function App() {
           <Route path="/importar" element={<ImportPage />} />
           <Route path="/mercado" element={<MarketDataPage />} />
           <Route path="/informes" element={<ReportsPage />} />
-          <Route path="/configuracion" element={<PlaceholderPage section="configuracion" />} />
+          <Route path="/configuracion" element={<SettingsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/resumen" replace />} />

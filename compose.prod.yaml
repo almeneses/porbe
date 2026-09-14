@@ -89,8 +89,6 @@ services:
       CODEX_COMMAND: codex
       CODEX_SANDBOX: danger-full-access
       CODEX_TIMEOUT_SECONDS: ${CODEX_TIMEOUT_SECONDS:-120}
-      AI_MODEL: ${AI_MODEL:-}
-      AI_EFFORT: ${AI_EFFORT:-}
 
       WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
       WHATSAPP_SERVICE_URL: http://whatsapp-web:3001

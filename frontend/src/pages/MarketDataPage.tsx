@@ -4,7 +4,6 @@ import {
   CalendarDays,
   ChartNoAxesCombined,
   CheckCircle2,
-  Clock3,
   CloudDownload,
   Database,
   LoaderCircle,
@@ -18,7 +17,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
-import type { MarketDataSchedule, MarketDataStatus, MarketDataSyncResult, MarketTickerStatus, WeekDay } from '../market/api'
+import type { MarketDataStatus, MarketDataSyncResult, MarketTickerStatus } from '../market/api'
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 import { TickerIcon } from '../components/TickerIcon'
@@ -29,7 +28,6 @@ export function MarketDataPage() {
   const { activePortfolio } = usePortfolio()
   const [status, setStatus] = useState<MarketDataStatus | null>(null)
   const [syncResult, setSyncResult] = useState<MarketDataSyncResult | null>(null)
-  const [schedule, setSchedule] = useState<MarketDataSchedule | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
 
@@ -44,10 +42,7 @@ export function MarketDataPage() {
 
   useEffect(() => {
     void loadStatus()
-    marketDataApi.schedule()
-      .then(setSchedule)
-      .catch((requestError) => setError(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleLoadError')))
-  }, [loadStatus, t])
+  }, [loadStatus])
 
   // Recarga el estado después de sincronizar para reflejar lo persistido.
   async function syncPrices() {
@@ -106,8 +101,6 @@ export function MarketDataPage() {
           </section>
 
           {syncResult && <SyncResult result={syncResult} />}
-
-          {schedule && <SchedulePanel schedule={schedule} onSaved={setSchedule} />}
 
           <section className="market-grid" aria-label={t('market.assetsLabel')}>
             {status.tickers.map((ticker) => <TickerCard key={ticker.ticker} ticker={ticker} onSectorSaved={loadStatus} />)}
@@ -214,49 +207,6 @@ function IconEditor({ ticker, onSaved }: { ticker: MarketTickerStatus; onSaved: 
       <small>{t('market.iconHint')}</small>
       {error && <small role="alert" className="field-error">{error}</small>}
     </div>
-  )
-}
-
-/** Permite activar y modificar el día y hora del trabajo semanal. */
-function SchedulePanel({ schedule, onSaved }: { schedule: MarketDataSchedule; onSaved: (schedule: MarketDataSchedule) => void }) {
-  const { t } = useTranslation()
-  const [enabled, setEnabled] = useState(schedule.enabled)
-  const [dayOfWeek, setDayOfWeek] = useState<WeekDay>(schedule.dayOfWeek)
-  const [runTime, setRunTime] = useState(schedule.runTime.slice(0, 5))
-  const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-
-  async function saveSchedule(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSaving(true)
-    setMessage(null)
-    try {
-      const updated = await marketDataApi.updateSchedule({ enabled, dayOfWeek, runTime })
-      onSaved(updated)
-      setMessage(t('market.scheduleSaved'))
-    } catch (requestError) {
-      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('market.scheduleSaveError'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <section className="market-schedule-card">
-      <div className="market-schedule-card__intro"><span><Clock3 size={20} /></span><div><h2>{t('market.scheduleTitle')}</h2><p>{t('market.scheduleBody')}</p></div></div>
-      <form onSubmit={saveSchedule}>
-        <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'market.scheduleEnabled' : 'market.scheduleDisabled')}</span></label>
-        <label><span>{t('market.scheduleDay')}</span><select value={dayOfWeek} onChange={(event) => setDayOfWeek(event.target.value as WeekDay)}>{(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as WeekDay[]).map((day) => <option key={day} value={day}>{t(`market.days.${day}`)}</option>)}</select></label>
-        <label><span>{t('market.scheduleTime')}</span><input type="time" value={runTime} onChange={(event) => setRunTime(event.target.value)} required /></label>
-        <button className="secondary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('market.saveSchedule')}</button>
-      </form>
-      <div className="market-schedule-card__status">
-        <span>{t('market.scheduleTimezone', { timezone: schedule.timezone })}</span>
-        <span>{schedule.nextRunAt ? t('market.nextRun', { date: formatDateTime(schedule.nextRunAt) }) : t('market.noNextRun')}</span>
-        {schedule.lastRunAt && <span>{t('market.lastRun', { date: formatDateTime(schedule.lastRunAt), status: t(`market.runStatus.${schedule.lastRunStatus}`) })}</span>}
-        {message && <strong>{message}</strong>}
-      </div>
-    </section>
   )
 }
 

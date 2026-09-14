@@ -29,7 +29,13 @@ describe('ReportsPage', () => {
     vi.mocked(reportApi.schedule).mockResolvedValue(schedule)
     vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
     vi.mocked(reportApi.sendByWhatsApp).mockResolvedValue({ ...report, deliveryStatus: 'SENT' })
-    vi.mocked(reportApi.aiInfo).mockResolvedValue({ model: 'test-model', effort: 'test-effort' })
+    vi.mocked(reportApi.aiInfo).mockResolvedValue({
+      enabled: true,
+      model: 'test-model',
+      effort: 'low',
+      catalogAvailable: false,
+      models: [{ model: 'test-model', name: 'test-model', defaultEffort: 'low', efforts: ['low'] }],
+    })
   })
 
   afterEach(() => {
@@ -90,6 +96,11 @@ const schedule: PortfolioReportSchedule = {
   runTime: '17:30',
   timezone: 'America/Bogota',
   nextRunAt: '2026-09-04T17:30:00-05:00',
+  lastRunAt: null,
+  lastRunStatus: null,
+  lastRunMessage: null,
+  updatedBy: 'system',
+  updatedAt: '2026-09-01T10:00:00-05:00',
   deliveryConfigured: false,
   deliveryChannel: 'WHATSAPP_WEB',
 }

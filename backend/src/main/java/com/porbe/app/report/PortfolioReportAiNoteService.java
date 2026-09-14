@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -49,31 +50,36 @@ public class PortfolioReportAiNoteService {
     private final String command;
     private final String sandbox;
     private final int timeoutSeconds;
-    public final String model;
-    public final String effort;
+    private volatile List<PortfolioReportAiModelOption> modelCache;
 
     public PortfolioReportAiNoteService(
             ObjectMapper objectMapper,
             @Value("${app.reports.ai.codex-command:}") String command,
             @Value("${app.reports.ai.sandbox:read-only}") String sandbox,
-            @Value("${app.reports.ai.timeout-seconds:120}") int timeoutSeconds,
-            @Value ("${app.reports.ai.model:}") String model,
-            @Value ("${app.reports.ai.effort:}") String effort) {
+            @Value("${app.reports.ai.timeout-seconds:120}") int timeoutSeconds) {
         this.objectMapper = objectMapper;
         this.command = command.trim();
         this.sandbox = sandbox;
         this.timeoutSeconds = timeoutSeconds;
-        this.model = model;
-        this.effort = effort;
 
         LoggerFactory.getLogger(getClass()).info(
-                "Comentarios de informes con Codex: {}. Modelo: {} - Esfuerzo: {}", 
-                this.command.isBlank() ? "deshabilitados" : "habilitados",
-                this.model, this.effort);
+                "Integración de comentarios de informes con Codex: {}.",
+                this.command.isBlank() ? "no disponible" : "disponible");
     }
 
-    public PortfolioReportTemplateModel.Note create(PortfolioReportData data) {
-        if (command.isBlank()) {
+    public PortfolioReportAiSettingsResponse info(PortfolioReportAiSettings settings) {
+        var models = new ArrayList<>(availableModels());
+        var catalogAvailable = !models.isEmpty();
+        if (models.stream().noneMatch(option -> option.model().equals(settings.model()))) {
+            models.add(0, new PortfolioReportAiModelOption(
+                    settings.model(), settings.model(), settings.effort(), List.of(settings.effort())));
+        }
+        return new PortfolioReportAiSettingsResponse(
+                settings.enabled(), settings.model(), settings.effort(), catalogAvailable, List.copyOf(models));
+    }
+
+    public PortfolioReportTemplateModel.Note create(PortfolioReportData data, PortfolioReportAiSettings settings) {
+        if (command.isBlank() || !settings.enabled()) {
             return null;
         }
         Path directory = null;
@@ -84,8 +90,8 @@ public class PortfolioReportAiNoteService {
             var processBuilder = new ProcessBuilder(
                 command, "exec",
                 "--ephemeral",
-                "-m", model,
-                "-c", "model_reasoning_effort=\"" + effort + "\"",
+                "-m", settings.model(),
+                "-c", "model_reasoning_effort=\"" + settings.effort() + "\"",
                 "--sandbox", sandbox,
                 "--ignore-user-config",
                 "--ignore-rules",
@@ -133,6 +139,62 @@ public class PortfolioReportAiNoteService {
                 process.destroyForcibly();
             }
             delete(directory);
+        }
+    }
+
+    /** Lee el catálogo que la misma CLI utilizará al generar el comentario. */
+    private List<PortfolioReportAiModelOption> availableModels() {
+        if (modelCache != null) {
+            return modelCache;
+        }
+        if (command.isBlank()) {
+            return List.of();
+        }
+        Path output = null;
+        Process process = null;
+        try {
+            output = Files.createTempFile("porbe-codex-models-", ".json");
+            process = new ProcessBuilder(command, "debug", "models")
+                    .redirectOutput(output.toFile())
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            if (!process.waitFor(Math.min(timeoutSeconds, 10), TimeUnit.SECONDS) || process.exitValue() != 0) {
+                return List.of();
+            }
+            var models = new ArrayList<PortfolioReportAiModelOption>();
+            for (var model : objectMapper.readTree(output.toFile()).path("models")) {
+                if (!"list".equals(model.path("visibility").asText())) {
+                    continue;
+                }
+                var efforts = new ArrayList<String>();
+                for (var level : model.path("supported_reasoning_levels")) {
+                    efforts.add(level.path("effort").asText());
+                }
+                models.add(new PortfolioReportAiModelOption(
+                        model.path("slug").asText(),
+                        model.path("display_name").asText(),
+                        model.path("default_reasoning_level").asText(),
+                        List.copyOf(efforts)));
+            }
+            modelCache = List.copyOf(models);
+            return modelCache;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return List.of();
+        } catch (IOException | RuntimeException exception) {
+            LoggerFactory.getLogger(getClass()).debug("No fue posible consultar el catálogo de modelos de Codex.", exception);
+            return List.of();
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+            if (output != null) {
+                try {
+                    Files.deleteIfExists(output);
+                } catch (IOException exception) {
+                    LoggerFactory.getLogger(getClass()).debug("No fue posible limpiar el catálogo temporal de Codex.", exception);
+                }
+            }
         }
     }
 

@@ -1,10 +1,13 @@
 package com.porbe.app.report;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,7 +29,10 @@ import com.porbe.app.portfolio.PortfolioRepository;
 import com.porbe.app.portfolio.PortfolioService;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +51,8 @@ class PortfolioReportIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PortfolioReportRepository reportRepository;
+    @Autowired private PortfolioReportScheduleRepository scheduleRepository;
+    @Autowired private PortfolioReportScheduleService scheduleService;
     @Autowired private PortfolioOperationRepository operationRepository;
     @Autowired private ImportBatchRepository importBatchRepository;
     @Autowired private PortfolioRepository portfolioRepository;
@@ -56,6 +64,7 @@ class PortfolioReportIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         reportRepository.deleteAll();
+        scheduleRepository.deleteAll();
         priceRepository.deleteAll();
         instrumentRepository.deleteAll();
         operationRepository.deleteAll();
@@ -115,7 +124,7 @@ class PortfolioReportIntegrationTest {
     }
 
     @Test
-    void exposesTheFridayScheduleWithoutConfiguringDelivery() throws Exception {
+    void persistsTheWeeklyReportSchedule() throws Exception {
         mockMvc.perform(get("/api/reports/schedule").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enabled").value(true))
@@ -125,10 +134,72 @@ class PortfolioReportIntegrationTest {
                 .andExpect(jsonPath("$.deliveryConfigured").value(false))
                 .andExpect(jsonPath("$.deliveryChannel").value("WHATSAPP_WEB"));
 
+        mockMvc.perform(put("/api/reports/schedule")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": false,
+                                  "dayOfWeek": "MONDAY",
+                                  "runTime": "07:15",
+                                  "timezone": "America/Lima"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.dayOfWeek").value("MONDAY"))
+                .andExpect(jsonPath("$.runTime").value("07:15"))
+                .andExpect(jsonPath("$.timezone").value("America/Lima"))
+                .andExpect(jsonPath("$.nextRunAt").doesNotExist())
+                .andExpect(jsonPath("$.updatedBy").value("admin"));
+
+        mockMvc.perform(get("/api/reports/schedule").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.timezone").value("America/Lima"));
+
+        mockMvc.perform(put("/api/reports/ai-info")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": true,
+                                  "model": "gpt-5.5",
+                                  "effort": "medium"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.model").value("gpt-5.5"))
+                .andExpect(jsonPath("$.effort").value("medium"));
+
+        mockMvc.perform(get("/api/reports/ai-info").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.model").value("gpt-5.5"))
+                .andExpect(jsonPath("$.effort").value("medium"));
+
         mockMvc.perform(get("/api/reports/whatsapp/status").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("DISABLED"))
                 .andExpect(jsonPath("$.ready").value(false));
+    }
+
+    @Test
+    void claimsDueScheduleOnlyOnce() {
+        var zone = ZoneId.of("America/Bogota");
+        scheduleService.update(new PortfolioReportScheduleRequest(
+                true,
+                DayOfWeek.from(java.time.ZonedDateTime.now(zone)),
+                LocalTime.MIDNIGHT,
+                zone.getId()), "admin");
+
+        var firstClaim = scheduleService.claimIfDue();
+
+        assertTrue(firstClaim.isPresent());
+        assertEquals(zone, firstClaim.orElseThrow());
+        assertTrue(scheduleService.claimIfDue().isEmpty());
     }
 
     private OperationContext operationContext() {

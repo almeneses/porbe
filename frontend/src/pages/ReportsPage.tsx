@@ -16,8 +16,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
-import type { PortfolioReport, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
-import { formatDate, formatDateTime } from '../utils/formatters'
+import type { PortfolioReport, PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
+import { formatDate, formatDateTime, formatTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 
 /** Genera, previsualiza y conserva los informes periódicos del portafolio. */
@@ -38,7 +38,7 @@ export function ReportsPage() {
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [aiInfo, setAiInfo] = useState<{ model: string; effort: string } | null>(null)
+  const [aiInfo, setAiInfo] = useState<PortfolioReportAiSettings | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -135,7 +135,7 @@ export function ReportsPage() {
           </button>
         </form>
         <small>{t('reports.notesHidden')}</small>
-        <small>{aiInfo && `AI Model: ${aiInfo.model}, Model Effort: ${aiInfo.effort}`}</small>
+        <small>{aiInfo && t(aiInfo.enabled ? 'reports.aiInfo' : 'reports.aiDisabled', { model: aiInfo.model, effort: aiInfo.effort })}</small>
       </section>
 
       {loading ? (
@@ -225,9 +225,9 @@ function ReportScheduleCard({ schedule, whatsAppStatus }: { schedule: PortfolioR
       <h2>{t('reports.automationTitle')}</h2>
       <p>{t('reports.automationBody')}</p>
       <dl>
-        <div><dt>{t('reports.schedule')}</dt><dd>{t('reports.fridayTime')}</dd></div>
+        <div><dt>{t('reports.schedule')}</dt><dd>{schedule ? t('reports.scheduleValue', { day: t(`market.days.${schedule.dayOfWeek}`), time: formatTime(schedule.runTime) }) : '—'}</dd></div>
         <div><dt>{t('reports.timezone')}</dt><dd>{schedule?.timezone ?? 'America/Bogota'}</dd></div>
-        <div><dt>{t('reports.nextRun')}</dt><dd>{schedule?.nextRunAt ? formatDateTime(schedule.nextRunAt) : '—'}</dd></div>
+        <div><dt>{t('reports.nextRun')}</dt><dd>{schedule?.nextRunAt ? formatDateTime(schedule.nextRunAt, schedule.timezone) : '—'}</dd></div>
       </dl>
       <div className="report-delivery-state">
         <MessageCircleMore size={19} />

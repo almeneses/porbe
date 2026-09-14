@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAmount, formatCop, formatCurrency, formatDate, formatPercentage, formatQuantity } from './formatters'
+import { formatAmount, formatCop, formatCurrency, formatDate, formatPercentage, formatQuantity, formatTime } from './formatters'
 
 describe('formateadores colombianos', () => {
   it('presenta pesos colombianos sin decimales', () => {
@@ -17,6 +17,7 @@ describe('formateadores colombianos', () => {
 
   it('presenta fechas ISO sin corrimientos de zona horaria', () => {
     expect(formatDate('2025-01-06')).toContain('2025')
+    expect(formatTime('17:30')).toBe('5:30 p. m.')
   })
 
   it('respeta la moneda reportada por el proveedor', () => {
