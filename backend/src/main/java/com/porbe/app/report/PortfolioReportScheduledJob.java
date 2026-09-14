@@ -47,13 +47,16 @@ public class PortfolioReportScheduledJob {
         var from = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         try {
             var sync = marketDataSyncService.syncPortfolio();
-            var portfolios = portfolioService.list();
+            var portfolios = portfolioService.listForScheduledReport();
+            var deliveredAll = true;
             for (var portfolio : portfolios) {
                 var report = reportService.generateScheduledIfMissing(portfolio.id(), from, to);
-                reportService.deliver(report.id());
+                var delivered = reportService.deliverToActiveRecipients(report.id());
+                deliveredAll = deliveredAll && "SENT".equals(delivered.deliveryStatus());
             }
-            var status = sync.successfulTickers() == sync.totalTickers() ? "SUCCESS" : "PARTIAL";
-            scheduleService.finish(status, "Informe semanal generado para " + portfolios.size() + " portafolio(s).");
+            var status = sync.successfulTickers() == sync.totalTickers() && deliveredAll ? "SUCCESS" : "PARTIAL";
+            scheduleService.finish(status, "Informe semanal generado y entrega procesada para "
+                    + portfolios.size() + " portafolio(s).");
         } catch (RuntimeException exception) {
             var message = exception.getMessage() == null
                     ? "No fue posible completar el informe automático."

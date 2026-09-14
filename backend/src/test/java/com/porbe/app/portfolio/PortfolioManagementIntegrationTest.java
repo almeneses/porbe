@@ -1,5 +1,6 @@
 package com.porbe.app.portfolio;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -20,6 +21,7 @@ import com.porbe.app.report.PortfolioReportRepository;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,7 @@ class PortfolioManagementIntegrationTest {
     @Autowired private MarketPriceDailyRepository priceRepository;
     @Autowired private MarketInstrumentRepository instrumentRepository;
     @Autowired private PortfolioRepository portfolioRepository;
+    @Autowired private PortfolioService portfolioService;
 
     @BeforeEach
     void cleanDatabase() {
@@ -93,6 +96,20 @@ class PortfolioManagementIntegrationTest {
                         .content("{\"name\":\"Crecimiento USA\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Crecimiento USA"));
+
+        mockMvc.perform(put("/api/portfolios/{id}/scheduled-report", usaId)
+                        .queryParam("enabled", "false")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scheduledReportEnabled").value(false));
+
+        mockMvc.perform(get("/api/portfolios")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].scheduledReportEnabled").value(true))
+                .andExpect(jsonPath("$[1].scheduledReportEnabled").value(false));
+        assertEquals(List.of(colombiaId), portfolioService.listForScheduledReport().stream().map(PortfolioResponse::id).toList());
     }
 
     @Test

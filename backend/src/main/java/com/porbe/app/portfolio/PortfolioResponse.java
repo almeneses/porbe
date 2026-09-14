@@ -7,6 +7,7 @@ public record PortfolioResponse(
         Long id,
         String name,
         String baseCurrency,
+        boolean scheduledReportEnabled,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt) {
 
@@ -15,6 +16,7 @@ public record PortfolioResponse(
                 portfolio.getId(),
                 portfolio.getName(),
                 portfolio.getBaseCurrency(),
+                portfolio.isScheduledReportEnabled(),
                 portfolio.getCreatedAt(),
                 portfolio.getUpdatedAt());
     }

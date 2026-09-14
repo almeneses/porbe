@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../auth/api'
 import { reportApi } from '../report/api'
-import type { PortfolioReport, PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus } from '../report/api'
+import type { PortfolioReport, PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus, WhatsAppRecipient } from '../report/api'
 import { formatDate, formatDateTime, formatTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 
@@ -31,8 +31,9 @@ export function ReportsPage() {
   const [reports, setReports] = useState<PortfolioReport[]>([])
   const [schedule, setSchedule] = useState<PortfolioReportSchedule | null>(null)
   const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppConnectionStatus | null>(null)
+  const [recipients, setRecipients] = useState<WhatsAppRecipient[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [recipient, setRecipient] = useState('')
+  const [recipientId, setRecipientId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
@@ -42,16 +43,20 @@ export function ReportsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [items, configuredSchedule, connection, aiInfo] = await Promise.all([
+      const [items, configuredSchedule, connection, aiInfo, configuredRecipients] = await Promise.all([
         reportApi.list(activePortfolio.id),
         reportApi.schedule(),
         reportApi.whatsAppStatus(),
         reportApi.aiInfo(),
+        reportApi.whatsAppRecipients(),
       ])
       setReports(items)
       setSchedule(configuredSchedule)
       setWhatsAppStatus(connection)
       setAiInfo(aiInfo)
+      const activeRecipients = configuredRecipients.filter((recipient) => recipient.enabled)
+      setRecipients(activeRecipients)
+      setRecipientId((current) => activeRecipients.some((recipient) => recipient.id === current) ? current : activeRecipients[0]?.id ?? null)
       setSelectedId(items.find((item) => item.status === 'READY')?.id ?? null)
       setError(null)
     } catch (requestError) {
@@ -88,14 +93,15 @@ export function ReportsPage() {
 
   /** El diálogo del navegador evita envíos accidentales mientras el botón sea temporal. */
   async function sendByWhatsApp() {
-    if (!selected || !recipient.trim()) return
-    if (!window.confirm(t('reports.sendConfirm', { recipient }))) return
+    const recipient = recipients.find((item) => item.id === recipientId)
+    if (!selected || !recipient) return
+    if (!window.confirm(t('reports.sendConfirm', { recipient: `${recipient.name} (${recipient.phoneNumber})` }))) return
 
     setSending(true)
     setError(null)
     setFeedback(null)
     try {
-      const delivered = await reportApi.sendByWhatsApp(selected.id, recipient)
+      const delivered = await reportApi.sendByWhatsApp(selected.id, recipient.id)
       setReports((current) => current.map((report) => report.id === delivered.id ? delivered : report))
       setFeedback(t('reports.sendSuccess'))
     } catch (requestError) {
@@ -145,9 +151,10 @@ export function ReportsPage() {
           <ReportPreview
             report={selected}
             whatsAppStatus={whatsAppStatus}
-            recipient={recipient}
+            recipients={recipients}
+            recipientId={recipientId}
             sending={sending}
-            onRecipientChange={setRecipient}
+            onRecipientChange={setRecipientId}
             onSend={sendByWhatsApp}
           />
           <ReportScheduleCard schedule={schedule} whatsAppStatus={whatsAppStatus} />
@@ -162,13 +169,14 @@ export function ReportsPage() {
 interface ReportPreviewProps {
   report: PortfolioReport | null
   whatsAppStatus: WhatsAppConnectionStatus | null
-  recipient: string
+  recipients: WhatsAppRecipient[]
+  recipientId: number | null
   sending: boolean
-  onRecipientChange: (value: string) => void
+  onRecipientChange: (value: number) => void
   onSend: () => void
 }
 
-function ReportPreview({ report, whatsAppStatus, recipient, sending, onRecipientChange, onSend }: ReportPreviewProps) {
+function ReportPreview({ report, whatsAppStatus, recipients, recipientId, sending, onRecipientChange, onSend }: ReportPreviewProps) {
   const { t } = useTranslation()
   if (!report) {
     return <section className="report-preview-card report-preview-card--empty"><span><FileImage size={28} /></span><h2>{t('reports.emptyPreviewTitle')}</h2><p>{t('reports.emptyPreviewBody')}</p></section>
@@ -188,18 +196,19 @@ function ReportPreview({ report, whatsAppStatus, recipient, sending, onRecipient
           <label htmlFor="whatsapp-recipient">{t('reports.recipient')}</label>
           <p>{t(whatsAppStatus?.ready ? 'reports.recipientReadyHelp' : 'reports.recipientWaitingHelp')}</p>
         </div>
-        <input
+        <select
           id="whatsapp-recipient"
-          type="tel"
-          inputMode="tel"
-          placeholder="573001234567"
-          value={recipient}
-          onChange={(event) => onRecipientChange(event.target.value)}
-        />
+          value={recipientId ?? ''}
+          disabled={!recipients.length}
+          onChange={(event) => onRecipientChange(Number(event.target.value))}
+        >
+          {!recipients.length && <option value="">{t('reports.noRecipients')}</option>}
+          {recipients.map((recipient) => <option key={recipient.id} value={recipient.id}>{recipient.name} · {recipient.phoneNumber}</option>)}
+        </select>
         <button
           className="whatsapp-send-button"
           type="button"
-          disabled={!whatsAppStatus?.ready || sending || !recipient.trim()}
+          disabled={!whatsAppStatus?.ready || sending || recipientId === null}
           onClick={onSend}
         >
           {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}

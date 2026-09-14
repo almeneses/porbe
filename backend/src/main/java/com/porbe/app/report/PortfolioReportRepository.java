@@ -32,4 +32,6 @@ public interface PortfolioReportRepository extends JpaRepository<PortfolioReport
             LocalDate to,
             String triggerType,
             String status);
+
+    Optional<PortfolioReport> findFirstByStatusOrderByCreatedAtDesc(String status);
 }
