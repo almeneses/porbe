@@ -25,6 +25,9 @@ public class Portfolio {
     @Column(name = "base_currency", nullable = false, length = 3)
     private String baseCurrency;
 
+    @Column(name = "scheduled_report_enabled", nullable = false)
+    private boolean scheduledReportEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -53,9 +56,17 @@ public class Portfolio {
         return baseCurrency;
     }
 
+    public boolean isScheduledReportEnabled() {
+        return scheduledReportEnabled;
+    }
+
     /** Permite renombrar el portafolio sin alterar sus operaciones ni informes previos. */
     public void rename(String name) {
         this.name = name;
+    }
+
+    public void setScheduledReportEnabled(boolean enabled) {
+        this.scheduledReportEnabled = enabled;
     }
 
     public OffsetDateTime getCreatedAt() {

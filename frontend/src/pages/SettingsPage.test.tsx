@@ -1,11 +1,18 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import '../i18n'
 import type { MarketDataSchedule } from '../market/api'
 import { marketDataApi } from '../market/api'
-import type { PortfolioReportAiSettings, PortfolioReportSchedule } from '../report/api'
+import type { PortfolioReport, PortfolioReportAiSettings, PortfolioReportSchedule } from '../report/api'
 import { reportApi } from '../report/api'
 import { SettingsPage } from './SettingsPage'
+
+const updateScheduledReport = vi.fn()
+
+vi.mock('../portfolio/PortfolioProvider', () => ({
+  usePortfolio: () => ({ portfolios, updateScheduledReport }),
+}))
 
 vi.mock('../market/api', () => ({
   marketDataApi: {
@@ -20,6 +27,12 @@ vi.mock('../report/api', () => ({
     updateSchedule: vi.fn(),
     aiInfo: vi.fn(),
     updateAiInfo: vi.fn(),
+    whatsAppRecipients: vi.fn(),
+    whatsAppStatus: vi.fn(),
+    createWhatsAppRecipient: vi.fn(),
+    updateWhatsAppRecipient: vi.fn(),
+    deleteWhatsAppRecipient: vi.fn(),
+    testWhatsAppRecipient: vi.fn(),
   },
 }))
 
@@ -31,6 +44,13 @@ describe('SettingsPage', () => {
     vi.mocked(reportApi.updateSchedule).mockResolvedValue({ ...reportSchedule, dayOfWeek: 'MONDAY', runTime: '07:15', timezone: 'America/Lima' })
     vi.mocked(reportApi.aiInfo).mockResolvedValue(aiSettings)
     vi.mocked(reportApi.updateAiInfo).mockResolvedValue({ ...aiSettings, model: 'gpt-5.5', effort: 'medium' })
+    vi.mocked(reportApi.whatsAppRecipients).mockResolvedValue(recipients)
+    vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
+    vi.mocked(reportApi.createWhatsAppRecipient).mockResolvedValue({ ...recipients[0], id: 2, name: 'Familia' })
+    vi.mocked(reportApi.updateWhatsAppRecipient).mockImplementation(async (id, recipient) => ({ ...recipients[0], id, ...recipient }))
+    vi.mocked(reportApi.deleteWhatsAppRecipient).mockResolvedValue(undefined)
+    vi.mocked(reportApi.testWhatsAppRecipient).mockResolvedValue({} as PortfolioReport)
+    updateScheduledReport.mockResolvedValue({ ...portfolios[0], scheduledReportEnabled: false })
   })
 
   afterEach(() => {
@@ -39,7 +59,7 @@ describe('SettingsPage', () => {
   })
 
   it('consulta y actualiza la programación de precios desde Configuración', async () => {
-    render(<SettingsPage />)
+    renderPage()
 
     const section = await screen.findByRole('region', { name: 'Datos de mercado' })
     fireEvent.change(section.querySelector('select')!, { target: { value: 'FRIDAY' } })
@@ -51,7 +71,7 @@ describe('SettingsPage', () => {
   })
 
   it('actualiza día, hora y zona horaria del informe', async () => {
-    render(<SettingsPage />)
+    renderPage()
 
     const section = await screen.findByRole('region', { name: 'Informes' })
     fireEvent.change(section.querySelector('select')!, { target: { value: 'MONDAY' } })
@@ -64,7 +84,7 @@ describe('SettingsPage', () => {
   })
 
   it('actualiza el modelo y ajusta el esfuerzo a sus opciones disponibles', async () => {
-    render(<SettingsPage />)
+    renderPage()
 
     const form = await screen.findByRole('form', { name: 'Comentario con IA' })
     fireEvent.change(form.querySelectorAll('select')[0], { target: { value: 'gpt-5.5' } })
@@ -74,7 +94,35 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(reportApi.updateAiInfo).toHaveBeenCalledWith({ enabled: true, model: 'gpt-5.5', effort: 'medium' }))
     expect(await screen.findByText('Configuración de IA guardada.')).toBeInTheDocument()
   })
+
+  it('agrega un destinatario y prueba el envío del último informe', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+
+    const addForm = await screen.findByRole('form', { name: 'Agregar destinatario' })
+    fireEvent.change(addForm.querySelectorAll('input')[0], { target: { value: 'Familia' } })
+    fireEvent.change(addForm.querySelectorAll('input')[1], { target: { value: '+57 311 000 0000' } })
+    fireEvent.click(addForm.querySelector('button[type="submit"]')!)
+
+    await waitFor(() => expect(reportApi.createWhatsAppRecipient).toHaveBeenCalledWith({ name: 'Familia', phoneNumber: '+57 311 000 0000', enabled: true }))
+    fireEvent.click(within(screen.getByRole('form', { name: 'Alejo' })).getByRole('button', { name: 'Probar' }))
+    await waitFor(() => expect(reportApi.testWhatsAppRecipient).toHaveBeenCalledWith(1))
+    expect(await screen.findByText('Informe de prueba enviado.')).toBeInTheDocument()
+  })
+
+  it('selecciona los portafolios incluidos en el informe automático', async () => {
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Portafolio principal' }))
+
+    await waitFor(() => expect(updateScheduledReport).toHaveBeenCalledWith(1, false))
+    expect(screen.getByText('1 portafolio')).toBeInTheDocument()
+  })
 })
+
+function renderPage() {
+  return render(<MemoryRouter><SettingsPage /></MemoryRouter>)
+}
 
 const schedule: MarketDataSchedule = {
   enabled: true,
@@ -113,4 +161,31 @@ const aiSettings: PortfolioReportAiSettings = {
     { model: 'gpt-5.4-mini', name: 'GPT-5.4 Mini', defaultEffort: 'low', efforts: ['low', 'medium', 'high'] },
     { model: 'gpt-5.5', name: 'GPT-5.5', defaultEffort: 'medium', efforts: ['low', 'medium', 'high', 'xhigh'] },
   ],
+}
+
+const recipients = [{
+  id: 1,
+  name: 'Alejo',
+  phoneNumber: '573001234567',
+  enabled: true,
+  updatedBy: 'admin',
+  updatedAt: '2026-09-12T09:00:00-05:00',
+}]
+
+const portfolios = [{
+  id: 1,
+  name: 'Portafolio principal',
+  baseCurrency: 'COP',
+  scheduledReportEnabled: true,
+  createdAt: '2026-09-12T09:00:00-05:00',
+  updatedAt: '2026-09-12T09:00:00-05:00',
+}]
+
+const whatsAppStatus = {
+  state: 'READY' as const,
+  ready: true,
+  qrDataUrl: null,
+  accountLabel: '•••• 4567',
+  message: 'WhatsApp está conectado y listo para enviar.',
+  updatedAt: '2026-09-12T09:00:00-05:00',
 }

@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -52,6 +53,7 @@ class PortfolioReportIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PortfolioReportRepository reportRepository;
     @Autowired private PortfolioReportScheduleRepository scheduleRepository;
+    @Autowired private WhatsAppRecipientRepository recipientRepository;
     @Autowired private PortfolioReportScheduleService scheduleService;
     @Autowired private PortfolioOperationRepository operationRepository;
     @Autowired private ImportBatchRepository importBatchRepository;
@@ -64,6 +66,7 @@ class PortfolioReportIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         reportRepository.deleteAll();
+        recipientRepository.deleteAll();
         scheduleRepository.deleteAll();
         priceRepository.deleteAll();
         instrumentRepository.deleteAll();
@@ -200,6 +203,65 @@ class PortfolioReportIntegrationTest {
         assertTrue(firstClaim.isPresent());
         assertEquals(zone, firstClaim.orElseThrow());
         assertTrue(scheduleService.claimIfDue().isEmpty());
+    }
+
+    @Test
+    void managesWhatsAppRecipients() throws Exception {
+        var created = mockMvc.perform(post("/api/reports/whatsapp/recipients")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Alejo",
+                                  "phoneNumber": "+57 300 123 4567",
+                                  "enabled": true
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Alejo"))
+                .andExpect(jsonPath("$.phoneNumber").value("573001234567"))
+                .andReturn().getResponse().getContentAsString();
+        var id = objectMapper.readTree(created).get("id").asLong();
+
+        mockMvc.perform(post("/api/reports/whatsapp/recipients")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Duplicado",
+                                  "phoneNumber": "573001234567",
+                                  "enabled": true
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/api/reports/whatsapp/recipients/{id}", id)
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Alejo personal",
+                                  "phoneNumber": "573001234567",
+                                  "enabled": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Alejo personal"))
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        mockMvc.perform(get("/api/reports/whatsapp/recipients").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(id));
+
+        mockMvc.perform(delete("/api/reports/whatsapp/recipients/{id}", id)
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertTrue(recipientRepository.findAll().isEmpty());
     }
 
     private OperationContext operationContext() {

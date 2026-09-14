@@ -66,6 +66,15 @@ export interface WhatsAppConnectionStatus {
   updatedAt: string | null
 }
 
+export interface WhatsAppRecipient {
+  id: number
+  name: string
+  phoneNumber: string
+  enabled: boolean
+  updatedBy: string
+  updatedAt: string
+}
+
 export const reportApi = {
   list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
@@ -81,14 +90,27 @@ export const reportApi = {
       body: JSON.stringify(settings),
     }),
   whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
+  whatsAppRecipients: () => apiRequest<WhatsAppRecipient[]>('/api/reports/whatsapp/recipients'),
+  createWhatsAppRecipient: (recipient: Pick<WhatsAppRecipient, 'name' | 'phoneNumber' | 'enabled'>) =>
+    apiRequest<WhatsAppRecipient>('/api/reports/whatsapp/recipients', {
+      method: 'POST',
+      body: JSON.stringify(recipient),
+    }),
+  updateWhatsAppRecipient: (id: number, recipient: Pick<WhatsAppRecipient, 'name' | 'phoneNumber' | 'enabled'>) =>
+    apiRequest<WhatsAppRecipient>(`/api/reports/whatsapp/recipients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(recipient),
+    }),
+  deleteWhatsAppRecipient: (id: number) => apiRequest<void>(`/api/reports/whatsapp/recipients/${id}`, { method: 'DELETE' }),
+  testWhatsAppRecipient: (id: number) => apiRequest<PortfolioReport>(`/api/reports/whatsapp/recipients/${id}/test`, { method: 'POST' }),
   generate: (portfolioId: number, from: string, to: string) => apiRequest<PortfolioReport>('/api/reports', {
     method: 'POST',
     body: JSON.stringify({ portfolioId, from, to }),
   }),
   imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
   pdfUrl: (id: number) => `/api/reports/${id}/pdf`,
-  sendByWhatsApp: (id: number, recipient: string) => apiRequest<PortfolioReport>(`/api/reports/${id}/whatsapp`, {
+  sendByWhatsApp: (id: number, recipientId: number) => apiRequest<PortfolioReport>(`/api/reports/${id}/whatsapp`, {
     method: 'POST',
-    body: JSON.stringify({ recipient }),
+    body: JSON.stringify({ recipientId }),
   }),
 }

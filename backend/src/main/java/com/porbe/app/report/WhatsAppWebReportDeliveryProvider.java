@@ -1,6 +1,5 @@
 package com.porbe.app.report;
 
-import com.porbe.app.config.WhatsAppProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -10,27 +9,24 @@ import org.springframework.stereotype.Component;
 public class WhatsAppWebReportDeliveryProvider implements PortfolioReportDeliveryProvider {
 
     private final WhatsAppWebClient client;
-    private final WhatsAppProperties properties;
 
-    public WhatsAppWebReportDeliveryProvider(WhatsAppWebClient client, WhatsAppProperties properties) {
+    public WhatsAppWebReportDeliveryProvider(WhatsAppWebClient client) {
         this.client = client;
-        this.properties = properties;
     }
 
     @Override
     public PortfolioReportDeliveryResult deliver(PortfolioReport report, String recipient) {
-        var target = hasText(recipient) ? recipient.trim() : properties.defaultRecipient();
-        if (!hasText(target)) {
+        if (!hasText(recipient)) {
             return new PortfolioReportDeliveryResult(
                     "NOT_CONFIGURED",
-                    "Configura un número predeterminado o indícalo al enviar manualmente.");
+                    "Configura al menos un destinatario activo.");
         }
         if (report.getImageData() == null || report.getImageData().length == 0) {
             throw new WhatsAppDeliveryException("El informe todavía no tiene una imagen lista para enviar.");
         }
 
         client.send(
-                target,
+                recipient.trim(),
                 caption(report),
                 filename(report),
                 report.getImageData());
@@ -39,7 +35,7 @@ public class WhatsAppWebReportDeliveryProvider implements PortfolioReportDeliver
 
     @Override
     public boolean configured() {
-        return hasText(properties.defaultRecipient());
+        return true;
     }
 
     @Override

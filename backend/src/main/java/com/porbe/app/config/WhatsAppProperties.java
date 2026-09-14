@@ -8,7 +8,6 @@ public record WhatsAppProperties(
         boolean enabled,
         String baseUrl,
         String internalToken,
-        String defaultRecipient,
         int connectTimeoutSeconds,
         int readTimeoutSeconds) {
 }

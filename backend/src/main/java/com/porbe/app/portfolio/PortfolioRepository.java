@@ -11,5 +11,7 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
 
     List<Portfolio> findAllByOrderByCreatedAtAscIdAsc();
 
+    List<Portfolio> findAllByScheduledReportEnabledTrueOrderByCreatedAtAscIdAsc();
+
     boolean existsByNameIgnoreCase(String name);
 }
