@@ -123,10 +123,6 @@ public class PortfolioValuationService {
                 issues);
     }
 
-    public PortfolioSummaryResponse currentSummary() {
-        return currentSummary(null);
-    }
-
     private Map<String, PortfolioPositionLedger> positionLedgers(List<PortfolioOperation> operations) {
         var ledgers = new LinkedHashMap<String, PortfolioPositionLedger>();
         operations.stream()

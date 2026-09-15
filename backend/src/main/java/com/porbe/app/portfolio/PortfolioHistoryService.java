@@ -169,10 +169,6 @@ public class PortfolioHistoryService {
                 weeks);
     }
 
-    public PortfolioHistoryResponse weeklyHistory(LocalDate from, LocalDate to) {
-        return weeklyHistory(null, from, to);
-    }
-
     /** Construye el consolidado y el detalle por ticker para un único cierre semanal. */
     private PortfolioWeeklySnapshot snapshot(
             LocalDate week,

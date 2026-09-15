@@ -63,7 +63,7 @@ class MarketDataIntegrationTest {
     private PortfolioService portfolioService;
 
     @MockitoBean
-    private MarketDataProvider provider;
+    private YahooFinanceMarketDataClient provider;
 
     @BeforeEach
     void cleanDatabase() {

@@ -99,10 +99,6 @@ public class MarketDataSchedule {
         return id;
     }
 
-    public String getScheduleKey() {
-        return scheduleKey;
-    }
-
     public boolean isEnabled() {
         return enabled;
     }

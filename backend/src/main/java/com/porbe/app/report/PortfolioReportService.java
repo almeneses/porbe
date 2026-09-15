@@ -68,14 +68,6 @@ public class PortfolioReportService {
         }
     }
 
-    public PortfolioReportListItem generate(
-            LocalDate from,
-            LocalDate to,
-            String triggerType,
-            String generatedBy) {
-        return generate(null, from, to, triggerType, generatedBy);
-    }
-
     public PortfolioReportListItem generateScheduledIfMissing(Long portfolioId, LocalDate from, LocalDate to) {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         return repository.findFirstByPortfolioAndFromAndToAndTriggerTypeAndStatusOrderByCreatedAtDesc(
@@ -142,10 +134,6 @@ public class PortfolioReportService {
 
     public List<PortfolioReportListItem> list(Long portfolioId) {
         return repository.listRecent(portfolioService.getPortfolio(portfolioId));
-    }
-
-    public List<PortfolioReportListItem> list() {
-        return list(null);
     }
 
     public PortfolioReportFile image(Long id) {

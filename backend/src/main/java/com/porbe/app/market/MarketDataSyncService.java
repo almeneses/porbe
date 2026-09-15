@@ -31,7 +31,7 @@ public class MarketDataSyncService {
     private final PortfolioOperationRepository operationRepository;
     private final MarketInstrumentRepository instrumentRepository;
     private final MarketPriceDailyRepository priceRepository;
-    private final MarketDataProvider provider;
+    private final YahooFinanceMarketDataClient provider;
     private final MarketDataPersistenceService persistenceService;
     private final PortfolioService portfolioService;
     private final Clock clock;
@@ -40,7 +40,7 @@ public class MarketDataSyncService {
             PortfolioOperationRepository operationRepository,
             MarketInstrumentRepository instrumentRepository,
             MarketPriceDailyRepository priceRepository,
-            MarketDataProvider provider,
+            YahooFinanceMarketDataClient provider,
             MarketDataPersistenceService persistenceService,
             PortfolioService portfolioService,
             Clock clock) {
@@ -111,12 +111,6 @@ public class MarketDataSyncService {
 
     @Transactional(readOnly = true)
     /** Combina operaciones, instrumentos y último precio en una vista compacta. */
-    public MarketDataStatusResponse status() {
-        var tickerRanges = operationRepository.findPortfolioTickerRanges();
-        return status(tickerRanges);
-    }
-
-    @Transactional(readOnly = true)
     public MarketDataStatusResponse status(Long portfolioId) {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         return status(operationRepository.findPortfolioTickerRanges(portfolio));
@@ -197,12 +191,6 @@ public class MarketDataSyncService {
      * Proyecta el último cierre conocido sobre cada viernes para todos los
      * símbolos actuales, incluso antes de su primera operación en el libro.
      */
-    @Transactional(readOnly = true)
-    public MarketWeeklyClosesResponse weeklyCloses() {
-        var ranges = operationRepository.findPortfolioTickerRanges();
-        return weeklyCloses(ranges);
-    }
-
     @Transactional(readOnly = true)
     public MarketWeeklyClosesResponse weeklyCloses(Long portfolioId) {
         var portfolio = portfolioService.getPortfolio(portfolioId);

@@ -126,10 +126,6 @@ public class PortfolioImportService {
         return PortfolioImportResult.completed(operations.size(), batch.getId());
     }
 
-    public PortfolioImportResult importWorkbook(MultipartFile file, String username) {
-        return importWorkbook(null, file, username);
-    }
-
     private byte[] readAndValidateFile(MultipartFile file) {
         var errors = new ArrayList<ImportRowError>();
         if (file == null || file.isEmpty()) {
@@ -151,7 +147,7 @@ public class PortfolioImportService {
     /** Recorre solo filas con contenido y acumula todos los errores encontrados. */
     private ParsedWorkbook parseWorkbook(byte[] bytes) {
         var errors = new ArrayList<ImportRowError>();
-        var operations = new ArrayList<ParsedOperation>();
+        var operations = new ArrayList<OperationData>();
         var totalRows = 0;
 
         try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
@@ -222,7 +218,7 @@ public class PortfolioImportService {
     }
 
     /** Normaliza una fila y solo construye la operación cuando todos sus campos son válidos. */
-    private ParsedOperation parseRow(
+    private OperationData parseRow(
             Row row,
             int rowNumber,
             Map<String, Integer> columns,
@@ -275,7 +271,7 @@ public class PortfolioImportService {
         if (errors.size() > initialErrors) {
             return null;
         }
-        return new ParsedOperation(
+        return new OperationData(
                 date,
                 type,
                 ticker,
@@ -486,20 +482,7 @@ public class PortfolioImportService {
     /** Resultado interno de leer el libro antes de iniciar la persistencia. */
     private record ParsedWorkbook(
             int totalRows,
-            List<ParsedOperation> operations,
+            List<OperationData> operations,
             List<ImportRowError> errors) {
-    }
-
-    /** Operación ya normalizada y apta para convertirse en entidad. */
-    private record ParsedOperation(
-            LocalDate date,
-            OperationType type,
-            String ticker,
-            String name,
-            BigDecimal quantity,
-            BigDecimal unitPrice,
-            BigDecimal commission,
-            BigDecimal totalAmount,
-            String notes) {
     }
 }

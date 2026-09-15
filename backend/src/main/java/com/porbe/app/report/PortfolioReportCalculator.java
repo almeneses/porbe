@@ -154,10 +154,6 @@ public class PortfolioReportCalculator {
                 .toList();
     }
 
-    public PortfolioReportData calculate(LocalDate from, LocalDate to) {
-        return calculate(null, from, to);
-    }
-
     /**
      * Compara la ganancia contable de cada acción al inicio y al final. Así el
      * informe explica en pesos qué acción ayudó o redujo más el resultado.

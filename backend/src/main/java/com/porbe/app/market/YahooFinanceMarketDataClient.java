@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 /** Adaptador HTTP que consume y normaliza la API de gráficos de Yahoo Finance. */
-public class YahooFinanceMarketDataClient implements MarketDataProvider {
+public class YahooFinanceMarketDataClient {
 
     private static final Pattern TICKER_PATTERN = Pattern.compile("[A-Z0-9^][A-Z0-9.^=\\-]{0,29}");
     private static final Duration FINAL_CLOSE_GRACE_PERIOD = Duration.ofMinutes(15);
@@ -38,12 +38,10 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
         this.clock = clock;
     }
 
-    @Override
     public String source() {
         return "YAHOO_FINANCE";
     }
 
-    @Override
     /** Consulta el intervalo diario usando marcas UTC para evitar desfases entre bolsas. */
     public MarketDataSeries fetchDaily(String ticker, LocalDate from, LocalDate toExclusive) {
         var normalizedTicker = normalizeTicker(ticker);
@@ -123,18 +121,6 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
                         isFinalClose(date, exchangeZone, regularEnd)));
             }
         }
-        var r = new MarketDataSeries(
-                text(meta, "symbol", ticker).toUpperCase(Locale.ROOT),
-                text(meta, "longName", text(meta, "shortName", ticker)),
-                nullableText(meta, "currency"),
-                text(meta, "exchangeName", text(meta, "fullExchangeName", null)),
-                nullableText(meta, "instrumentType"),
-                exchangeTimezone,
-                decimal(meta.path("regularMarketPrice")),
-                bars);
-        
-        System.out.println("YahooFinanceMarketDataClient.parseResponse: " + r);
-
         return new MarketDataSeries(
                 text(meta, "symbol", ticker).toUpperCase(Locale.ROOT),
                 text(meta, "longName", text(meta, "shortName", ticker)),
