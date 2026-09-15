@@ -3,7 +3,6 @@ package com.porbe.app.portfolio;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Estado de un ticker al cierre de una semana del portafolio. */
 public record PortfolioWeeklyPositionResponse(
         String ticker,
         String name,
@@ -20,4 +19,12 @@ public record PortfolioWeeklyPositionResponse(
         boolean valued,
         boolean calculationComplete,
         boolean foreignCurrency) {
+
+    static PortfolioWeeklyPositionResponse from(PortfolioPositionResponse position) {
+        return new PortfolioWeeklyPositionResponse(
+                position.ticker(), position.name(), position.currency(), position.sector(),
+                position.quantity(), position.lastPrice(), position.priceDate(), position.provisionalPrice(),
+                position.marketValue(), position.costBasis(), position.dividends(), position.totalGain(),
+                position.valued(), position.calculationComplete(), position.foreignCurrency());
+    }
 }

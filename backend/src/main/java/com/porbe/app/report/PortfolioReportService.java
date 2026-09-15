@@ -60,7 +60,7 @@ public class PortfolioReportService {
                     artifacts.image(),
                     artifacts.pdf(),
                     OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
-            return item(repository.save(report));
+            return toListItem(repository.save(report));
         } catch (RuntimeException exception) {
             report.markFailed(exception.getMessage());
             repository.save(report);
@@ -72,7 +72,7 @@ public class PortfolioReportService {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         return repository.findFirstByPortfolioAndFromAndToAndTriggerTypeAndStatusOrderByCreatedAtDesc(
                         portfolio, from, to, "SCHEDULED", "READY")
-                .map(this::item)
+                .map(this::toListItem)
                 .orElseGet(() -> generate(portfolio.getId(), from, to, "SCHEDULED", "system"));
     }
 
@@ -88,7 +88,7 @@ public class PortfolioReportService {
         try {
             var result = deliveryProvider.deliver(report, recipient);
             report.markDelivery(result.status(), result.message());
-            return item(repository.save(report));
+            return toListItem(repository.save(report));
         } catch (RuntimeException exception) {
             report.markDelivery("FAILED", exception.getMessage());
             repository.save(report);
@@ -105,7 +105,7 @@ public class PortfolioReportService {
                     ? "No hay destinatarios de WhatsApp activos."
                     : "El servicio de WhatsApp Web está desactivado.";
             report.markDelivery("NOT_CONFIGURED", message);
-            return item(repository.save(report));
+            return toListItem(repository.save(report));
         }
 
         report.markDelivery("PENDING", "Enviando el informe por WhatsApp Web…");
@@ -123,7 +123,7 @@ public class PortfolioReportService {
         }
         var status = sent == recipients.size() ? "SENT" : "FAILED";
         report.markDelivery(status, "Informe enviado a " + sent + " de " + recipients.size() + " destinatario(s).");
-        return item(repository.save(report));
+        return toListItem(repository.save(report));
     }
 
     public PortfolioReportListItem testDelivery(Long recipientId) {
@@ -179,7 +179,7 @@ public class PortfolioReportService {
         return "informe_portafolio_" + report.getFrom() + "_" + report.getTo() + "." + extension;
     }
 
-    private PortfolioReportListItem item(PortfolioReport report) {
+    private PortfolioReportListItem toListItem(PortfolioReport report) {
         return new PortfolioReportListItem(
                 report.getId(),
                 report.getPortfolio().getId(),

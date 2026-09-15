@@ -1,21 +1,19 @@
 package com.porbe.app.portfolio;
 
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.returnRate;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.sumAmounts;
+
 import com.porbe.app.market.MarketInstrument;
 import com.porbe.app.market.MarketInstrumentRepository;
 import com.porbe.app.market.MarketPriceDailyRepository;
-import com.porbe.app.market.MarketSectorCatalog;
-import com.porbe.app.operation.OperationType;
-import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -24,12 +22,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Calcula posiciones y valoración actual a partir del libro completo de operaciones. */
 @Service
 public class PortfolioValuationService {
 
-    private static final int CALCULATION_SCALE = 16;
-    private static final int MONEY_SCALE = 2;
     private static final int PRICE_SCALE = 8;
     private final PortfolioService portfolioService;
     private final PortfolioOperationRepository operationRepository;
@@ -59,12 +54,20 @@ public class PortfolioValuationService {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var baseCurrency = portfolio.getBaseCurrency().toUpperCase(Locale.ROOT);
-        var ledgers = positionLedgers(operations);
-        var instruments = instrumentsByTicker(ledgers.keySet());
-        var issues = new ArrayList<PortfolioValuationIssue>();
-        var rawPositions = ledgers.values().stream()
-                .map(ledger -> position(ledger, instruments.get(ledger.ticker()), baseCurrency, issues))
-                .sorted(positionComparator())
+        var instruments = instrumentsByTicker(PortfolioValuationCalculator.tickers(operations));
+        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments);
+        operations.forEach(calculator::apply);
+        var rawPositions = calculator.positions(ticker -> {
+            var instrument = instruments.get(ticker);
+            return instrument == null ? null
+                    : priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
+        });
+        var issues = rawPositions.stream()
+                .filter(position -> !position.calculationComplete())
+                .map(position -> new PortfolioValuationIssue(
+                        position.ticker(),
+                        "VENTA_SIN_POSICION",
+                        "La cantidad vendida supera la posición disponible. Revisa el orden y las cantidades importadas."))
                 .toList();
 
         var eligibleMarketValue = rawPositions.stream()
@@ -74,20 +77,21 @@ public class PortfolioValuationService {
                 .map(PortfolioPositionResponse::marketValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         var positions = rawPositions.stream()
+                .sorted(positionComparator())
                 .map(position -> position.withAllocationRate(allocationRate(position, eligibleMarketValue)))
                 .toList();
         var eligiblePositions = positions.stream()
                 .filter(position -> !position.foreignCurrency() && position.calculationComplete())
                 .toList();
-        var marketValue = sumNullable(eligiblePositions, PortfolioPositionResponse::marketValue);
-        var costBasis = sumNullable(eligiblePositions, PortfolioPositionResponse::costBasis);
-        var dividends = sumNullable(eligiblePositions, PortfolioPositionResponse::dividends);
-        var realizedGain = sumNullable(eligiblePositions, PortfolioPositionResponse::realizedGain);
-        var unrealizedGain = sumNullable(eligiblePositions, PortfolioPositionResponse::unrealizedGain);
-        var totalPurchases = sumNullable(eligiblePositions, PortfolioPositionResponse::totalPurchases);
+        var marketValue = sumAmounts(eligiblePositions, PortfolioPositionResponse::marketValue);
+        var costBasis = sumAmounts(eligiblePositions, PortfolioPositionResponse::costBasis);
+        var dividends = sumAmounts(eligiblePositions, PortfolioPositionResponse::dividends);
+        var realizedGain = sumAmounts(eligiblePositions, PortfolioPositionResponse::realizedGain);
+        var unrealizedGain = sumAmounts(eligiblePositions, PortfolioPositionResponse::unrealizedGain);
+        var totalPurchases = sumAmounts(eligiblePositions, PortfolioPositionResponse::totalPurchases);
         var totalGain = realizedGain.add(unrealizedGain).add(dividends);
-        var cashBalance = cashBalance(operations, positions);
-        var netContributions = netContributions(operations);
+        var cashBalance = calculator.cashBalance();
+        var netContributions = calculator.netContributions();
         var portfolioValue = marketValue.add(cashBalance);
         var unpriced = (int) positions.stream()
                 .filter(position -> !position.closed() && !position.foreignCurrency() && !position.valued())
@@ -106,31 +110,21 @@ public class PortfolioValuationService {
                 baseCurrency,
                 operations.size(),
                 open,
-                money(marketValue),
-                money(costBasis),
-                money(cashBalance),
-                money(portfolioValue),
-                money(netContributions),
-                money(dividends),
-                money(realizedGain),
-                money(unrealizedGain),
-                money(totalGain),
-                rate(totalGain, totalPurchases),
+                roundMoney(marketValue),
+                roundMoney(costBasis),
+                roundMoney(cashBalance),
+                roundMoney(portfolioValue),
+                roundMoney(netContributions),
+                roundMoney(dividends),
+                roundMoney(realizedGain),
+                roundMoney(unrealizedGain),
+                roundMoney(totalGain),
+                returnRate(totalGain, totalPurchases),
                 issues.isEmpty() && unpriced == 0 && foreign == 0,
                 unpriced,
                 foreign,
                 positions,
                 issues);
-    }
-
-    private Map<String, PortfolioPositionLedger> positionLedgers(List<PortfolioOperation> operations) {
-        var ledgers = new LinkedHashMap<String, PortfolioPositionLedger>();
-        operations.stream()
-                .filter(operation -> operation.getTicker() != null)
-                .forEach(operation -> ledgers
-                        .computeIfAbsent(normalizeTicker(operation.getTicker()), PortfolioPositionLedger::new)
-                        .apply(operation));
-        return ledgers;
     }
 
     private Map<String, MarketInstrument> instrumentsByTicker(java.util.Set<String> tickers) {
@@ -139,68 +133,6 @@ public class PortfolioValuationService {
         }
         return instrumentRepository.findByTickerIn(tickers).stream()
                 .collect(Collectors.toMap(MarketInstrument::getTicker, Function.identity()));
-    }
-
-    /** Une el cálculo contable con el último cierre conocido del instrumento. */
-    private PortfolioPositionResponse position(
-            PortfolioPositionLedger ledger,
-            MarketInstrument instrument,
-            String baseCurrency,
-            List<PortfolioValuationIssue> issues) {
-        var latest = instrument == null
-                ? null
-                : priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
-        var currency = instrument == null || instrument.getCurrency() == null
-                ? baseCurrency
-                : instrument.getCurrency().toUpperCase(Locale.ROOT);
-        var foreignCurrency = !baseCurrency.equals(currency);
-        var closed = ledger.netQuantity().signum() == 0;
-        var valued = ledger.calculationComplete() && (closed || latest != null);
-        var marketValue = valued
-                ? closed ? BigDecimal.ZERO : ledger.netQuantity().multiply(latest.getClose())
-                : null;
-        var unrealizedGain = valued ? marketValue.subtract(ledger.costBasis()) : null;
-        var totalGain = valued
-                ? ledger.realizedGain().add(unrealizedGain).add(ledger.dividends())
-                : null;
-
-        if (!ledger.calculationComplete()) {
-            issues.add(new PortfolioValuationIssue(
-                    ledger.ticker(),
-                    "VENTA_SIN_POSICION",
-                    "La cantidad vendida supera la posición disponible. Revisa el orden y las cantidades importadas."));
-        }
-
-        return new PortfolioPositionResponse(
-                ledger.ticker(),
-                instrument != null && instrument.getName() != null ? instrument.getName() : ledger.name(),
-                currency,
-                instrument == null
-                        ? MarketSectorCatalog.suggestedSector(ledger.ticker())
-                        : instrument.getSector(),
-                quantity(ledger.netQuantity()),
-                ledger.calculationComplete() && !closed
-                        ? price(ledger.costBasis().divide(
-                                ledger.netQuantity(),
-                                CALCULATION_SCALE,
-                                RoundingMode.HALF_UP))
-                        : null,
-                ledger.calculationComplete() ? money(ledger.costBasis()) : null,
-                money(ledger.totalPurchases()),
-                latest == null ? null : price(latest.getClose()),
-                latest == null ? null : latest.getPriceDate(),
-                latest != null && !latest.isFinalClose(),
-                marketValue == null ? null : money(marketValue),
-                null,
-                ledger.calculationComplete() ? money(ledger.realizedGain()) : null,
-                unrealizedGain == null ? null : money(unrealizedGain),
-                money(ledger.dividends()),
-                totalGain == null ? null : money(totalGain),
-                totalGain == null ? null : rate(totalGain, ledger.totalPurchases()),
-                closed,
-                valued,
-                ledger.calculationComplete(),
-                foreignCurrency);
     }
 
     private BigDecimal allocationRate(PortfolioPositionResponse position, BigDecimal totalMarketValue) {
@@ -212,68 +144,12 @@ public class PortfolioValuationService {
         return position.marketValue().divide(totalMarketValue, PRICE_SCALE, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal cashBalance(
-            List<PortfolioOperation> operations,
-            List<PortfolioPositionResponse> positions) {
-        var foreignTickers = positions.stream()
-                .filter(PortfolioPositionResponse::foreignCurrency)
-                .map(PortfolioPositionResponse::ticker)
-                .collect(Collectors.toSet());
-        return operations.stream()
-                .filter(operation -> operation.getTicker() == null
-                        || !foreignTickers.contains(normalizeTicker(operation.getTicker())))
-                .map(operation -> operation.getTotalAmount()
-                        .multiply(BigDecimal.valueOf(operation.getType().cashSign())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private BigDecimal netContributions(List<PortfolioOperation> operations) {
-        return operations.stream()
-                .filter(operation -> operation.getType() == OperationType.DEPOSITO
-                        || operation.getType() == OperationType.RETIRO)
-                .map(operation -> operation.getTotalAmount()
-                        .multiply(BigDecimal.valueOf(operation.getType().cashSign())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private BigDecimal sumNullable(
-            List<PortfolioPositionResponse> positions,
-            Function<PortfolioPositionResponse, BigDecimal> extractor) {
-        return positions.stream()
-                .map(extractor)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
     private Comparator<PortfolioPositionResponse> positionComparator() {
         return Comparator.comparing(PortfolioPositionResponse::closed)
                 .thenComparing(
                         PortfolioPositionResponse::marketValue,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(PortfolioPositionResponse::ticker);
-    }
-
-    private BigDecimal rate(BigDecimal gain, BigDecimal invested) {
-        if (invested.signum() == 0) {
-            return BigDecimal.ZERO.setScale(PRICE_SCALE);
-        }
-        return gain.divide(invested, PRICE_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal price(BigDecimal value) {
-        return value.setScale(PRICE_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
-    }
-
-    private BigDecimal quantity(BigDecimal value) {
-        return value.setScale(PRICE_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
-    }
-
-    private String normalizeTicker(String ticker) {
-        return ticker.trim().toUpperCase(Locale.ROOT);
     }
 
 }

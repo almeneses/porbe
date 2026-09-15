@@ -1,12 +1,14 @@
 package com.porbe.app.portfolio;
 
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.latestPrice;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.returnRate;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.sumAmounts;
+
 import com.porbe.app.market.MarketInstrument;
 import com.porbe.app.market.MarketInstrumentRepository;
 import com.porbe.app.market.MarketPriceDaily;
 import com.porbe.app.market.MarketPriceDailyRepository;
-import com.porbe.app.market.MarketSectorCatalog;
-import com.porbe.app.operation.OperationType;
-import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,19 +27,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Reconstruye el portafolio al cierre de cada semana usando precios diarios persistidos. */
 @Service
 public class PortfolioHistoryService {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Bogota");
-    private static final int MONEY_SCALE = 2;
     private static final int VALUE_SCALE = 8;
 
     private final PortfolioService portfolioService;
@@ -86,24 +85,11 @@ public class PortfolioHistoryService {
         }
 
         var baseCurrency = portfolio.getBaseCurrency().toUpperCase(Locale.ROOT);
-        var tickers = operations.stream()
-                .map(PortfolioOperation::getTicker)
-                .filter(Objects::nonNull)
-                .map(this::normalizeTicker)
-                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
-        var instruments = instrumentsByTicker(tickers);
+        var instruments = instrumentsByTicker(PortfolioValuationCalculator.tickers(operations));
         var prices = pricesByTicker(instruments, lastCompletedWeek);
-        var foreignTickers = instruments.values().stream()
-                .filter(instrument -> instrument.getCurrency() != null
-                        && !baseCurrency.equals(instrument.getCurrency().toUpperCase(Locale.ROOT)))
-                .map(MarketInstrument::getTicker)
-                .collect(Collectors.toSet());
-
-        var ledgers = new LinkedHashMap<String, PortfolioPositionLedger>();
+        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments);
         var weeks = new ArrayList<PortfolioWeeklySnapshot>();
         var operationIndex = 0;
-        var cashBalance = BigDecimal.ZERO;
-        var netContributions = BigDecimal.ZERO;
         BigDecimal previousPortfolioValue = null;
         var previousNetContributions = BigDecimal.ZERO;
         var cumulativeGrowth = BigDecimal.ONE;
@@ -111,30 +97,11 @@ public class PortfolioHistoryService {
         for (var week = firstWeek; !week.isAfter(effectiveTo); week = week.plusWeeks(1)) {
             while (operationIndex < operations.size()
                     && !operations.get(operationIndex).getDate().isAfter(week)) {
-                var operation = operations.get(operationIndex++);
-                if (operation.getTicker() != null) {
-                    var ticker = normalizeTicker(operation.getTicker());
-                    ledgers.computeIfAbsent(ticker, PortfolioPositionLedger::new).apply(operation);
-                }
-                if (operation.getTicker() == null
-                        || !foreignTickers.contains(normalizeTicker(operation.getTicker()))) {
-                    cashBalance = cashBalance.add(cashImpact(operation));
-                }
-                if (operation.getType() == OperationType.DEPOSITO
-                        || operation.getType() == OperationType.RETIRO) {
-                    netContributions = netContributions.add(cashImpact(operation));
-                }
+                calculator.apply(operations.get(operationIndex++));
             }
 
-            var snapshot = snapshot(
-                    week,
-                    ledgers,
-                    instruments,
-                    prices,
-                    baseCurrency,
-                    cashBalance,
-                    netContributions,
-                    previousPortfolioValue);
+            var snapshot = snapshot(week, calculator, prices, previousPortfolioValue);
+            var netContributions = calculator.netContributions();
             var externalCashFlow = netContributions.subtract(previousNetContributions);
             var periodReturn = periodReturn(
                     snapshot.portfolioValue(),
@@ -146,7 +113,7 @@ public class PortfolioHistoryService {
             var timeWeightedReturn = cumulativeGrowth.subtract(BigDecimal.ONE)
                     .setScale(VALUE_SCALE, RoundingMode.HALF_UP);
             snapshot = snapshot.withPerformance(
-                    money(externalCashFlow),
+                    roundMoney(externalCashFlow),
                     periodReturn,
                     timeWeightedReturn,
                     annualizedReturn(cumulativeGrowth, firstWeek, week));
@@ -172,42 +139,27 @@ public class PortfolioHistoryService {
     /** Construye el consolidado y el detalle por ticker para un único cierre semanal. */
     private PortfolioWeeklySnapshot snapshot(
             LocalDate week,
-            Map<String, PortfolioPositionLedger> ledgers,
-            Map<String, MarketInstrument> instruments,
+            PortfolioValuationCalculator calculator,
             Map<String, NavigableMap<LocalDate, MarketPriceDaily>> prices,
-            String baseCurrency,
-            BigDecimal cashBalance,
-            BigDecimal netContributions,
             BigDecimal previousPortfolioValue) {
-        var positions = ledgers.values().stream()
-                .map(ledger -> weeklyPosition(
-                        ledger,
-                        instruments.get(ledger.ticker()),
-                        latestPrice(prices.get(ledger.ticker()), week),
-                        baseCurrency))
+        var positions = calculator.positions(ticker -> latestPrice(prices.get(ticker), week)).stream()
+                .map(PortfolioWeeklyPositionResponse::from)
                 .sorted(Comparator.comparing(PortfolioWeeklyPositionResponse::ticker))
                 .toList();
         var eligible = positions.stream()
                 .filter(position -> !position.foreignCurrency() && position.calculationComplete())
                 .toList();
-        var marketValue = sumNullable(eligible, PortfolioWeeklyPositionResponse::marketValue);
-        var investedCapital = sumNullable(eligible, PortfolioWeeklyPositionResponse::costBasis);
-        var dividends = sumNullable(eligible, PortfolioWeeklyPositionResponse::dividends);
-        var realizedGain = ledgers.values().stream()
-                .filter(ledger -> !isForeign(ledger.ticker(), instruments, baseCurrency)
-                        && ledger.calculationComplete())
-                .map(PortfolioPositionLedger::realizedGain)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        var totalPurchases = ledgers.values().stream()
-                .filter(ledger -> !isForeign(ledger.ticker(), instruments, baseCurrency)
-                        && ledger.calculationComplete())
-                .map(PortfolioPositionLedger::totalPurchases)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        var marketValue = sumAmounts(eligible, PortfolioWeeklyPositionResponse::marketValue);
+        var investedCapital = sumAmounts(eligible, PortfolioWeeklyPositionResponse::costBasis);
+        var dividends = sumAmounts(eligible, PortfolioWeeklyPositionResponse::dividends);
+        var realizedGain = calculator.realizedGain();
+        var totalPurchases = calculator.totalPurchases();
         var unrealizedGain = eligible.stream()
                 .filter(PortfolioWeeklyPositionResponse::valued)
                 .map(position -> position.marketValue().subtract(position.costBasis()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         var totalGain = realizedGain.add(unrealizedGain).add(dividends);
+        var cashBalance = calculator.cashBalance();
         var portfolioValue = marketValue.add(cashBalance);
         var nominalVariation = previousPortfolioValue == null
                 ? null
@@ -227,64 +179,27 @@ public class PortfolioHistoryService {
 
         return new PortfolioWeeklySnapshot(
                 week,
-                money(marketValue),
-                money(investedCapital),
-                money(netContributions),
-                money(dividends),
-                money(cashBalance),
-                money(portfolioValue),
-                money(realizedGain),
-                money(unrealizedGain),
-                money(totalGain),
-                rate(totalGain, totalPurchases),
+                roundMoney(marketValue),
+                roundMoney(investedCapital),
+                roundMoney(calculator.netContributions()),
+                roundMoney(dividends),
+                roundMoney(cashBalance),
+                roundMoney(portfolioValue),
+                roundMoney(realizedGain),
+                roundMoney(unrealizedGain),
+                roundMoney(totalGain),
+                returnRate(totalGain, totalPurchases),
                 null,
                 null,
                 null,
                 null,
-                nominalVariation == null ? null : money(nominalVariation),
+                nominalVariation == null ? null : roundMoney(nominalVariation),
                 percentageVariation,
                 unpriced == 0 && foreign == 0 && inconsistent == 0,
                 unpriced,
                 foreign,
                 inconsistent,
                 positions);
-    }
-
-    private PortfolioWeeklyPositionResponse weeklyPosition(
-            PortfolioPositionLedger ledger,
-            MarketInstrument instrument,
-            MarketPriceDaily price,
-            String baseCurrency) {
-        var currency = instrument == null || instrument.getCurrency() == null
-                ? baseCurrency
-                : instrument.getCurrency().toUpperCase(Locale.ROOT);
-        var foreignCurrency = !baseCurrency.equals(currency);
-        var closed = ledger.netQuantity().signum() == 0;
-        var valued = ledger.calculationComplete() && (closed || price != null);
-        var marketValue = valued
-                ? closed ? BigDecimal.ZERO : ledger.netQuantity().multiply(price.getClose())
-                : null;
-        var totalGain = valued
-                ? ledger.realizedGain().add(marketValue.subtract(ledger.costBasis())).add(ledger.dividends())
-                : null;
-        return new PortfolioWeeklyPositionResponse(
-                ledger.ticker(),
-                instrument != null && instrument.getName() != null ? instrument.getName() : ledger.name(),
-                currency,
-                instrument == null
-                        ? MarketSectorCatalog.suggestedSector(ledger.ticker())
-                        : instrument.getSector(),
-                quantity(ledger.netQuantity()),
-                price == null ? null : value(price.getClose()),
-                price == null ? null : price.getPriceDate(),
-                price != null && !price.isFinalClose(),
-                marketValue == null ? null : money(marketValue),
-                ledger.calculationComplete() ? money(ledger.costBasis()) : null,
-                money(ledger.dividends()),
-                totalGain == null ? null : money(totalGain),
-                valued,
-                ledger.calculationComplete(),
-                foreignCurrency);
     }
 
     /** TWR semanal: descuenta depósitos y retiros del valor final del período. */
@@ -334,61 +249,6 @@ public class PortfolioHistoryService {
             result.put(ticker, history);
         });
         return result;
-    }
-
-    private MarketPriceDaily latestPrice(
-            NavigableMap<LocalDate, MarketPriceDaily> prices,
-            LocalDate week) {
-        if (prices == null) {
-            return null;
-        }
-        var entry = prices.floorEntry(week);
-        return entry == null ? null : entry.getValue();
-    }
-
-    private boolean isForeign(
-            String ticker,
-            Map<String, MarketInstrument> instruments,
-            String baseCurrency) {
-        var instrument = instruments.get(ticker);
-        return instrument != null
-                && instrument.getCurrency() != null
-                && !baseCurrency.equals(instrument.getCurrency().toUpperCase(Locale.ROOT));
-    }
-
-    private BigDecimal cashImpact(PortfolioOperation operation) {
-        return operation.getTotalAmount().multiply(BigDecimal.valueOf(operation.getType().cashSign()));
-    }
-
-    private BigDecimal sumNullable(
-            List<PortfolioWeeklyPositionResponse> positions,
-            Function<PortfolioWeeklyPositionResponse, BigDecimal> extractor) {
-        return positions.stream()
-                .map(extractor)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private BigDecimal rate(BigDecimal gain, BigDecimal invested) {
-        return invested.signum() == 0
-                ? BigDecimal.ZERO.setScale(VALUE_SCALE)
-                : gain.divide(invested, VALUE_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal money(BigDecimal amount) {
-        return amount.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal value(BigDecimal amount) {
-        return amount.setScale(VALUE_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
-    }
-
-    private BigDecimal quantity(BigDecimal amount) {
-        return value(amount);
-    }
-
-    private String normalizeTicker(String ticker) {
-        return ticker.trim().toUpperCase(Locale.ROOT);
     }
 
     private PortfolioHistoryResponse emptyHistory(String baseCurrency, LocalDate lastCompletedWeek) {

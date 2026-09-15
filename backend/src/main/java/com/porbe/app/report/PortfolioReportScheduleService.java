@@ -11,7 +11,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Administra el horario persistido y evita ejecutar dos veces el informe en un mismo día. */
 @Service
 public class PortfolioReportScheduleService {
 
@@ -36,7 +35,7 @@ public class PortfolioReportScheduleService {
 
     @Transactional
     public PortfolioReportScheduleResponse current() {
-        return response(schedule());
+        return toResponse(schedule());
     }
 
     @Transactional
@@ -44,19 +43,19 @@ public class PortfolioReportScheduleService {
         var timezone = validTimezone(request.timezone());
         var schedule = schedule();
         schedule.update(request.enabled(), request.dayOfWeek(), request.runTime(), timezone.getId(), username);
-        return response(repository.save(schedule));
+        return toResponse(repository.save(schedule));
     }
 
     @Transactional
     public PortfolioReportAiSettings aiSettings() {
-        return aiSettings(schedule());
+        return toAiSettings(schedule());
     }
 
     @Transactional
     public PortfolioReportAiSettings updateAi(PortfolioReportAiSettingsRequest request, String username) {
         var schedule = schedule();
         schedule.updateAi(request.enabled(), request.model().trim(), request.effort(), username);
-        return aiSettings(repository.save(schedule));
+        return toAiSettings(repository.save(schedule));
     }
 
     /** Marca la ejecución antes de generar artefactos para impedir reclamos duplicados. */
@@ -88,7 +87,7 @@ public class PortfolioReportScheduleService {
                         "system")));
     }
 
-    private PortfolioReportScheduleResponse response(PortfolioReportSchedule schedule) {
+    private PortfolioReportScheduleResponse toResponse(PortfolioReportSchedule schedule) {
         return new PortfolioReportScheduleResponse(
                 schedule.isEnabled(),
                 schedule.getDayOfWeek(),
@@ -104,7 +103,7 @@ public class PortfolioReportScheduleService {
                 deliveryProvider.channel());
     }
 
-    private PortfolioReportAiSettings aiSettings(PortfolioReportSchedule schedule) {
+    private PortfolioReportAiSettings toAiSettings(PortfolioReportSchedule schedule) {
         return new PortfolioReportAiSettings(
                 schedule.isAiEnabled(),
                 schedule.getAiModel(),

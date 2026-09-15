@@ -9,7 +9,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Administra el horario y evita ejecutar dos veces el trabajo de una semana. */
 @Service
 public class MarketDataScheduleService {
 
@@ -25,14 +24,14 @@ public class MarketDataScheduleService {
 
     @Transactional
     public MarketDataScheduleResponse current() {
-        return response(schedule());
+        return toResponse(schedule());
     }
 
     @Transactional
     public MarketDataScheduleResponse update(MarketDataScheduleRequest request, String username) {
         var schedule = schedule();
         schedule.update(request.enabled(), request.dayOfWeek(), request.runTime(), username);
-        return response(repository.save(schedule));
+        return toResponse(repository.save(schedule));
     }
 
     /** Marca la ejecución antes de salir a Yahoo para impedir reclamos duplicados. */
@@ -62,7 +61,7 @@ public class MarketDataScheduleService {
                         "system")));
     }
 
-    private MarketDataScheduleResponse response(MarketDataSchedule schedule) {
+    private MarketDataScheduleResponse toResponse(MarketDataSchedule schedule) {
         return new MarketDataScheduleResponse(
                 schedule.isEnabled(),
                 schedule.getDayOfWeek(),

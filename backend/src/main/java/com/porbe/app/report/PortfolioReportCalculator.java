@@ -1,6 +1,8 @@
 package com.porbe.app.report;
 
-import com.porbe.app.operation.OperationType;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.netContributions;
+import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
+
 import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
 import com.porbe.app.market.MarketInstrument;
@@ -26,12 +28,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Calcula un resumen reproducible para cualquier rango solicitado. */
 @Service
 public class PortfolioReportCalculator {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Bogota");
-    private static final int MONEY_SCALE = 2;
     private static final int RATE_SCALE = 8;
 
     private final PortfolioHistoryService historyService;
@@ -80,16 +80,12 @@ public class PortfolioReportCalculator {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository
                 .findAllByPortfolioAndDateBetweenOrderByDateAscIdAsc(portfolio, from, to);
-        var externalCashFlow = operations.stream()
-                .filter(operation -> operation.getType() == OperationType.DEPOSITO
-                        || operation.getType() == OperationType.RETIRO)
-                .map(this::cashImpact)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        var externalCashFlow = netContributions(operations);
         var baselineValue = hasPriorBaseline ? baseline.portfolioValue() : BigDecimal.ZERO;
         var periodGain = end.portfolioValue().subtract(baselineValue).subtract(externalCashFlow);
         var periodReturn = hasPriorBaseline
                 ? relativeTwr(baseline.timeWeightedReturn(), end.timeWeightedReturn())
-                : safe(end.timeWeightedReturn());
+                : zeroIfNull(end.timeWeightedReturn());
 
         var baselinePositions = baseline.positions().stream()
                 .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()));
@@ -117,7 +113,7 @@ public class PortfolioReportCalculator {
                 baseline.weekEnding(),
                 end.weekEnding(),
                 history.baseCurrency().toUpperCase(Locale.ROOT),
-                money(periodGain),
+                roundMoney(periodGain),
                 rate(periodReturn),
                 periodImpact.best(),
                 periodImpact.worst(),
@@ -184,14 +180,15 @@ public class PortfolioReportCalculator {
         if ((start == null || start.totalGain() == null) && (end == null || end.totalGain() == null)) {
             return null;
         }
-        var impact = safe(end == null ? null : end.totalGain()).subtract(safe(start == null ? null : start.totalGain()));
+        var impact = zeroIfNull(end == null ? null : end.totalGain())
+                .subtract(zeroIfNull(start == null ? null : start.totalGain()));
         var priceChange = start == null || end == null || start.closePrice() == null || end.closePrice() == null
                 || start.closePrice().signum() == 0
                 ? BigDecimal.ZERO
                 : end.closePrice().divide(start.closePrice(), RATE_SCALE, RoundingMode.HALF_UP)
                         .subtract(BigDecimal.ONE);
         var name = end != null ? end.name() : start.name();
-        return new PortfolioReportAssetHighlight(ticker, name, rate(priceChange), money(impact), icon);
+        return new PortfolioReportAssetHighlight(ticker, name, rate(priceChange), roundMoney(impact), icon);
     }
 
     private List<PortfolioReportAllocation> assetAllocation(
@@ -290,11 +287,11 @@ public class PortfolioReportCalculator {
     }
 
     private BigDecimal relativeTwr(BigDecimal baseline, BigDecimal end) {
-        var baselineGrowth = BigDecimal.ONE.add(safe(baseline));
+        var baselineGrowth = BigDecimal.ONE.add(zeroIfNull(baseline));
         if (baselineGrowth.signum() == 0) {
             return BigDecimal.ZERO;
         }
-        return BigDecimal.ONE.add(safe(end))
+        return BigDecimal.ONE.add(zeroIfNull(end))
                 .divide(baselineGrowth, RATE_SCALE, RoundingMode.HALF_UP)
                 .subtract(BigDecimal.ONE);
     }
@@ -312,16 +309,8 @@ public class PortfolioReportCalculator {
         }
     }
 
-    private BigDecimal cashImpact(PortfolioOperation operation) {
-        return operation.getTotalAmount().multiply(BigDecimal.valueOf(operation.getType().cashSign()));
-    }
-
-    private BigDecimal safe(BigDecimal value) {
+    private BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
     }
 
     private BigDecimal rate(BigDecimal value) {
