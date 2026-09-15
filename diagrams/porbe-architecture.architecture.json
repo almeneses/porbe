@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de Porbe",
+    "output": "porbe-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/almeneses/porbe",
+      "provider": "github",
+      "revision": "277873ce0dd3ad3291283bdd19cfc8f81553f6f1"
+    }
+  },
+  "components": [
+    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "Navegador web", "pos": [40, 286], "size": [130, 68] },
+    { "id": "frontend", "type": "frontend", "label": "React SPA", "sublabel": "Vite · Nginx :80", "pos": [225, 280], "size": [165, 80], "tag": "UI en español", "sources": [{ "path": "frontend/src/App.tsx", "line": 13, "end_line": 31, "label": "Rutas de la SPA" }, { "path": "frontend/nginx/default.conf", "line": 1, "end_line": 19, "label": "Nginx y proxy /api" }] },
+    { "id": "api", "type": "security", "label": "Spring Boot API", "sublabel": "Java 21 · :8080", "pos": [455, 275], "size": [180, 90], "tag": "Sesión + CSRF", "sources": [{ "path": "backend/src/main/java/com/porbe/app/config/SecurityConfig.java", "line": 45, "end_line": 76, "label": "Seguridad HTTP" }, { "path": "compose.prod.yaml", "line": 64, "end_line": 94, "label": "Servicio backend" }] },
+    { "id": "dominio", "type": "backend", "label": "Servicios de dominio", "sublabel": "Portafolios · operaciones · mercado", "pos": [705, 275], "size": [205, 90], "sources": [{ "path": "backend/src/main/java/com/porbe/app/portfolio/PortfolioSummaryController.java", "line": 10, "end_line": 35, "label": "Valoración e histórico" }, { "path": "backend/src/main/java/com/porbe/app/operation/OperationController.java", "line": 23, "end_line": 79, "label": "Operaciones" }, { "path": "backend/src/main/java/com/porbe/app/market/MarketDataController.java", "line": 25, "end_line": 106, "label": "Datos de mercado" }] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Datos y artefactos · :5432", "pos": [950, 280], "size": [175, 80], "tag": "Flyway", "sources": [{ "path": "compose.prod.yaml", "line": 10, "end_line": 28, "label": "PostgreSQL y volumen" }, { "path": "backend/src/main/resources/db/migration/V7__create_portfolio_reports.sql", "line": 1, "label": "Persistencia de informes" }] },
+    { "id": "yahoo", "type": "external", "label": "Yahoo Finance", "sublabel": "API JSON de gráficos", "pos": [715, 70], "size": [185, 76], "sources": [{ "path": "backend/src/main/java/com/porbe/app/market/YahooFinanceMarketDataClient.java", "line": 21, "end_line": 66, "label": "Adaptador Yahoo" }] },
+    { "id": "reportes", "type": "backend", "label": "Motor de informes", "sublabel": "Thymeleaf · Playwright · Chromium", "pos": [705, 500], "size": [205, 86], "sources": [{ "path": "backend/src/main/java/com/porbe/app/report/PortfolioReportArtifactRenderer.java", "line": 17, "end_line": 80, "label": "Render PNG y PDF" }] },
+    { "id": "codex", "type": "backend", "label": "Codex CLI", "sublabel": "Comentario de IA opcional", "pos": [455, 505], "size": [180, 76], "sources": [{ "path": "backend/src/main/java/com/porbe/app/report/PortfolioReportAiNoteService.java", "line": 81, "end_line": 121, "label": "Invocación de Codex" }] },
+    { "id": "whatsapp_service", "type": "backend", "label": "Servicio WhatsApp", "sublabel": "Node.js · whatsapp-web.js :3001", "pos": [950, 500], "size": [190, 86], "tag": "Token interno", "sources": [{ "path": "compose.prod.yaml", "line": 30, "end_line": 62, "label": "Contenedor WhatsApp" }, { "path": "backend/src/main/java/com/porbe/app/report/WhatsAppWebClient.java", "line": 10, "end_line": 48, "label": "Cliente HTTP interno" }, { "path": "whatsapp-service/src/app.js", "line": 22, "end_line": 30, "label": "API de envío" }] },
+    { "id": "whatsapp_web", "type": "external", "label": "WhatsApp Web", "sublabel": "Plataforma externa", "pos": [1190, 505], "size": [165, 76], "sources": [{ "path": "whatsapp-service/src/whatsapp-gateway.js", "line": 7, "end_line": 21, "label": "Sesión LocalAuth" }, { "path": "whatsapp-service/src/whatsapp-gateway.js", "line": 64, "end_line": 85, "label": "Envío del informe" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Entorno Porbe · Docker Compose", "wraps": ["frontend", "api", "dominio", "postgres", "reportes", "codex", "whatsapp_service"], "pad": 28 }
+  ],
+  "connections": [
+    { "id": "usuario_frontend", "from": "usuario", "to": "frontend", "label": "HTTP(S)", "variant": "emphasis" },
+    { "id": "frontend_api", "from": "frontend", "to": "api", "label": "/api · cookie + CSRF", "variant": "security", "labelAt": [423, 379] },
+    { "id": "api_dominio", "from": "api", "to": "dominio", "label": "REST / JSON", "variant": "emphasis" },
+    { "id": "dominio_postgres", "from": "dominio", "to": "postgres", "label": "JPA / SQL", "variant": "emphasis", "labelAt": [930, 258] },
+    { "id": "dominio_yahoo", "from": "dominio", "to": "yahoo", "label": "HTTPS · cierres diarios" },
+    { "id": "dominio_reportes", "from": "dominio", "to": "reportes", "label": "datos estructurados", "labelAt": [808, 379] },
+    { "id": "reportes_codex", "from": "reportes", "to": "codex", "label": "proceso + JSON Schema", "variant": "dashed", "labelAt": [670, 600] },
+    { "id": "dominio_whatsapp", "from": "dominio", "to": "whatsapp_service", "label": "HTTP interno · PNG en Base64" },
+    { "id": "whatsapp_plataforma", "from": "whatsapp_service", "to": "whatsapp_web", "label": "sesión LocalAuth", "labelAt": [1165, 600] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Ruta principal", "items": ["React consume la API autenticada", "Los servicios calculan y persisten el estado del portafolio"] },
+    { "dot": "emerald", "title": "Automatización", "items": ["El backend sincroniza mercado y genera informes programados", "PNG y PDF nacen del mismo HTML renderizado con Chromium"] },
+    { "dot": "rose", "title": "Límites de confianza", "items": ["Yahoo Finance y WhatsApp Web son dependencias no oficiales", "La sesión de WhatsApp y el volumen de Codex contienen credenciales sensibles"] }
+  ]
+}
