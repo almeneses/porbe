@@ -5,8 +5,6 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,20 +39,12 @@ public class MarketDataScheduleService {
     @Transactional
     public Optional<Long> claimIfDue() {
         var schedule = schedule();
-        if (!schedule.isEnabled()) {
+        var now = clock.instant();
+        if (!schedule.isDue(now)) {
             return Optional.empty();
         }
         var zone = ZoneId.of(schedule.getTimezone());
-        var now = ZonedDateTime.ofInstant(clock.instant(), zone);
-        if (now.getDayOfWeek() != schedule.getDayOfWeek()
-                || now.toLocalTime().isBefore(schedule.getRunTime())) {
-            return Optional.empty();
-        }
-        if (schedule.getLastRunAt() != null
-                && schedule.getLastRunAt().atZoneSameInstant(zone).toLocalDate().equals(now.toLocalDate())) {
-            return Optional.empty();
-        }
-        schedule.markRunning(OffsetDateTime.ofInstant(clock.instant(), zone));
+        schedule.markRunning(OffsetDateTime.ofInstant(now, zone));
         return Optional.of(repository.save(schedule).getId());
     }
 
@@ -78,22 +68,11 @@ public class MarketDataScheduleService {
                 schedule.getDayOfWeek(),
                 schedule.getRunTime(),
                 schedule.getTimezone(),
-                schedule.isEnabled() ? nextRun(schedule) : null,
+                schedule.nextRun(clock.instant()),
                 schedule.getLastRunAt(),
                 schedule.getLastRunStatus(),
                 schedule.getLastRunMessage(),
                 schedule.getUpdatedBy(),
                 schedule.getUpdatedAt());
-    }
-
-    private OffsetDateTime nextRun(MarketDataSchedule schedule) {
-        var zone = ZoneId.of(schedule.getTimezone());
-        var now = ZonedDateTime.ofInstant(clock.instant(), zone);
-        var date = now.toLocalDate().with(TemporalAdjusters.nextOrSame(schedule.getDayOfWeek()));
-        var candidate = ZonedDateTime.of(date, schedule.getRunTime(), zone);
-        if (!candidate.isAfter(now)) {
-            candidate = candidate.plusWeeks(1);
-        }
-        return candidate.toOffsetDateTime();
     }
 }
