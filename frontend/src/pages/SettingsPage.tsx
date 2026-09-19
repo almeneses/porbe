@@ -1,22 +1,29 @@
-import { AlertCircle, Clock3, LoaderCircle, Save, Sparkles } from 'lucide-react'
+import { AlertCircle, BriefcaseBusiness, Clock3, FileText, LoaderCircle, MessageCircleMore, RefreshCw, Save, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { ApiRequestError } from '../auth/api'
 import { marketDataApi } from '../market/api'
 import type { MarketDataSchedule, WeekDay } from '../market/api'
+import { usePortfolio } from '../portfolio/PortfolioProvider'
+import type { PortfolioDefinition } from '../portfolio/PortfolioProvider'
 import { reportApi } from '../report/api'
-import type { PortfolioReportAiSettings, PortfolioReportSchedule } from '../report/api'
+import type { PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus, WhatsAppRecipient } from '../report/api'
 import { formatDateTime } from '../utils/formatters'
 
 /** Reúne las preferencias operativas que pueden modificarse desde la aplicación. */
 export function SettingsPage() {
   const { t } = useTranslation()
+  const { portfolios, updateScheduledReport } = usePortfolio()
   const [marketSchedule, setMarketSchedule] = useState<MarketDataSchedule | null>(null)
   const [reportSchedule, setReportSchedule] = useState<PortfolioReportSchedule | null>(null)
   const [aiSettings, setAiSettings] = useState<PortfolioReportAiSettings | null>(null)
+  const [recipients, setRecipients] = useState<WhatsAppRecipient[] | null>(null)
+  const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppConnectionStatus | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [recipientError, setRecipientError] = useState<string | null>(null)
 
   useEffect(() => {
     marketDataApi.schedule()
@@ -28,7 +35,18 @@ export function SettingsPage() {
     reportApi.aiInfo()
       .then(setAiSettings)
       .catch((requestError) => setAiError(requestError instanceof ApiRequestError ? requestError.message : t('settings.aiLoadError')))
+    reportApi.whatsAppRecipients()
+      .then(setRecipients)
+      .catch((requestError) => setRecipientError(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappLoadError')))
+    reportApi.whatsAppStatus().then(setWhatsAppStatus).catch(() => undefined)
   }, [t])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void reportApi.whatsAppStatus().then(setWhatsAppStatus).catch(() => undefined)
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   return (
     <div className="settings-page page-enter">
@@ -40,6 +58,14 @@ export function SettingsPage() {
         </div>
       </header>
 
+      {reportSchedule && (
+        <OperationalSummary
+          schedule={reportSchedule}
+          whatsAppStatus={whatsAppStatus}
+          selectedPortfolios={portfolios.filter((portfolio) => portfolio.scheduledReportEnabled).length}
+        />
+      )}
+
       <section className="settings-section" aria-labelledby="report-settings-title">
         <header className="settings-section__heading">
           <span className="eyebrow">{t('settings.automationEyebrow')}</span>
@@ -49,6 +75,7 @@ export function SettingsPage() {
 
         {!reportSchedule && !reportError && <LoadingSettings />}
         {reportError && <SettingsError message={reportError} />}
+        <PortfolioReportSelection portfolios={portfolios} onUpdate={updateScheduledReport} />
         {reportSchedule && (
           <SchedulePanel
             schedule={reportSchedule}
@@ -64,6 +91,17 @@ export function SettingsPage() {
         {!aiSettings && !aiError && <LoadingSettings />}
         {aiError && <SettingsError message={aiError} />}
         {aiSettings && <AiSettingsPanel settings={aiSettings} onSaved={setAiSettings} />}
+      </section>
+
+      <section className="settings-section" aria-labelledby="whatsapp-settings-title">
+        <header className="settings-section__heading">
+          <span className="eyebrow">{t('settings.deliveryEyebrow')}</span>
+          <h2 id="whatsapp-settings-title">{t('settings.whatsappTitle')}</h2>
+          <p>{t('settings.whatsappBody')}</p>
+        </header>
+        {!recipients && !recipientError && <LoadingSettings />}
+        {recipientError && <SettingsError message={recipientError} />}
+        {recipients && <WhatsAppRecipientsPanel recipients={recipients} status={whatsAppStatus} onChange={setRecipients} />}
       </section>
 
       <section className="settings-section" aria-labelledby="market-settings-title">
@@ -89,6 +127,211 @@ export function SettingsPage() {
       </section>
     </div>
   )
+}
+
+function OperationalSummary({
+  schedule,
+  whatsAppStatus,
+  selectedPortfolios,
+}: {
+  schedule: PortfolioReportSchedule
+  whatsAppStatus: WhatsAppConnectionStatus | null
+  selectedPortfolios: number
+}) {
+  const { t } = useTranslation()
+  const lastStatus = schedule.lastRunStatus ? t(`market.runStatus.${schedule.lastRunStatus}`) : t('settings.noRuns')
+  return (
+    <section className="settings-summary" aria-labelledby="settings-summary-title">
+      <header><span className="eyebrow">{t('settings.statusEyebrow')}</span><h2 id="settings-summary-title">{t('settings.statusTitle')}</h2></header>
+      <div className="settings-summary__grid">
+        <article><Clock3 size={20} /><span>{t('settings.nextReport')}</span><strong>{schedule.nextRunAt ? formatDateTime(schedule.nextRunAt, schedule.timezone) : t('market.noNextRun')}</strong></article>
+        <article><FileText size={20} /><span>{t('settings.lastResult')}</span><strong>{lastStatus}</strong><small>{schedule.lastRunMessage ?? t('settings.noRunsBody')}</small></article>
+        <article><MessageCircleMore size={20} /><span>{t('settings.whatsappStatus')}</span><strong>{t(`reports.whatsappState.${whatsAppStatus?.state ?? 'STARTING'}`)}</strong><small>{whatsAppStatus?.message}</small></article>
+        <article><BriefcaseBusiness size={20} /><span>{t('settings.selectedPortfolios')}</span><strong>{t('settings.portfolioCount', { count: selectedPortfolios })}</strong></article>
+      </div>
+      <div className="settings-summary__actions">
+        <Link className="quiet-button" to="/mercado"><RefreshCw size={16} />{t('settings.updatePrices')}</Link>
+        <Link className="quiet-button" to="/informes"><FileText size={16} />{t('settings.generateReport')}</Link>
+      </div>
+    </section>
+  )
+}
+
+function PortfolioReportSelection({
+  portfolios,
+  onUpdate,
+}: {
+  portfolios: PortfolioDefinition[]
+  onUpdate: (id: number, enabled: boolean) => Promise<PortfolioDefinition>
+}) {
+  const { t } = useTranslation()
+  const [workingId, setWorkingId] = useState<number | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function toggle(portfolio: PortfolioDefinition) {
+    setWorkingId(portfolio.id)
+    setMessage(null)
+    try {
+      await onUpdate(portfolio.id, !portfolio.scheduledReportEnabled)
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.portfolioSaveError'))
+    } finally {
+      setWorkingId(null)
+    }
+  }
+
+  return (
+    <div className="portfolio-report-settings">
+      <div className="market-schedule-card__intro"><span><BriefcaseBusiness size={20} /></span><div><h3>{t('settings.portfoliosTitle')}</h3><p>{t('settings.portfoliosBody')}</p></div></div>
+      <div className="portfolio-report-settings__list">
+        {portfolios.map((portfolio) => (
+          <label className="schedule-switch" key={portfolio.id}>
+            <input type="checkbox" checked={portfolio.scheduledReportEnabled} disabled={workingId === portfolio.id} onChange={() => void toggle(portfolio)} />
+            <span>{portfolio.name}</span>
+          </label>
+        ))}
+      </div>
+      {message && <strong className="settings-feedback" role="alert">{message}</strong>}
+    </div>
+  )
+}
+
+function WhatsAppRecipientsPanel({
+  recipients,
+  status,
+  onChange,
+}: {
+  recipients: WhatsAppRecipient[]
+  status: WhatsAppConnectionStatus | null
+  onChange: (recipients: WhatsAppRecipient[]) => void
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function add(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setAdding(true)
+    setMessage(null)
+    try {
+      const created = await reportApi.createWhatsAppRecipient({ name, phoneNumber, enabled: true })
+      onChange(sortRecipients([...recipients, created]))
+      setName('')
+      setPhoneNumber('')
+      setMessage(t('settings.whatsappCreated'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappSaveError'))
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  return (
+    <div className="whatsapp-settings-card">
+      <div className="whatsapp-settings-card__heading">
+        <span><MessageCircleMore size={21} /></span>
+        <div><h3>{t('settings.whatsappRecipients')}</h3><p>{t('settings.whatsappTestHelp')}</p></div>
+        <strong className={status?.ready ? 'is-ready' : ''}>{t(`reports.whatsappState.${status?.state ?? 'STARTING'}`)}</strong>
+      </div>
+      <form className="whatsapp-recipient-add" aria-label={t('settings.whatsappAdd')} onSubmit={add}>
+        <label><span>{t('settings.recipientName')}</span><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} /></label>
+        <label><span>{t('settings.recipientNumber')}</span><input type="tel" inputMode="tel" placeholder="573001234567" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required maxLength={30} /></label>
+        <button className="secondary-button" type="submit" disabled={adding}>{adding ? <LoaderCircle className="spin" size={16} /> : <MessageCircleMore size={16} />}{t('settings.whatsappAdd')}</button>
+      </form>
+      {message && <strong className="settings-feedback">{message}</strong>}
+      <div className="whatsapp-recipient-list">
+        {!recipients.length && <p className="whatsapp-recipient-empty">{t('settings.whatsappEmpty')}</p>}
+        {recipients.map((recipient) => (
+          <WhatsAppRecipientRow
+            key={recipient.id}
+            recipient={recipient}
+            ready={Boolean(status?.ready)}
+            onUpdated={(updated) => onChange(sortRecipients(recipients.map((item) => item.id === updated.id ? updated : item)))}
+            onDeleted={() => onChange(recipients.filter((item) => item.id !== recipient.id))}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WhatsAppRecipientRow({
+  recipient,
+  ready,
+  onUpdated,
+  onDeleted,
+}: {
+  recipient: WhatsAppRecipient
+  ready: boolean
+  onUpdated: (recipient: WhatsAppRecipient) => void
+  onDeleted: () => void
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(recipient.name)
+  const [phoneNumber, setPhoneNumber] = useState(recipient.phoneNumber)
+  const [enabled, setEnabled] = useState(recipient.enabled)
+  const [working, setWorking] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setWorking(true)
+    setMessage(null)
+    try {
+      onUpdated(await reportApi.updateWhatsAppRecipient(recipient.id, { name, phoneNumber, enabled }))
+      setMessage(t('settings.whatsappSaved'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappSaveError'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function test() {
+    if (!window.confirm(t('settings.whatsappTestConfirm', { recipient: name }))) return
+    setWorking(true)
+    setMessage(null)
+    try {
+      await reportApi.testWhatsAppRecipient(recipient.id)
+      setMessage(t('settings.whatsappTestSent'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappTestError'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(t('settings.whatsappDeleteConfirm', { recipient: name }))) return
+    setWorking(true)
+    try {
+      await reportApi.deleteWhatsAppRecipient(recipient.id)
+      onDeleted()
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappDeleteError'))
+      setWorking(false)
+    }
+  }
+
+  return (
+    <form className="whatsapp-recipient-row" aria-label={recipient.name} onSubmit={save}>
+      <label><span>{t('settings.recipientName')}</span><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} /></label>
+      <label><span>{t('settings.recipientNumber')}</span><input type="tel" inputMode="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required maxLength={30} /></label>
+      <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'settings.recipientEnabled' : 'settings.recipientDisabled')}</span></label>
+      <div className="whatsapp-recipient-actions">
+        <button className="quiet-button" type="submit" disabled={working}><Save size={15} />{t('settings.recipientSave')}</button>
+        <button className="quiet-button" type="button" disabled={working || !ready || !enabled} onClick={test}><Send size={15} />{t('settings.recipientTest')}</button>
+        <button className="danger-button" type="button" disabled={working} onClick={remove} aria-label={t('settings.recipientDelete')}><Trash2 size={15} /></button>
+      </div>
+      {message && <strong className="settings-feedback">{message}</strong>}
+    </form>
+  )
+}
+
+function sortRecipients(recipients: WhatsAppRecipient[]) {
+  return [...recipients].sort((left, right) => left.name.localeCompare(right.name))
 }
 
 function AiSettingsPanel({

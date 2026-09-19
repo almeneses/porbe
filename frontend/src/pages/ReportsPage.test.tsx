@@ -14,6 +14,7 @@ vi.mock('../report/api', () => ({
     list: vi.fn(),
     schedule: vi.fn(),
     whatsAppStatus: vi.fn(),
+    whatsAppRecipients: vi.fn(),
     generate: vi.fn(),
     sendByWhatsApp: vi.fn(),
     imageUrl: (id: number, download = false) => `/api/reports/${id}/image${download ? '?download=true' : ''}`,
@@ -28,6 +29,7 @@ describe('ReportsPage', () => {
     vi.mocked(reportApi.list).mockResolvedValue([report])
     vi.mocked(reportApi.schedule).mockResolvedValue(schedule)
     vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(whatsAppStatus)
+    vi.mocked(reportApi.whatsAppRecipients).mockResolvedValue(recipients)
     vi.mocked(reportApi.sendByWhatsApp).mockResolvedValue({ ...report, deliveryStatus: 'SENT' })
     vi.mocked(reportApi.aiInfo).mockResolvedValue({
       enabled: true,
@@ -52,18 +54,18 @@ describe('ReportsPage', () => {
     expect(screen.getByRole('link', { name: /PDF/ })).toHaveAttribute('href', '/api/reports/7/pdf')
     expect(screen.getByText('Viernes · 5:30 p. m.')).toBeInTheDocument()
     expect(screen.getByText('WhatsApp conectado')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Enviar por WhatsApp' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Enviar por WhatsApp' })).toBeEnabled()
   })
 
-  it('confirma y envía el informe al número escrito', async () => {
+  it('confirma y envía el informe al destinatario seleccionado', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<ReportsPage />)
 
-    const input = await screen.findByLabelText('Número de WhatsApp')
-    fireEvent.change(input, { target: { value: '573001234567' } })
+    const select = await screen.findByLabelText('Destinatario de WhatsApp')
+    fireEvent.change(select, { target: { value: '2' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }))
 
-    await waitFor(() => expect(reportApi.sendByWhatsApp).toHaveBeenCalledWith(7, '573001234567'))
+    await waitFor(() => expect(reportApi.sendByWhatsApp).toHaveBeenCalledWith(7, 2))
     expect(await screen.findByText('El informe fue enviado por WhatsApp.')).toBeInTheDocument()
   })
 })
@@ -113,3 +115,8 @@ const whatsAppStatus = {
   message: 'WhatsApp está conectado y listo para enviar.',
   updatedAt: '2026-09-02T10:00:00-05:00',
 }
+
+const recipients = [
+  { id: 1, name: 'Alejo', phoneNumber: '573001234567', enabled: true, updatedBy: 'admin', updatedAt: '2026-09-02T10:00:00-05:00' },
+  { id: 2, name: 'Familia', phoneNumber: '573110000000', enabled: true, updatedBy: 'admin', updatedAt: '2026-09-02T10:00:00-05:00' },
+]

@@ -615,7 +615,7 @@ svg { stroke-width: 1.8; }
 .report-send-panel { margin-bottom: 16px; padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-soft); display: grid; grid-template-columns: minmax(180px, 1fr) minmax(185px, .75fr) auto; align-items: center; gap: 12px; }
 .report-send-panel label { color: var(--text); font-size: 12px; font-weight: 800; }
 .report-send-panel p { margin: 4px 0 0; color: var(--text-soft); font-size: 9px; line-height: 1.4; }
-.report-send-panel input { min-width: 0; width: 100%; height: 42px; padding: 0 11px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface-raised); }
+.report-send-panel input, .report-send-panel select { min-width: 0; width: 100%; height: 42px; padding: 0 11px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface-raised); }
 .whatsapp-send-button { min-height: 42px; padding: 0 15px; border: 0; border-radius: 10px; color: white; background: var(--green); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .whatsapp-send-button:disabled { opacity: .45; cursor: not-allowed; }
 .report-image-frame { max-height: 1100px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); }
@@ -669,8 +669,36 @@ svg { stroke-width: 1.8; }
 .settings-section__heading h2 { margin: 7px 0 5px; font-size: 23px; }
 .settings-section__heading p { max-width: 680px; margin: 0; color: var(--text-soft); font-size: 12px; line-height: 1.6; }
 .settings-section .market-schedule-card { margin-bottom: 0; }
+.settings-summary, .portfolio-report-settings { padding: 18px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); }
+.settings-summary header h2 { margin: 7px 0 14px; font-size: 20px; }
+.settings-summary__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.settings-summary__grid article { min-width: 0; padding: 13px; border-radius: 12px; background: var(--surface-soft); display: grid; grid-template-columns: auto 1fr; gap: 3px 9px; align-items: center; }
+.settings-summary__grid article > svg { grid-row: 1 / span 3; color: var(--primary-strong); }
+.settings-summary__grid span, .settings-summary__grid small { color: var(--text-soft); font-size: 9px; }
+.settings-summary__grid strong { overflow-wrap: anywhere; font-size: 11px; }
+.settings-summary__actions { margin-top: 12px; display: flex; gap: 8px; }
+.portfolio-report-settings { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(320px, 1.3fr); gap: 18px 28px; align-items: center; }
+.portfolio-report-settings .market-schedule-card__intro h3 { margin: 0 0 4px; font-size: 17px; }
+.portfolio-report-settings .market-schedule-card__intro p { margin: 0; color: var(--text-soft); font-size: 11px; line-height: 1.5; }
+.portfolio-report-settings__list { display: flex; flex-wrap: wrap; gap: 10px 20px; }
 .report-settings-card form { grid-template-columns: minmax(120px, 1fr) minmax(100px, .75fr) 90px minmax(160px, 1.25fr) 155px; }
 .ai-settings-card form { grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.4fr) minmax(120px, .8fr) 155px; }
+.whatsapp-settings-card { padding: 18px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); display: grid; gap: 16px; }
+.whatsapp-settings-card__heading { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; }
+.whatsapp-settings-card__heading > span { width: 42px; height: 42px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); display: grid; place-items: center; }
+.whatsapp-settings-card__heading h3 { margin: 0 0 4px; font-size: 17px; }
+.whatsapp-settings-card__heading p, .whatsapp-recipient-empty { margin: 0; color: var(--text-soft); font-size: 11px; }
+.whatsapp-settings-card__heading > strong { color: var(--text-soft); font-size: 10px; }
+.whatsapp-settings-card__heading > strong.is-ready { color: var(--green); }
+.whatsapp-recipient-add, .whatsapp-recipient-row { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(190px, 1fr) auto; align-items: end; gap: 10px; }
+.whatsapp-recipient-add > label, .whatsapp-recipient-row > label:not(.schedule-switch) { display: grid; gap: 6px; }
+.whatsapp-recipient-add label > span, .whatsapp-recipient-row label > span { color: var(--text-soft); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.whatsapp-recipient-add input, .whatsapp-recipient-row input[type="text"], .whatsapp-recipient-row input[type="tel"], .whatsapp-recipient-row label:not(.schedule-switch) input { width: 100%; height: 42px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface-raised); }
+.whatsapp-recipient-list { display: grid; gap: 10px; }
+.whatsapp-recipient-row { grid-template-columns: minmax(150px, .8fr) minmax(190px, 1fr) 110px auto; padding-top: 12px; border-top: 1px solid var(--border); }
+.whatsapp-recipient-actions { display: flex; gap: 7px; }
+.whatsapp-recipient-actions button { min-height: 42px; padding-inline: 10px; font-size: 10px; }
+.settings-feedback { grid-column: 1 / -1; color: var(--green); font-size: 10px; }
 .placeholder-page { width: min(100%, 640px); min-height: 65vh; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .placeholder-page__icon { width: 58px; height: 58px; margin-bottom: 22px; border-radius: 17px; color: var(--primary); background: var(--primary-soft); display: grid; place-items: center; }
 .placeholder-page h1 { margin: 12px 0 10px; font-size: 34px; letter-spacing: -.04em; }
@@ -685,9 +713,13 @@ svg { stroke-width: 1.8; }
   .import-grid { grid-template-columns: minmax(0, 1fr) 290px; }
   .market-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .market-schedule-card { grid-template-columns: 1fr; }
+  .settings-summary__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .portfolio-report-settings { grid-template-columns: 1fr; }
   .market-schedule-card form { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
   .report-settings-card form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ai-settings-card form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .whatsapp-recipient-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .whatsapp-recipient-actions { grid-column: 1 / -1; }
   .report-settings-card form .secondary-button { grid-column: 1 / -1; }
   .report-builder-card { grid-template-columns: 1fr; }
   .report-workspace { grid-template-columns: 1fr; }
@@ -799,10 +831,19 @@ svg { stroke-width: 1.8; }
   .market-grid { grid-template-columns: 1fr; }
   .market-card { padding: 18px; box-shadow: none; }
   .market-schedule-card { padding: 16px; box-shadow: none; }
+  .settings-summary, .portfolio-report-settings { padding: 16px; box-shadow: none; }
+  .settings-summary__grid { grid-template-columns: 1fr; }
+  .settings-summary__actions { display: grid; grid-template-columns: 1fr; }
   .market-schedule-card form { grid-template-columns: 1fr 1fr; }
   .schedule-switch { grid-column: 1 / -1; }
   .market-schedule-card form .secondary-button { grid-column: 1 / -1; }
   .report-settings-card .schedule-timezone { grid-column: 1 / -1; }
+  .whatsapp-settings-card { padding: 16px; box-shadow: none; }
+  .whatsapp-settings-card__heading { grid-template-columns: auto 1fr; }
+  .whatsapp-settings-card__heading > strong { grid-column: 2; }
+  .whatsapp-recipient-add, .whatsapp-recipient-row { grid-template-columns: 1fr; }
+  .whatsapp-recipient-row .schedule-switch, .whatsapp-recipient-actions { grid-column: auto; }
+  .whatsapp-recipient-actions { display: grid; grid-template-columns: 1fr 1fr auto; }
   .report-builder-card { padding: 16px; box-shadow: none; }
   .report-builder-card form { grid-template-columns: 1fr 1fr; }
   .report-builder-card form .secondary-button { grid-column: 1 / -1; }

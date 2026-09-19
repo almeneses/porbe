@@ -7,6 +7,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,14 +27,17 @@ public class PortfolioReportController {
     private final PortfolioReportService reportService;
     private final PortfolioReportScheduleService scheduleService;
     private final PortfolioReportAiNoteService aiNoteService;
+    private final WhatsAppRecipientService recipientService;
 
     public PortfolioReportController(
             PortfolioReportService reportService,
             PortfolioReportScheduleService scheduleService,
-            PortfolioReportAiNoteService aiNoteService) {
+            PortfolioReportAiNoteService aiNoteService,
+            WhatsAppRecipientService recipientService) {
         this.reportService = reportService;
         this.scheduleService = scheduleService;
         this.aiNoteService = aiNoteService;
+        this.recipientService = recipientService;
     }
 
     @GetMapping
@@ -67,11 +71,43 @@ public class PortfolioReportController {
         return reportService.whatsAppStatus();
     }
 
+    @GetMapping("/whatsapp/recipients")
+    List<WhatsAppRecipientResponse> whatsAppRecipients() {
+        return recipientService.list();
+    }
+
+    @PostMapping("/whatsapp/recipients")
+    @ResponseStatus(HttpStatus.CREATED)
+    WhatsAppRecipientResponse createWhatsAppRecipient(
+            @Valid @RequestBody WhatsAppRecipientRequest request,
+            Principal principal) {
+        return recipientService.create(request, principal.getName());
+    }
+
+    @PutMapping("/whatsapp/recipients/{id}")
+    WhatsAppRecipientResponse updateWhatsAppRecipient(
+            @PathVariable Long id,
+            @Valid @RequestBody WhatsAppRecipientRequest request,
+            Principal principal) {
+        return recipientService.update(id, request, principal.getName());
+    }
+
+    @DeleteMapping("/whatsapp/recipients/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteWhatsAppRecipient(@PathVariable Long id) {
+        recipientService.delete(id);
+    }
+
+    @PostMapping("/whatsapp/recipients/{id}/test")
+    PortfolioReportListItem testWhatsAppRecipient(@PathVariable Long id) {
+        return reportService.testDelivery(id);
+    }
+
     @PostMapping("/{id}/whatsapp")
     PortfolioReportListItem sendByWhatsApp(
             @PathVariable Long id,
             @Valid @RequestBody WhatsAppReportDeliveryRequest request) {
-        return reportService.deliver(id, request.recipient());
+        return reportService.deliver(id, request.recipientId());
     }
 
     @GetMapping("/{id}/image")

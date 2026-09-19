@@ -22,14 +22,17 @@ public class PortfolioReportScheduleService {
 
     private final PortfolioReportScheduleRepository repository;
     private final PortfolioReportDeliveryProvider deliveryProvider;
+    private final WhatsAppRecipientService recipientService;
     private final Clock clock;
 
     public PortfolioReportScheduleService(
             PortfolioReportScheduleRepository repository,
             PortfolioReportDeliveryProvider deliveryProvider,
+            WhatsAppRecipientService recipientService,
             Clock clock) {
         this.repository = repository;
         this.deliveryProvider = deliveryProvider;
+        this.recipientService = recipientService;
         this.clock = clock;
     }
 
@@ -107,7 +110,7 @@ public class PortfolioReportScheduleService {
                 schedule.getLastRunMessage(),
                 schedule.getUpdatedBy(),
                 schedule.getUpdatedAt(),
-                deliveryProvider.configured(),
+                deliveryProvider.configured() && recipientService.hasActive(),
                 deliveryProvider.channel());
     }
 

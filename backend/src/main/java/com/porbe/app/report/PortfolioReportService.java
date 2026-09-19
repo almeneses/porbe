@@ -5,11 +5,14 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /** Coordina cálculo, renderizado, persistencia, descarga y entrega de informes. */
 @Service
 public class PortfolioReportService {
+
+    private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(PortfolioReportService.class);
 
     private final PortfolioReportCalculator calculator;
     private final PortfolioReportAiNoteService aiNoteService;
@@ -17,6 +20,7 @@ public class PortfolioReportService {
     private final PortfolioReportArtifactRenderer renderer;
     private final PortfolioReportRepository repository;
     private final PortfolioReportDeliveryProvider deliveryProvider;
+    private final WhatsAppRecipientService recipientService;
     private final com.porbe.app.portfolio.PortfolioService portfolioService;
     private final Clock clock;
 
@@ -27,6 +31,7 @@ public class PortfolioReportService {
             PortfolioReportArtifactRenderer renderer,
             PortfolioReportRepository repository,
             PortfolioReportDeliveryProvider deliveryProvider,
+            WhatsAppRecipientService recipientService,
             com.porbe.app.portfolio.PortfolioService portfolioService,
             Clock clock) {
         this.calculator = calculator;
@@ -35,6 +40,7 @@ public class PortfolioReportService {
         this.renderer = renderer;
         this.repository = repository;
         this.deliveryProvider = deliveryProvider;
+        this.recipientService = recipientService;
         this.portfolioService = portfolioService;
         this.clock = clock;
     }
@@ -78,16 +84,13 @@ public class PortfolioReportService {
                 .orElseGet(() -> generate(portfolio.getId(), from, to, "SCHEDULED", "system"));
     }
 
-    public PortfolioReportListItem deliver(Long reportId) {
-        return deliver(reportId, null);
+    public PortfolioReportListItem deliver(Long reportId, Long recipientId) {
+        return deliver(reportId, recipientService.active(recipientId).getPhoneNumber());
     }
 
     /** Registra el intento antes de llamar al servicio externo y conserva el resultado legible. */
-    public PortfolioReportListItem deliver(Long reportId, String recipient) {
-        var report = report(reportId);
-        if (!"READY".equals(report.getStatus())) {
-            throw new IllegalArgumentException("El informe debe estar listo antes de enviarlo.");
-        }
+    private PortfolioReportListItem deliver(Long reportId, String recipient) {
+        var report = readyReport(reportId);
         report.markDelivery("PENDING", "Enviando el informe por WhatsApp Web…");
         repository.save(report);
         try {
@@ -99,6 +102,42 @@ public class PortfolioReportService {
             repository.save(report);
             throw exception;
         }
+    }
+
+    /** Entrega el mismo informe a todos los destinatarios activos y conserva un resumen único. */
+    public PortfolioReportListItem deliverToActiveRecipients(Long reportId) {
+        var report = readyReport(reportId);
+        var recipients = recipientService.active();
+        if (recipients.isEmpty() || !deliveryProvider.configured()) {
+            var message = recipients.isEmpty()
+                    ? "No hay destinatarios de WhatsApp activos."
+                    : "El servicio de WhatsApp Web está desactivado.";
+            report.markDelivery("NOT_CONFIGURED", message);
+            return item(repository.save(report));
+        }
+
+        report.markDelivery("PENDING", "Enviando el informe por WhatsApp Web…");
+        repository.save(report);
+        var sent = 0;
+        for (var recipient : recipients) {
+            try {
+                if ("SENT".equals(deliveryProvider.deliver(report, recipient.getPhoneNumber()).status())) {
+                    sent++;
+                }
+            } catch (RuntimeException exception) {
+                LOGGER.warn("No fue posible entregar el informe {} al destinatario {}.",
+                        reportId, recipient.getId(), exception);
+            }
+        }
+        var status = sent == recipients.size() ? "SENT" : "FAILED";
+        report.markDelivery(status, "Informe enviado a " + sent + " de " + recipients.size() + " destinatario(s).");
+        return item(repository.save(report));
+    }
+
+    public PortfolioReportListItem testDelivery(Long recipientId) {
+        var report = repository.findFirstByStatusOrderByCreatedAtDesc("READY")
+                .orElseThrow(() -> new IllegalArgumentException("Genera al menos un informe antes de probar el envío."));
+        return deliver(report.getId(), recipientId);
     }
 
     public List<PortfolioReportListItem> list(Long portfolioId) {
@@ -131,21 +170,21 @@ public class PortfolioReportService {
                 filename(report, "pdf"));
     }
 
-    public boolean deliveryConfigured() {
-        return deliveryProvider.configured();
-    }
-
     public WhatsAppConnectionStatus whatsAppStatus() {
         return deliveryProvider.connectionStatus();
-    }
-
-    public String deliveryChannel() {
-        return deliveryProvider.channel();
     }
 
     private PortfolioReport report(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new PortfolioReportNotFoundException("El informe solicitado no existe."));
+    }
+
+    private PortfolioReport readyReport(Long id) {
+        var report = report(id);
+        if (!"READY".equals(report.getStatus())) {
+            throw new IllegalArgumentException("El informe debe estar listo antes de enviarlo.");
+        }
+        return report;
     }
 
     private String filename(PortfolioReport report, String extension) {

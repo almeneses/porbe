@@ -11,6 +11,7 @@ export interface PortfolioDefinition {
   id: number
   name: string
   baseCurrency: string
+  scheduledReportEnabled: boolean
   createdAt: string
   updatedAt: string
 }
@@ -21,6 +22,7 @@ interface PortfolioContextValue {
   selectPortfolio: (id: number) => void
   createPortfolio: (name: string) => Promise<PortfolioDefinition>
   renamePortfolio: (id: number, name: string) => Promise<PortfolioDefinition>
+  updateScheduledReport: (id: number, enabled: boolean) => Promise<PortfolioDefinition>
 }
 
 const PortfolioContext = createContext<PortfolioContextValue | null>(null)
@@ -73,7 +75,12 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setPortfolios((current) => current.map((portfolio) => portfolio.id === id ? renamed : portfolio))
       return renamed
     }
-    return { portfolios, activePortfolio, selectPortfolio, createPortfolio, renamePortfolio }
+    const updateScheduledReport = async (id: number, enabled: boolean) => {
+      const updated = await apiRequest<PortfolioDefinition>(`/api/portfolios/${id}/scheduled-report?enabled=${enabled}`, { method: 'PUT' })
+      setPortfolios((current) => current.map((portfolio) => portfolio.id === id ? updated : portfolio))
+      return updated
+    }
+    return { portfolios, activePortfolio, selectPortfolio, createPortfolio, renamePortfolio, updateScheduledReport }
   }, [activePortfolio, portfolios])
 
   if (error) return <div className="page-state page-state--error"><strong>{t('portfolio.loadError')}</strong></div>

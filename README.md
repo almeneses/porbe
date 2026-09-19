@@ -146,7 +146,7 @@ Endpoints principales:
 - Gráfico histórico completo con valores de referencia fáciles de leer.
 - Distribución del dinero por acción y por tipo de empresa.
 - Historial persistente de informes con descargas posteriores.
-- Actualización de precios y generación automática cada viernes a las 17:30 en `America/Bogota`.
+- Actualización de precios y generación automática en el horario y para los portafolios elegidos desde **Configuración**.
 - Interfaz de entrega desacoplada, preparada para conectar distintos proveedores de mensajería.
 - Comentario opcional generado con IA, con un resumen sencillo y hasta dos posibilidades de acción.
 
@@ -184,6 +184,7 @@ Endpoints principales:
 - `GET /api/reports/{id}/image`: muestra o descarga la imagen.
 - `GET /api/reports/{id}/pdf`: descarga el PDF.
 - `GET /api/reports/schedule`: informa la próxima ejecución y el estado del canal de entrega.
+- `PUT /api/portfolios/{id}/scheduled-report?enabled=true|false`: incluye o excluye un portafolio del informe automático.
 
 ### Incremento 9: envío temporal por WhatsApp Web
 
@@ -192,26 +193,29 @@ Endpoints principales:
 - Código QR visible solamente en la pantalla autenticada de **Informes**.
 - Comunicación Java–Node por HTTP dentro de la red privada de Docker; el servicio Node no publica puertos al host.
 - Token compartido `X-Porbe-Internal-Token` para autenticar las solicitudes internas.
-- Envío del PNG del informe con un texto corto y un número internacional elegido desde la UI.
+- Envío del PNG del informe a destinatarios persistidos y elegidos desde la UI.
 - Confirmación antes de cada envío manual y estado de entrega conservado en el historial.
-- Número predeterminado opcional para el envío automático de los viernes.
+- Entrega automática a todos los destinatarios activos.
 
 Para vincular una cuenta por primera vez:
 
 1. Inicie la aplicación con `docker compose up --build`.
 2. Abra **Informes** y espere a que aparezca el código QR.
 3. En el celular abra WhatsApp → **Dispositivos vinculados** → **Vincular un dispositivo**.
-4. Escanee el QR. Al aparecer **WhatsApp conectado**, escriba un número con código de país y use el botón temporal de envío.
+4. Escanee el QR. Al aparecer **WhatsApp conectado**, abra **Configuración → WhatsApp** y agregue los destinatarios con código de país.
 
-Para que el informe semanal se envíe sin intervención, configure
-`WHATSAPP_DEFAULT_RECIPIENT` con el número internacional sin espacios ni `+`, por ejemplo
-`573001234567`. En un despliegue que no sea exclusivamente local también debe reemplazar
-`WHATSAPP_INTERNAL_TOKEN` por un secreto largo y aleatorio.
+Los informes semanales se envían a todos los destinatarios activos configurados en la aplicación.
+La pantalla **Configuración** también resume la próxima ejecución, el último resultado y el estado de WhatsApp.
+En un despliegue que no sea exclusivamente local debe reemplazar `WHATSAPP_INTERNAL_TOKEN`
+por un secreto largo y aleatorio.
 
 Endpoints añadidos:
 
 - `GET /api/reports/whatsapp/status`: estado, cuenta enmascarada y QR vigente.
-- `POST /api/reports/{id}/whatsapp`: envía manualmente el PNG ya generado.
+- `GET|POST /api/reports/whatsapp/recipients`: consulta o crea destinatarios.
+- `PUT|DELETE /api/reports/whatsapp/recipients/{id}`: modifica o elimina un destinatario.
+- `POST /api/reports/whatsapp/recipients/{id}/test`: envía el último informe como prueba.
+- `POST /api/reports/{id}/whatsapp`: envía manualmente el PNG a un destinatario guardado.
 
 `whatsapp-web.js` automatiza WhatsApp Web y no es una API oficial de Meta. Puede dejar de funcionar
 si WhatsApp cambia su cliente web y existe riesgo de desconexión o bloqueo de la cuenta. Se recomienda
@@ -222,7 +226,7 @@ seguirá apareciendo hasta que el proyecto publique una dependencia corregida.
 
 ## Ejecución con Docker
 
-1. Copie `.env.example` como `.env` si desea cambiar puertos, credenciales o el número de WhatsApp.
+1. Copie `.env.example` como `.env` si desea cambiar puertos o credenciales de infraestructura.
 2. Ejecute `docker compose up --build`.
 3. Abra `http://localhost:3000`.
 4. Ingrese con `admin` / `admin` en el entorno local.

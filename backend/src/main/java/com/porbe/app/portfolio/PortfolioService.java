@@ -40,6 +40,12 @@ public class PortfolioService {
         return portfolios.stream().map(PortfolioResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PortfolioResponse> listForScheduledReport() {
+        return portfolioRepository.findAllByScheduledReportEnabledTrueOrderByCreatedAtAscIdAsc()
+                .stream().map(PortfolioResponse::from).toList();
+    }
+
     @Transactional
     public PortfolioResponse create(String requestedName) {
         var name = validatedName(requestedName);
@@ -57,6 +63,13 @@ public class PortfolioService {
             throw new IllegalArgumentException("Ya existe un portafolio con ese nombre.");
         }
         portfolio.rename(name);
+        return PortfolioResponse.from(portfolioRepository.save(portfolio));
+    }
+
+    @Transactional
+    public PortfolioResponse updateScheduledReport(Long portfolioId, boolean enabled) {
+        var portfolio = getPortfolio(portfolioId);
+        portfolio.setScheduledReportEnabled(enabled);
         return PortfolioResponse.from(portfolioRepository.save(portfolio));
     }
 
