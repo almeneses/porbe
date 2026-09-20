@@ -201,7 +201,7 @@
             </div>
         </section>
 
-        <section class="card movements">
+        <section class="card movements" th:if="${!report.movements.isEmpty()}">
             <div class="movement-heading">
                 <h2>Lo que pasó durante estas fechas</h2>
                 <p class="movement-count" th:text="${report.movementCount} + ' movimientos'">0 movimientos</p>

@@ -112,8 +112,10 @@ function HistoryMetrics({ week, currency }: { week: PortfolioWeeklySnapshot; cur
   const { t } = useTranslation()
   const metrics = [
     { label: 'portfolioValue', value: formatCurrency(week.portfolioValue, currency), icon: WalletCards, tone: 'violet' },
-    { label: 'timeWeightedReturn', value: formatPercentage(week.timeWeightedReturn), icon: TrendingUp, tone: 'green' },
-    { label: 'annualizedReturn', value: week.annualizedReturn == null ? '—' : formatPercentage(week.annualizedReturn), icon: Landmark, tone: 'blue' },
+    { label: 'timeWeightedReturn', value: formatPercentage(week.timeWeightedReturn),
+      detail: week.timeWeightedReturn == null ? t('history.performanceUnavailable') : undefined, icon: TrendingUp, tone: 'green' },
+    { label: 'annualizedReturn', value: formatPercentage(week.annualizedReturn),
+      detail: week.timeWeightedReturn == null ? t('history.performanceUnavailable') : undefined, icon: Landmark, tone: 'blue' },
     {
       label: 'totalGain',
       value: formatCurrency(week.totalGain, currency),
@@ -193,7 +195,7 @@ function WeeklyHistorySection({ weeks, currency }: { weeks: PortfolioWeeklySnaps
               <td className={`numeric-cell ${gainClass(week.nominalVariation)}`}>
                 {week.nominalVariation == null
                   ? '—'
-                  : <><strong>{signedCurrency(week.nominalVariation, currency)}</strong><small>{formatPercentage(week.percentageVariation ?? 0)}</small></>}
+                  : <><strong>{signedCurrency(week.nominalVariation, currency)}</strong><small>{formatPercentage(week.percentageVariation)}</small></>}
               </td>
             </tr>
           ))}</tbody>

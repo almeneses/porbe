@@ -152,6 +152,7 @@
     "timeWeightedReturn": "Rentabilidad TWR",
     "annualizedReturn": "TWR anualizada",
     "estimatedReturn": "Rentabilidad estimada: {{value}}",
+    "performanceUnavailable": "No disponible: revisa los precios y movimientos históricos.",
     "cashBalance": "Efectivo acumulado",
     "dividends": "Dividendos acumulados",
     "chartTitle": "Evolución semanal",
