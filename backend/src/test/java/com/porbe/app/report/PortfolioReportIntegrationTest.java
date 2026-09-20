@@ -2,6 +2,7 @@ package com.porbe.app.report;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -197,12 +198,22 @@ class PortfolioReportIntegrationTest {
                 DayOfWeek.from(java.time.ZonedDateTime.now(zone)),
                 LocalTime.MIDNIGHT,
                 zone.getId()), "admin");
+        var createdAt = scheduleRepository.findById(PortfolioReportSchedule.WEEKLY_REPORT)
+                .orElseThrow().getCreatedAt();
+        assertThat(createdAt).isNotNull();
 
         var firstClaim = scheduleService.claimIfDue();
 
         assertTrue(firstClaim.isPresent());
         assertEquals(zone, firstClaim.orElseThrow());
         assertTrue(scheduleService.claimIfDue().isEmpty());
+        assertThat(scheduleService.current().lastRunMessage()).isEqualTo("Generación automática en curso.");
+        scheduleService.finish("SUCCESS", null);
+        var saved = scheduleRepository.findById(PortfolioReportSchedule.WEEKLY_REPORT).orElseThrow();
+        assertThat(saved.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(saved.getUpdatedAt()).isNotNull();
+        assertThat(saved.getLastRunStatus()).isEqualTo("SUCCESS");
+        assertThat(saved.getLastRunMessage()).isNull();
     }
 
     @Test

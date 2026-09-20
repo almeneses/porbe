@@ -239,10 +239,10 @@ public class PortfolioReportTemplateModelFactory {
 
     private String signedMoney(BigDecimal value, String currency) {
         return (value.signum() > 0 ? "+" : value.signum() < 0 ? "-" : "")
-                + money(value.abs(), currency);
+                + formatMoney(value.abs(), currency);
     }
 
-    private String money(BigDecimal value, String currency) {
+    private String formatMoney(BigDecimal value, String currency) {
         var formatted = new DecimalFormat("#,##0", DecimalFormatSymbols.getInstance(SPANISH)).format(value);
         return "COP".equals(currency) ? "$ " + formatted : currency + " " + formatted;
     }

@@ -6,14 +6,11 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Administra el horario persistido y evita ejecutar dos veces el informe en un mismo día. */
 @Service
 public class PortfolioReportScheduleService {
 
@@ -38,7 +35,7 @@ public class PortfolioReportScheduleService {
 
     @Transactional
     public PortfolioReportScheduleResponse current() {
-        return response(schedule());
+        return toResponse(schedule());
     }
 
     @Transactional
@@ -46,39 +43,31 @@ public class PortfolioReportScheduleService {
         var timezone = validTimezone(request.timezone());
         var schedule = schedule();
         schedule.update(request.enabled(), request.dayOfWeek(), request.runTime(), timezone.getId(), username);
-        return response(repository.save(schedule));
+        return toResponse(repository.save(schedule));
     }
 
     @Transactional
     public PortfolioReportAiSettings aiSettings() {
-        return aiSettings(schedule());
+        return toAiSettings(schedule());
     }
 
     @Transactional
     public PortfolioReportAiSettings updateAi(PortfolioReportAiSettingsRequest request, String username) {
         var schedule = schedule();
         schedule.updateAi(request.enabled(), request.model().trim(), request.effort(), username);
-        return aiSettings(repository.save(schedule));
+        return toAiSettings(repository.save(schedule));
     }
 
     /** Marca la ejecución antes de generar artefactos para impedir reclamos duplicados. */
     @Transactional
     public Optional<ZoneId> claimIfDue() {
         var schedule = schedule();
-        if (!schedule.isEnabled()) {
+        var now = clock.instant();
+        if (!schedule.isDue(now)) {
             return Optional.empty();
         }
         var zone = ZoneId.of(schedule.getTimezone());
-        var now = ZonedDateTime.ofInstant(clock.instant(), zone);
-        if (now.getDayOfWeek() != schedule.getDayOfWeek()
-                || now.toLocalTime().isBefore(schedule.getRunTime())) {
-            return Optional.empty();
-        }
-        if (schedule.getLastRunAt() != null
-                && schedule.getLastRunAt().atZoneSameInstant(zone).toLocalDate().equals(now.toLocalDate())) {
-            return Optional.empty();
-        }
-        schedule.markRunning(OffsetDateTime.ofInstant(clock.instant(), zone));
+        schedule.markRunning(OffsetDateTime.ofInstant(now, zone));
         repository.save(schedule);
         return Optional.of(zone);
     }
@@ -98,13 +87,13 @@ public class PortfolioReportScheduleService {
                         "system")));
     }
 
-    private PortfolioReportScheduleResponse response(PortfolioReportSchedule schedule) {
+    private PortfolioReportScheduleResponse toResponse(PortfolioReportSchedule schedule) {
         return new PortfolioReportScheduleResponse(
                 schedule.isEnabled(),
                 schedule.getDayOfWeek(),
                 schedule.getRunTime().format(TIME_FORMAT),
                 schedule.getTimezone(),
-                schedule.isEnabled() ? nextRun(schedule) : null,
+                schedule.nextRun(clock.instant()),
                 schedule.getLastRunAt(),
                 schedule.getLastRunStatus(),
                 schedule.getLastRunMessage(),
@@ -114,22 +103,11 @@ public class PortfolioReportScheduleService {
                 deliveryProvider.channel());
     }
 
-    private PortfolioReportAiSettings aiSettings(PortfolioReportSchedule schedule) {
+    private PortfolioReportAiSettings toAiSettings(PortfolioReportSchedule schedule) {
         return new PortfolioReportAiSettings(
                 schedule.isAiEnabled(),
                 schedule.getAiModel(),
                 schedule.getAiEffort());
-    }
-
-    private OffsetDateTime nextRun(PortfolioReportSchedule schedule) {
-        var zone = ZoneId.of(schedule.getTimezone());
-        var now = ZonedDateTime.ofInstant(clock.instant(), zone);
-        var date = now.toLocalDate().with(TemporalAdjusters.nextOrSame(schedule.getDayOfWeek()));
-        var candidate = ZonedDateTime.of(date, schedule.getRunTime(), zone);
-        if (!candidate.isAfter(now)) {
-            candidate = candidate.plusWeeks(1);
-        }
-        return candidate.toOffsetDateTime();
     }
 
     private ZoneId validTimezone(String value) {

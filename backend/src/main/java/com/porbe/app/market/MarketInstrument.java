@@ -120,14 +120,6 @@ public class MarketInstrument {
         return exchange;
     }
 
-    public String getInstrumentType() {
-        return instrumentType;
-    }
-
-    public String getExchangeTimezone() {
-        return exchangeTimezone;
-    }
-
     public String getSector() {
         return sector == null || sector.isBlank()
                 ? MarketSectorCatalog.suggestedSector(ticker)

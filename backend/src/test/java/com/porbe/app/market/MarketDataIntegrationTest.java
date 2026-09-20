@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -63,7 +64,7 @@ class MarketDataIntegrationTest {
     private PortfolioService portfolioService;
 
     @MockitoBean
-    private MarketDataProvider provider;
+    private YahooFinanceMarketDataClient provider;
 
     @BeforeEach
     void cleanDatabase() {
@@ -156,6 +157,9 @@ class MarketDataIntegrationTest {
                 .andExpect(jsonPath("$.tickers[0].sector").value("Petróleo y gas"))
                 .andExpect(jsonPath("$.tickers[0].closes[0].weekEnding").value("2024-01-19"));
 
+        var createdAt = scheduleRepository.findByScheduleKey(MarketDataSchedule.PORTFOLIO_CLOSES)
+                .orElseThrow().getCreatedAt();
+        assertThat(createdAt).isNotNull();
         mockMvc.perform(put("/api/market-data/schedule")
                         .contentType("application/json")
                         .content("{\"enabled\":true,\"dayOfWeek\":\"FRIDAY\",\"runTime\":\"19:30\"}")
@@ -167,6 +171,9 @@ class MarketDataIntegrationTest {
                 .andExpect(jsonPath("$.runTime").value("19:30:00"))
                 .andExpect(jsonPath("$.timezone").value("America/Bogota"))
                 .andExpect(jsonPath("$.nextRunAt").exists());
+        var saved = scheduleRepository.findByScheduleKey(MarketDataSchedule.PORTFOLIO_CLOSES).orElseThrow();
+        assertThat(saved.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(saved.getUpdatedAt()).isNotNull();
     }
 
     @Test

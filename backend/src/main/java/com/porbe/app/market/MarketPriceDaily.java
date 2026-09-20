@@ -108,7 +108,4 @@ public class MarketPriceDaily {
         return finalClose;
     }
 
-    public OffsetDateTime getFetchedAt() {
-        return fetchedAt;
-    }
 }

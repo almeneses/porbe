@@ -144,7 +144,6 @@ public class PortfolioReport {
     public String getPortfolioName() { return portfolioName; }
     public LocalDate getFrom() { return from; }
     public LocalDate getTo() { return to; }
-    public LocalDate getBaselineDate() { return baselineDate; }
     public LocalDate getValuationDate() { return valuationDate; }
     public String getBaseCurrency() { return baseCurrency; }
     public String getTriggerType() { return triggerType; }

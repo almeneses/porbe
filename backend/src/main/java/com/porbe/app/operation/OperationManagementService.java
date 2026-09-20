@@ -61,7 +61,7 @@ public class OperationManagementService {
                 .toList();
         var responses = filtered.stream()
                 .limit(MAX_RESPONSE_ROWS)
-                .map(operation -> response(operation, consistency.get(operation.getId())))
+                .map(operation -> toResponse(operation, consistency.get(operation.getId())))
                 .toList();
         return new OperationsResponse(filtered.size(), responses.size(), responses);
     }
@@ -98,7 +98,7 @@ public class OperationManagementService {
                 "Creó manualmente " + operationLabel(operation) + ".",
                 null,
                 json(OperationSnapshot.from(operation))));
-        return responseWithConsistency(operation);
+        return toResponseWithConsistency(operation);
     }
 
     @Transactional
@@ -128,7 +128,7 @@ public class OperationManagementService {
                 "Modificó " + operationLabel(operation) + ".",
                 previous,
                 json(OperationSnapshot.from(operation))));
-        return responseWithConsistency(operation);
+        return toResponseWithConsistency(operation);
     }
 
     @Transactional
@@ -279,12 +279,12 @@ public class OperationManagementService {
         return states;
     }
 
-    private OperationResponse responseWithConsistency(PortfolioOperation selected) {
+    private OperationResponse toResponseWithConsistency(PortfolioOperation selected) {
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(selected.getPortfolio());
-        return response(selected, consistencyByOperation(operations).get(selected.getId()));
+        return toResponse(selected, consistencyByOperation(operations).get(selected.getId()));
     }
 
-    private OperationResponse response(PortfolioOperation operation, ConsistencyState state) {
+    private OperationResponse toResponse(PortfolioOperation operation, ConsistencyState state) {
         return OperationResponse.from(
                 operation,
                 state == null ? null : state.quantityAfter(),

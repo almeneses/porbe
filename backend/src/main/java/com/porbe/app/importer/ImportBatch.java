@@ -87,10 +87,6 @@ public class ImportBatch {
         return sourceFilename;
     }
 
-    public String getFileHash() {
-        return fileHash;
-    }
-
     public int getRowCount() {
         return rowCount;
     }

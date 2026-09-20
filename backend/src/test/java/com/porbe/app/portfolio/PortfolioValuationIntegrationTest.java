@@ -1,5 +1,6 @@
 package com.porbe.app.portfolio;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,6 +17,7 @@ import com.porbe.app.market.MarketPriceDailyRepository;
 import com.porbe.app.operation.OperationType;
 import com.porbe.app.operation.PortfolioOperation;
 import com.porbe.app.operation.PortfolioOperationRepository;
+import com.porbe.app.report.PortfolioReportCalculator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -54,6 +56,12 @@ class PortfolioValuationIntegrationTest {
 
     @Autowired
     private MarketDataPersistenceService marketDataPersistenceService;
+
+    @Autowired
+    private PortfolioHistoryService historyService;
+
+    @Autowired
+    private PortfolioReportCalculator reportCalculator;
 
     @BeforeEach
     void cleanDatabase() {
@@ -94,6 +102,48 @@ class PortfolioValuationIntegrationTest {
                 .andExpect(jsonPath("$.positions[0].averageCost").value(1073.33333333))
                 .andExpect(jsonPath("$.positions[0].lastPrice").value(1400))
                 .andExpect(jsonPath("$.positions[0].totalGain").value(61000));
+    }
+
+    @Test
+    void preservesFractionalSaleRoundingAndHistoricalPriceCutoffs() throws Exception {
+        var context = operationContext("fracciones.xlsx", "5500012411f6591eeac13c17ddf0f4907f22718512442e9afe15a6c027d7a551");
+        save(context, LocalDate.of(2026, 1, 2), OperationType.DEPOSITO, null, null, null, "0", "10");
+        for (var ticker : List.of("AAA", "BBB")) {
+            save(context, LocalDate.of(2026, 1, 5), OperationType.COMPRA, ticker, "3", "0.33333333", "0", "1");
+            save(context, LocalDate.of(2026, 1, 6), OperationType.VENTA, ticker, "1", "0.34", "0", "0.34");
+            var close = new BigDecimal("0.335");
+            marketDataPersistenceService.save(new MarketDataSeries(
+                    ticker, ticker, "COP", "BVC", "EQUITY", "America/Bogota", close,
+                    List.of(new DailyMarketBar(LocalDate.of(2026, 1, 9),
+                            close, close, close, close, close, 100L, false))), "TEST");
+        }
+        save(context, LocalDate.of(2026, 1, 7), OperationType.DIVIDENDO, "AAA", null, null, "0", "0.01");
+        save(context, LocalDate.of(2026, 1, 8), OperationType.RETIRO, null, null, null, "0", "1");
+
+        mockMvc.perform(get("/api/portfolio/summary").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.realizedGain").value(0.02))
+                .andExpect(jsonPath("$.totalGain").value(0.03))
+                .andExpect(jsonPath("$.portfolioValue").value(9.03))
+                .andExpect(jsonPath("$.netContributions").value(9))
+                .andExpect(jsonPath("$.positions[0].provisionalPrice").value(true));
+
+        var futureClose = BigDecimal.TEN;
+        marketDataPersistenceService.save(new MarketDataSeries(
+                "AAA", "AAA", "COP", "BVC", "EQUITY", "America/Bogota", futureClose,
+                List.of(new DailyMarketBar(LocalDate.of(2026, 1, 16),
+                        futureClose, futureClose, futureClose, futureClose, futureClose, 100L, true))), "TEST");
+        var from = LocalDate.of(2026, 1, 5);
+        var to = LocalDate.of(2026, 1, 9);
+        var week = historyService.weeklyHistory(context.portfolio().getId(), from, to).weeks().getLast();
+        assertThat(week.realizedGain()).isEqualByComparingTo("0.01");
+        assertThat(week.totalGain()).isEqualByComparingTo("0.02");
+        assertThat(week.portfolioValue()).isEqualByComparingTo("9.03");
+        assertThat(week.positions().getFirst().closePrice()).isEqualByComparingTo("0.335");
+        var report = reportCalculator.calculate(context.portfolio().getId(), from, to);
+        assertThat(report.accumulatedGain()).isEqualByComparingTo(week.totalGain());
+        assertThat(report.portfolioValue()).isEqualByComparingTo(week.portfolioValue());
+        assertThat(report.provisionalPrices()).isEqualTo(2);
     }
 
     @Test
