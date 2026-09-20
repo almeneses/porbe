@@ -43,7 +43,8 @@ public class PortfolioReportScheduledJob {
         if (claim.isEmpty()) {
             return;
         }
-        var to = LocalDate.ofInstant(clock.instant(), claim.get());
+        var to = LocalDate.ofInstant(clock.instant(), claim.get())
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
         var from = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         try {
             var sync = marketDataSyncService.syncPortfolio();

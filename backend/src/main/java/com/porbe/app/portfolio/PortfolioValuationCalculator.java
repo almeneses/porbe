@@ -147,13 +147,7 @@ public final class PortfolioValuationCalculator {
         return entry == null ? null : entry.getValue();
     }
 
-    public static BigDecimal netContributions(List<PortfolioOperation> operations) {
-        return operations.stream().filter(PortfolioValuationCalculator::isContribution)
-                .map(operation -> operation.getTotalAmount().multiply(BigDecimal.valueOf(operation.getType().cashSign())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private static boolean isContribution(PortfolioOperation operation) {
+    static boolean isContribution(PortfolioOperation operation) {
         return operation.getType() == OperationType.DEPOSITO || operation.getType() == OperationType.RETIRO;
     }
 

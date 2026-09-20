@@ -1,6 +1,7 @@
 package com.porbe.app.portfolio;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -140,10 +141,26 @@ class PortfolioValuationIntegrationTest {
         assertThat(week.totalGain()).isEqualByComparingTo("0.02");
         assertThat(week.portfolioValue()).isEqualByComparingTo("9.03");
         assertThat(week.positions().getFirst().closePrice()).isEqualByComparingTo("0.335");
+        assertThat(week.periodReturn()).isNull();
+        assertThat(week.positions()).allMatch(PortfolioWeeklyPositionResponse::provisionalPrice);
+        assertThatThrownBy(() -> reportCalculator.calculate(context.portfolio().getId(), from, to))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("precios de cierre");
+
+        // El reporte requiere cierres definitivos al retirar efectivo y al terminar la semana.
+        for (var ticker : List.of("AAA", "BBB")) {
+            var close = new BigDecimal("0.335");
+            marketDataPersistenceService.save(new MarketDataSeries(
+                    ticker, ticker, "COP", "BVC", "EQUITY", "America/Bogota", close,
+                    List.of(new DailyMarketBar(LocalDate.of(2026, 1, 8),
+                                    close, close, close, close, close, 100L, true),
+                            new DailyMarketBar(to, close, close, close, close, close, 100L, true))), "TEST");
+        }
         var report = reportCalculator.calculate(context.portfolio().getId(), from, to);
         assertThat(report.accumulatedGain()).isEqualByComparingTo(week.totalGain());
         assertThat(report.portfolioValue()).isEqualByComparingTo(week.portfolioValue());
-        assertThat(report.provisionalPrices()).isEqualTo(2);
+        assertThat(report.provisionalPrices()).isZero();
+        assertThat(report.periodGain()).isEqualByComparingTo("0.03");
+        assertThat(report.periodReturn()).isEqualByComparingTo("0.003");
     }
 
     @Test

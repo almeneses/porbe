@@ -202,6 +202,7 @@ public class PortfolioReportAiNoteService {
         return """
                 Portafolio: %s
                 Periodo: %s a %s
+                Cierres comparados para el rendimiento: %s a %s
                 Moneda: %s
                 Resultado del periodo: %s (%s)
                 Dividendos acumulados: %s
@@ -215,7 +216,8 @@ public class PortfolioReportAiNoteService {
                 Distribución: %s
                 Datos completos: %s; precios provisionales: %s; posiciones sin precio: %s
                 """.formatted(
-                data.portfolioName(), data.from(), data.to(), data.baseCurrency(), data.periodGain(), percent(data.periodReturn()),
+                data.portfolioName(), data.from(), data.to(), data.baselineDate(), data.valuationDate(),
+                data.baseCurrency(), data.periodGain(), percent(data.periodReturn()),
                 data.accumulatedDividends(), data.accumulatedGain(), percent(data.timeWeightedReturn()), data.netContributions(),
                 data.cashBalance(), data.portfolioValue(), impact(data.bestPeriodImpact()), impact(data.worstPeriodImpact()),
                 allocations(data), data.valuationComplete() ? "sí" : "no", data.provisionalPrices(), data.unpricedPositions());
@@ -232,7 +234,8 @@ public class PortfolioReportAiNoteService {
     }
 
     private String percent(BigDecimal value) {
-        return value.multiply(BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString() + "%";
+        return value == null ? "no disponible"
+                : value.multiply(BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString() + "%";
     }
 
     private void delete(Path directory) {
