@@ -1,6 +1,7 @@
 package com.porbe.app.report;
 
-import static com.porbe.app.portfolio.PortfolioValuationCalculator.netContributions;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.compoundReturns;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.nominalGain;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
 
 import com.porbe.app.operation.PortfolioOperation;
@@ -10,6 +11,7 @@ import com.porbe.app.market.MarketInstrumentRepository;
 import com.porbe.app.portfolio.PortfolioHistoryService;
 import com.porbe.app.portfolio.PortfolioService;
 import com.porbe.app.portfolio.PortfolioWeeklyPositionResponse;
+import com.porbe.app.portfolio.PortfolioWeeklySnapshot;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -61,6 +63,9 @@ public class PortfolioReportCalculator {
     public PortfolioReportData calculate(Long portfolioId, LocalDate from, LocalDate to) {
         validateDates(from, to);
         var endFriday = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
+        if (endFriday.isBefore(from)) {
+            throw new IllegalArgumentException("El periodo seleccionado debe incluir al menos un cierre semanal (viernes).");
+        }
         var history = historyService.weeklyHistory(portfolioId, null, endFriday);
         if (history.weeks().isEmpty()) {
             throw new IllegalArgumentException(
@@ -71,24 +76,34 @@ public class PortfolioReportCalculator {
                 .filter(week -> !week.weekEnding().isAfter(endFriday))
                 .reduce((first, second) -> second)
                 .orElseThrow();
+
         var prior = history.weeks().stream()
                 .filter(week -> week.weekEnding().isBefore(from))
                 .reduce((first, second) -> second);
+
         var baseline = prior.orElse(history.weeks().getFirst());
         var hasPriorBaseline = prior.isPresent();
 
         var portfolio = portfolioService.getPortfolio(portfolioId);
         var operations = operationRepository
                 .findAllByPortfolioAndDateBetweenOrderByDateAscIdAsc(portfolio, from, to);
-        var externalCashFlow = netContributions(operations);
+        var externalCashFlow = end.netContributions()
+                .subtract(hasPriorBaseline ? baseline.netContributions() : BigDecimal.ZERO);
         var baselineValue = hasPriorBaseline ? baseline.portfolioValue() : BigDecimal.ZERO;
-        var periodGain = end.portfolioValue().subtract(baselineValue).subtract(externalCashFlow);
-        var periodReturn = hasPriorBaseline
-                ? relativeTwr(baseline.timeWeightedReturn(), end.timeWeightedReturn())
-                : zeroIfNull(end.timeWeightedReturn());
+        var periodGain = nominalGain(baselineValue, end.portfolioValue(), externalCashFlow);
+        var periodReturn = compoundReturns(history.weeks().stream()
+                .filter(week -> !week.weekEnding().isBefore(from))
+                .map(PortfolioWeeklySnapshot::periodReturn).toList());
+        if (!end.valuationComplete() || (hasPriorBaseline && !baseline.valuationComplete()) || periodReturn == null) {
+            throw new IllegalArgumentException(
+                    "No se puede calcular el rendimiento del periodo: revisa los precios de cierre, "
+                            + "las operaciones y que exista capital para calcular una tasa.");
+        }
 
-        var baselinePositions = baseline.positions().stream()
-                .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()));
+        Map<String, PortfolioWeeklyPositionResponse> baselinePositions = hasPriorBaseline
+                ? baseline.positions().stream()
+                        .collect(Collectors.toMap(PortfolioWeeklyPositionResponse::ticker, Function.identity()))
+                : Map.of();
         var icons = iconsByTicker(end.positions(), operations);
         var periodImpact = periodImpactHighlights(baselinePositions, end.positions(), icons);
         var displayedMovements = recentMovements(operations, icons);
@@ -110,7 +125,7 @@ public class PortfolioReportCalculator {
                 portfolio.getName(),
                 from,
                 to,
-                baseline.weekEnding(),
+                hasPriorBaseline ? baseline.weekEnding() : baseline.weekEnding().minusWeeks(1),
                 end.weekEnding(),
                 history.baseCurrency().toUpperCase(Locale.ROOT),
                 roundMoney(periodGain),
@@ -131,7 +146,7 @@ public class PortfolioReportCalculator {
                 dividendsByAsset,
                 assetAllocation,
                 sectorAllocation,
-                end.valuationComplete() && provisionalPrices == 0,
+                end.valuationComplete() && provisionalPrices == 0 && end.timeWeightedReturn() != null,
                 provisionalPrices,
                 end.unpricedPositions());
     }
@@ -284,16 +299,6 @@ public class PortfolioReportCalculator {
         return instrumentRepository.findByTickerIn(tickers).stream()
                 .filter(MarketInstrument::hasIcon)
                 .collect(Collectors.toMap(MarketInstrument::getTicker, MarketInstrument::getIconData));
-    }
-
-    private BigDecimal relativeTwr(BigDecimal baseline, BigDecimal end) {
-        var baselineGrowth = BigDecimal.ONE.add(zeroIfNull(baseline));
-        if (baselineGrowth.signum() == 0) {
-            return BigDecimal.ZERO;
-        }
-        return BigDecimal.ONE.add(zeroIfNull(end))
-                .divide(baselineGrowth, RATE_SCALE, RoundingMode.HALF_UP)
-                .subtract(BigDecimal.ONE);
     }
 
     private void validateDates(LocalDate from, LocalDate to) {

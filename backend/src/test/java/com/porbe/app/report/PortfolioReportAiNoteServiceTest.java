@@ -8,8 +8,9 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.util.List;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import tools.jackson.databind.ObjectMapper;
 
 class PortfolioReportAiNoteServiceTest {
@@ -17,8 +18,9 @@ class PortfolioReportAiNoteServiceTest {
     @TempDir
     Path temporaryDirectory;
 
-    @Test
-    void createsStructuredNoteWithAtMostTwoActions() throws Exception {
+    @ParameterizedTest
+    @CsvSource(value = {"0.09, 9%", "NULL, no disponible"}, nullValues = "NULL")
+    void createsStructuredNoteWithAtMostTwoActions(BigDecimal totalReturn, String expectedReturn) throws Exception {
         var executable = temporaryDirectory.resolve("codex");
         Files.writeString(executable, """
                 #!/bin/sh
@@ -35,7 +37,7 @@ class PortfolioReportAiNoteServiceTest {
 
         var info = service.info(new PortfolioReportAiSettings(true, "gpt-5.5", "medium"));
 
-        var note = service.create(data(), new PortfolioReportAiSettings(true, "test-model", "low"));
+        var note = service.create(data(totalReturn), new PortfolioReportAiSettings(true, "test-model", "low"));
 
         assertThat(info.catalogAvailable()).isTrue();
         assertThat(info.models()).singleElement().satisfies(model -> {
@@ -48,10 +50,12 @@ class PortfolioReportAiNoteServiceTest {
         assertThat(Files.readString(temporaryDirectory.resolve("arguments.txt")))
                 .contains("exec", "--ephemeral", "test-model", "model_reasoning_effort=\"low\"", "read-only", "--output-schema", "-");
         assertThat(Files.readString(temporaryDirectory.resolve("prompt.txt")))
-                .contains("Ecopetrol", "Resultado del periodo: 200 (10%)");
+                .contains("Ecopetrol", "Resultado del periodo: 200 (10%)")
+                .contains("Cierres comparados para el rendimiento: 2026-01-02 a 2026-01-16")
+                .contains("Rentabilidad total: " + expectedReturn);
     }
 
-    private PortfolioReportData data() {
+    private PortfolioReportData data(BigDecimal totalReturn) {
         return new PortfolioReportData(
                 1L, "Portafolio de prueba", LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 16),
                 LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 16), "COP",
@@ -59,7 +63,7 @@ class PortfolioReportAiNoteServiceTest {
                 new PortfolioReportAssetHighlight(
                         "ECOPETROL.CL", "Ecopetrol", new BigDecimal("0.10"), new BigDecimal("180"), null),
                 null, new BigDecimal("20"), new BigDecimal("220"), new BigDecimal("0.11"),
-                new BigDecimal("0.09"), new BigDecimal("2000"), new BigDecimal("1000"), new BigDecimal("2200"),
+                totalReturn, new BigDecimal("2000"), new BigDecimal("1000"), new BigDecimal("2200"),
                 0, List.of(), List.of(), List.of(), List.of(),
                 List.of(new PortfolioReportAllocation(
                         "ECOPETROL.CL", "Ecopetrol", new BigDecimal("0.75"), null)),

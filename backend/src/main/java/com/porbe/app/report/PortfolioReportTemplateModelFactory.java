@@ -228,10 +228,11 @@ public class PortfolioReportTemplateModelFactory {
 
     private String valuationMessage(PortfolioReportData data) {
         if (data.valuationComplete()) {
-            return "Precios actualizados hasta el " + data.valuationDate().format(PERIOD_DATE);
+            return "Rendimiento entre cierres del " + data.baselineDate().format(PERIOD_DATE)
+                    + " al " + data.valuationDate().format(PERIOD_DATE);
         }
         if (data.unpricedPositions() == 0 && data.provisionalPrices() == 0) {
-            return "Hay movimientos que necesitan revisión antes de completar el informe";
+            return "Hay precios históricos o movimientos que necesitan revisión antes de completar el informe";
         }
         return "Faltan precios para " + data.unpricedPositions() + " acciones y "
                 + data.provisionalPrices() + " precios todavía son aproximados";
@@ -265,14 +266,15 @@ public class PortfolioReportTemplateModelFactory {
     }
 
     private String percent(BigDecimal value) {
-        var safeValue = value == null ? BigDecimal.ZERO : value;
+        if (value == null) {
+            return "N/D";
+        }
         return new DecimalFormat("0.00", DecimalFormatSymbols.getInstance(SPANISH))
-                .format(safeValue.multiply(BigDecimal.valueOf(100))) + "%";
+                .format(value.multiply(BigDecimal.valueOf(100))) + "%";
     }
 
     private String signedPercent(BigDecimal value) {
-        var safeValue = value == null ? BigDecimal.ZERO : value;
-        return (safeValue.signum() > 0 ? "+" : "") + percent(safeValue);
+        return (value != null && value.signum() > 0 ? "+" : "") + percent(value);
     }
 
     private String formatQuantity(BigDecimal value) {

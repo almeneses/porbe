@@ -1,5 +1,9 @@
 package com.porbe.app.portfolio;
 
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.annualizedReturn;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.compoundGrowth;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.growthFactor;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.returnFromGrowth;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.latestPrice;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.returnRate;
@@ -19,7 +23,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -61,6 +64,8 @@ public class PortfolioHistoryService {
     /**
      * Aplica las operaciones una sola vez en orden cronológico y toma para cada
      * viernes el último cierre conocido, incluso cuando ese viernes fue festivo.
+     * El TWR enlaza tramos separados por depósitos/retiros en orden fecha/id;
+     * conserva el factor cero de una pérdida total y deja sin tasa las semanas sin capital.
      */
     @Transactional
     public PortfolioHistoryResponse weeklyHistory(Long portfolioId, LocalDate from, LocalDate to) {
@@ -72,14 +77,17 @@ public class PortfolioHistoryService {
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var lastCompletedWeek = LocalDate.ofInstant(clock.instant(), BUSINESS_ZONE)
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
+
         if (operations.isEmpty()) {
             return emptyHistory(portfolio.getBaseCurrency(), lastCompletedWeek);
         }
 
         var firstWeek = operations.getFirst().getDate()
                 .with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY));
+
         var effectiveFrom = from == null ? firstWeek : from;
         var effectiveTo = to == null || to.isAfter(lastCompletedWeek) ? lastCompletedWeek : to;
+
         if (firstWeek.isAfter(effectiveTo)) {
             return emptyHistory(portfolio.getBaseCurrency(), lastCompletedWeek, operations.size());
         }
@@ -93,30 +101,43 @@ public class PortfolioHistoryService {
         BigDecimal previousPortfolioValue = null;
         var previousNetContributions = BigDecimal.ZERO;
         var cumulativeGrowth = BigDecimal.ONE;
+        BigDecimal previousPerformanceValue = BigDecimal.ZERO;
+        var everFunded = false;
 
         for (var week = firstWeek; !week.isAfter(effectiveTo); week = week.plusWeeks(1)) {
+            var segmentStart = previousPerformanceValue;
+            var weeklyGrowth = BigDecimal.ONE;
+            var hasCapital = segmentStart != null && segmentStart.signum() > 0;
             while (operationIndex < operations.size()
                     && !operations.get(operationIndex).getDate().isAfter(week)) {
-                calculator.apply(operations.get(operationIndex++));
+                var operation = operations.get(operationIndex++);
+                if (PortfolioValuationCalculator.isContribution(operation)) {
+                    // ponytail: sin horas intradía, cada flujo usa el último cierre de su fecha.
+                    // Con horas y cotizaciones intradía se puede valorar el instante exacto del flujo.
+                    var beforeFlow = performanceValue(snapshot(operation.getDate(), calculator, prices, null));
+                    weeklyGrowth = compoundGrowth(weeklyGrowth, growthFactor(segmentStart, beforeFlow));
+                    var contributionsBefore = calculator.netContributions();
+                    calculator.apply(operation);
+                    var flow = calculator.netContributions().subtract(contributionsBefore);
+                    segmentStart = beforeFlow == null ? null : beforeFlow.add(flow);
+                    hasCapital |= segmentStart != null && segmentStart.signum() > 0;
+                } else {
+                    calculator.apply(operation);
+                }
             }
 
             var snapshot = snapshot(week, calculator, prices, previousPortfolioValue);
             var netContributions = calculator.netContributions();
             var externalCashFlow = netContributions.subtract(previousNetContributions);
-            var periodReturn = periodReturn(
-                    snapshot.portfolioValue(),
-                    previousPortfolioValue,
-                    externalCashFlow);
-            if (periodReturn != null && BigDecimal.ONE.add(periodReturn).signum() > 0) {
-                cumulativeGrowth = cumulativeGrowth.multiply(BigDecimal.ONE.add(periodReturn));
-            }
-            var timeWeightedReturn = cumulativeGrowth.subtract(BigDecimal.ONE)
-                    .setScale(VALUE_SCALE, RoundingMode.HALF_UP);
+            previousPerformanceValue = performanceValue(snapshot);
+            weeklyGrowth = compoundGrowth(weeklyGrowth, growthFactor(segmentStart, previousPerformanceValue));
+            cumulativeGrowth = compoundGrowth(cumulativeGrowth, weeklyGrowth);
+            everFunded |= hasCapital;
             snapshot = snapshot.withPerformance(
                     roundMoney(externalCashFlow),
-                    periodReturn,
-                    timeWeightedReturn,
-                    annualizedReturn(cumulativeGrowth, firstWeek, week));
+                    hasCapital ? returnFromGrowth(weeklyGrowth) : null,
+                    everFunded ? returnFromGrowth(cumulativeGrowth) : null,
+                    everFunded ? annualizedReturn(cumulativeGrowth, operations.getFirst().getDate(), week) : null);
             previousPortfolioValue = snapshot.portfolioValue();
             previousNetContributions = netContributions;
             if (!week.isBefore(effectiveFrom)) {
@@ -202,32 +223,11 @@ public class PortfolioHistoryService {
                 positions);
     }
 
-    /** TWR semanal: descuenta depósitos y retiros del valor final del período. */
-    private BigDecimal periodReturn(
-            BigDecimal portfolioValue,
-            BigDecimal previousPortfolioValue,
-            BigDecimal externalCashFlow) {
-        if (previousPortfolioValue == null) {
-            return externalCashFlow.signum() <= 0
-                    ? null
-                    : portfolioValue.subtract(externalCashFlow)
-                            .divide(externalCashFlow, VALUE_SCALE, RoundingMode.HALF_UP);
-        }
-        if (previousPortfolioValue.signum() == 0) {
-            return null;
-        }
-        return portfolioValue.subtract(externalCashFlow)
-                .divide(previousPortfolioValue, VALUE_SCALE, RoundingMode.HALF_UP)
-                .subtract(BigDecimal.ONE);
-    }
-
-    private BigDecimal annualizedReturn(BigDecimal cumulativeGrowth, LocalDate firstWeek, LocalDate week) {
-        var days = ChronoUnit.DAYS.between(firstWeek, week);
-        if (days <= 0 || cumulativeGrowth.signum() <= 0) {
-            return null;
-        }
-        var annualized = Math.pow(cumulativeGrowth.doubleValue(), 365.0 / days) - 1.0;
-        return BigDecimal.valueOf(annualized).setScale(VALUE_SCALE, RoundingMode.HALF_UP);
+    /** No confunde una valoración parcial o provisional con una pérdida de capital. */
+    private BigDecimal performanceValue(PortfolioWeeklySnapshot snapshot) {
+        return snapshot.valuationComplete() && snapshot.positions().stream()
+                .noneMatch(position -> position.quantity().signum() != 0 && position.provisionalPrice())
+                ? snapshot.portfolioValue() : null;
     }
 
     private Map<String, MarketInstrument> instrumentsByTicker(java.util.Set<String> tickers) {

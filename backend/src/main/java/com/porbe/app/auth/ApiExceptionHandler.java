@@ -40,8 +40,9 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(PortfolioImportValidationException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
     ResponseEntity<PortfolioImportResult> importValidation(PortfolioImportValidationException exception) {
-        return ResponseEntity.unprocessableEntity().body(exception.getResult());
+        return ResponseEntity.unprocessableContent().body(exception.getResult());
     }
 
     @ExceptionHandler(DuplicateImportException.class)
@@ -51,7 +52,7 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    @ResponseStatus(HttpStatus.CONTENT_TOO_LARGE)
     ApiErrorResponse fileTooLarge() {
         return new ApiErrorResponse("ARCHIVO_MUY_GRANDE", "El archivo no puede superar 5 MB.");
     }
@@ -63,7 +64,7 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(OperationValidationException.class)
-    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
     OperationValidationResponse operationValidation(OperationValidationException exception) {
         return new OperationValidationResponse(
                 "OPERACION_INVALIDA",
