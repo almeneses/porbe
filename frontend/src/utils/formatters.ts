@@ -38,8 +38,8 @@ export function formatCop(value: number) {
   return copFormatter.format(value)
 }
 
-export function formatPercentage(value: number) {
-  return percentageFormatter.format(value)
+export function formatPercentage(value: number | null | undefined) {
+  return value == null ? '—' : percentageFormatter.format(value)
 }
 
 export function formatAmount(value: number) {

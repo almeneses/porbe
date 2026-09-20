@@ -10,6 +10,13 @@ describe('formateadores colombianos', () => {
     expect(formatPercentage(0.125)).toContain('12,5')
   })
 
+  it('distingue porcentajes no disponibles de un rendimiento real de cero', () => {
+    expect(formatPercentage(null)).toBe('—')
+    expect(formatPercentage(undefined)).toBe('—')
+    expect(formatPercentage(0)).toBe('0,0%')
+    expect(formatPercentage(-0.1)).toBe('-10,0%')
+  })
+
   it('presenta montos y cantidades sin perder fracciones', () => {
     expect(formatAmount(1850.5)).toContain('1.850,5')
     expect(formatQuantity(1.125)).toContain('1,125')

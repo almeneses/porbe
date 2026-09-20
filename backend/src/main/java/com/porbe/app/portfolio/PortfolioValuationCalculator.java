@@ -56,6 +56,27 @@ public final class PortfolioValuationCalculator {
                 .toList();
     }
 
+    /**
+     * Construye la valoración de un ticker a partir de su contabilidad acumulada,
+     * sin modificarla ni convertir importes entre monedas.
+     *
+     * <p>Con contabilidad completa, una posición cerrada (cantidad neta cero) no
+     * necesita precio y vale cero. Si la contabilidad está incompleta o falta el precio de
+     * una posición abierta, el valor de mercado y las ganancias no realizada y
+     * total quedan en {@code null}. El costo y la ganancia realizada solo requieren
+     * contabilidad completa.
+     *
+     * <p>La rentabilidad es ganancia total / compras acumuladas (cero si no hay
+     * compras), expresada como fracción. Los importes se redondean a dos decimales;
+     * cantidades, precios, costo promedio y rentabilidad, hasta ocho.
+     *
+     * @param ledger cantidades, costos, ganancias realizadas y dividendos del ticker
+     * @param instrument metadatos del activo; puede ser {@code null}. Si falta la
+     *                   moneda, se usa la moneda base del portafolio
+     * @param latest precio suministrado para el corte; puede ser {@code null}
+     * @return detalle de la posición con indicadores de cierre, valoración y moneda;
+     *         la participación en el portafolio ({@code allocationRate}) queda pendiente
+     */
     private PortfolioPositionResponse valuePosition(
             PortfolioPositionLedger ledger,
             MarketInstrument instrument,
@@ -69,7 +90,9 @@ public final class PortfolioValuationCalculator {
         var marketValue = valued
                 ? closed ? BigDecimal.ZERO : ledger.netQuantity().multiply(latest.getClose())
                 : null;
+        // La ganancia no realizada compara el valor de mercado con el costo aún invertido.
         var unrealizedGain = valued ? marketValue.subtract(ledger.costBasis()) : null;
+        // El resultado total incluye ventas ya realizadas, posición remanente y dividendos.
         var totalGain = valued
                 ? ledger.realizedGain().add(unrealizedGain).add(ledger.dividends())
                 : null;

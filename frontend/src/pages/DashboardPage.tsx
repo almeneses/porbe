@@ -83,14 +83,16 @@ export function DashboardPage() {
     {
       key: 'timeWeightedReturn',
       value: latestWeek ? formatPercentage(latestWeek.timeWeightedReturn) : '—',
-      detail: t('dashboard.timeWeightedReturnDetail'),
+      detail: t(latestWeek && latestWeek.timeWeightedReturn == null
+        ? 'history.performanceUnavailable' : 'dashboard.timeWeightedReturnDetail'),
       icon: ChartSpline,
       tone: 'green',
     },
     {
       key: 'annualizedReturn',
       value: latestWeek?.annualizedReturn == null ? '—' : formatPercentage(latestWeek.annualizedReturn),
-      detail: t('dashboard.annualizedReturnDetail'),
+      detail: t(latestWeek && latestWeek.timeWeightedReturn == null
+        ? 'history.performanceUnavailable' : 'dashboard.annualizedReturnDetail'),
       icon: CalendarClock,
       tone: 'blue',
     },

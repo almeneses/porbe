@@ -192,7 +192,7 @@ export interface PortfolioWeeklySnapshot {
   returnRate: number
   externalCashFlow: number
   periodReturn: number | null
-  timeWeightedReturn: number
+  timeWeightedReturn: number | null
   annualizedReturn: number | null
   nominalVariation: number | null
   percentageVariation: number | null
