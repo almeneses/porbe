@@ -29,6 +29,23 @@ public class WhatsAppWebClient {
         }
     }
 
+    public WhatsAppConnectionStatus resetSession() {
+        try {
+            var response = restClient.delete().uri("/api/session").retrieve()
+                    .body(WhatsAppConnectionStatus.class);
+            if (response == null) {
+                throw new WhatsAppDeliveryException("WhatsApp no confirmó el borrado de la vinculación.");
+            }
+            return response;
+        } catch (RestClientResponseException exception) {
+            throw new WhatsAppDeliveryException(exception.getStatusCode().value() == 409
+                    ? "Espera a que termine la operación de WhatsApp e intenta nuevamente."
+                    : "No fue posible borrar la vinculación de WhatsApp. Intenta nuevamente.", exception);
+        } catch (ResourceAccessException exception) {
+            throw new WhatsAppDeliveryException("No fue posible comunicarse con el servicio de WhatsApp.", exception);
+        }
+    }
+
     /** Codifica la imagen únicamente al cruzar la frontera HTTP interna. */
     public WhatsAppServiceSendResponse send(
             String recipient,

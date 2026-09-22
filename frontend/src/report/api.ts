@@ -90,6 +90,7 @@ export const reportApi = {
       body: JSON.stringify(settings),
     }),
   whatsAppStatus: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/status'),
+  resetWhatsAppSession: () => apiRequest<WhatsAppConnectionStatus>('/api/reports/whatsapp/session', { method: 'DELETE' }),
   whatsAppRecipients: () => apiRequest<WhatsAppRecipient[]>('/api/reports/whatsapp/recipients'),
   createWhatsAppRecipient: (recipient: Pick<WhatsAppRecipient, 'name' | 'phoneNumber' | 'enabled'>) =>
     apiRequest<WhatsAppRecipient>('/api/reports/whatsapp/recipients', {

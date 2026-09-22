@@ -20,6 +20,8 @@ export function SettingsPage() {
   const [aiSettings, setAiSettings] = useState<PortfolioReportAiSettings | null>(null)
   const [recipients, setRecipients] = useState<WhatsAppRecipient[] | null>(null)
   const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppConnectionStatus | null>(null)
+  const [resettingWhatsApp, setResettingWhatsApp] = useState(false)
+  const [whatsAppResetError, setWhatsAppResetError] = useState<string | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
@@ -38,15 +40,37 @@ export function SettingsPage() {
     reportApi.whatsAppRecipients()
       .then(setRecipients)
       .catch((requestError) => setRecipientError(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappLoadError')))
-    reportApi.whatsAppStatus().then(setWhatsAppStatus).catch(() => undefined)
   }, [t])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void reportApi.whatsAppStatus().then(setWhatsAppStatus).catch(() => undefined)
-    }, 5000)
-    return () => window.clearInterval(timer)
-  }, [])
+    if (resettingWhatsApp) return
+    let active = true
+    const refresh = () => {
+      void reportApi.whatsAppStatus().then((status) => {
+        if (active) setWhatsAppStatus(status)
+      }).catch(() => undefined)
+    }
+    refresh()
+    const timer = window.setInterval(refresh, 5000)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [resettingWhatsApp])
+
+  async function resetWhatsAppSession() {
+    if (!window.confirm(t('settings.whatsappResetConfirm'))) return
+    setResettingWhatsApp(true)
+    setWhatsAppResetError(null)
+    setWhatsAppStatus(null)
+    try {
+      setWhatsAppStatus(await reportApi.resetWhatsAppSession())
+    } catch (requestError) {
+      setWhatsAppResetError(requestError instanceof ApiRequestError ? requestError.message : t('settings.whatsappResetError'))
+    } finally {
+      setResettingWhatsApp(false)
+    }
+  }
 
   return (
     <div className="settings-page page-enter">
@@ -99,6 +123,26 @@ export function SettingsPage() {
           <h2 id="whatsapp-settings-title">{t('settings.whatsappTitle')}</h2>
           <p>{t('settings.whatsappBody')}</p>
         </header>
+        <div className="whatsapp-settings-card">
+          <div className="whatsapp-settings-card__heading">
+            <span><MessageCircleMore size={21} /></span>
+            <div><h3>{t('reports.qrTitle')}</h3><p>{t('settings.whatsappResetHelp')}</p></div>
+            <strong className={whatsAppStatus?.ready ? 'is-ready' : ''}>{t(`reports.whatsappState.${whatsAppStatus?.state ?? 'STARTING'}`)}</strong>
+          </div>
+          <p role="status">{whatsAppStatus?.message}</p>
+          {whatsAppStatus?.accountLabel && <p>{t('reports.connectedAccount', { account: whatsAppStatus.accountLabel })}</p>}
+          {whatsAppStatus?.state === 'QR_REQUIRED' && whatsAppStatus.qrDataUrl && (
+            <div className="whatsapp-qr">
+              <img src={whatsAppStatus.qrDataUrl} alt={t('reports.qrAlt')} />
+              <p>{t('reports.qrInstructions')}</p>
+            </div>
+          )}
+          <button className="danger-button" type="button" onClick={resetWhatsAppSession} disabled={resettingWhatsApp || !whatsAppStatus || ['DISABLED', 'UNAVAILABLE', 'STARTING', 'AUTHENTICATING'].includes(whatsAppStatus.state)}>
+            {resettingWhatsApp ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
+            {t(resettingWhatsApp ? 'settings.whatsappResetting' : 'settings.whatsappReset')}
+          </button>
+          {whatsAppResetError && <SettingsError message={whatsAppResetError} />}
+        </div>
         {!recipients && !recipientError && <LoadingSettings />}
         {recipientError && <SettingsError message={recipientError} />}
         {recipients && <WhatsAppRecipientsPanel recipients={recipients} status={whatsAppStatus} onChange={setRecipients} />}

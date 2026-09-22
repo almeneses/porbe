@@ -2,7 +2,7 @@
   "reportStyles": "@import url('/reports/portfolio-report.css');",
   "report": {
     "portfolioName": "PORTAFOLIO FAMILIAR",
-    "period": "1 Ago 2026 - 31 Ago 2026",
+    "period": "1 ago 2026 - 31 ago 2026",
     "statusLabel": "DATOS AL DÍA",
     "statusTone": "positive",
     "periodGain": "+$ 1.482.600",
@@ -12,7 +12,7 @@
       "available": true,
       "ticker": "ECOPETROL.CL",
       "name": "Ecopetrol",
-      "result": "Sumó $ 890 mil",
+      "result": "+ $ 890 mil",
       "tone": "positive",
       "initials": "EC",
       "iconDataUri": null
@@ -21,7 +21,7 @@
       "available": true,
       "ticker": "PFBCOLOM.CL",
       "name": "Bancolombia preferencial",
-      "result": "Restó $ 260 mil",
+      "result": "- $ 260 mil",
       "tone": "negative",
       "initials": "PF",
       "iconDataUri": null
@@ -155,9 +155,12 @@
     "note": {
       "title": "Un mes tranquilo y con buen crecimiento",
       "body": "Tu portafolio terminó el periodo por encima de donde comenzó. Ecopetrol fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
-      "suggestion": "Para el próximo mes: no necesitas hacer cambios apresurados. Mantener el dinero repartido entre diferentes tipos de empresas ayuda a que una sola caída tenga menos efecto."
+      "actions": [
+        "No necesitas hacer cambios apresurados para el próximo mes.",
+        "Mantener el dinero repartido ayuda a reducir el efecto de una sola caída."
+      ]
     },
-    "valuationMessage": "Precios actualizados hasta el 28 ago 2026",
+    "valuationMessage": "Rendimiento entre cierres del 19 ene 2024 al 28 ago 2026",
     "valuationTone": "neutral"
   }
 }

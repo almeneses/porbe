@@ -162,6 +162,10 @@ public class PortfolioReportService {
         return deliveryProvider.connectionStatus();
     }
 
+    public WhatsAppConnectionStatus resetWhatsAppSession() {
+        return deliveryProvider.resetSession();
+    }
+
     private PortfolioReport report(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new PortfolioReportNotFoundException("El informe solicitado no existe."));

@@ -782,6 +782,7 @@ svg { stroke-width: 1.8; }
   .metric-card__label { font-size: 10px; }
   .metric-card strong { font-size: 18px; }
   .metric-card small { display: none; }
+  .metric-card--detailed small { display: block; font-size: 10px; line-height: 1.4; }
   .chart-card { padding: 18px; border-radius: 17px; box-shadow: none; }
   .card-heading p { max-width: 220px; line-height: 1.5; }
   .chart-toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }

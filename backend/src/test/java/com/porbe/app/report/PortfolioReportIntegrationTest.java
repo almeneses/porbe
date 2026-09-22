@@ -77,6 +77,18 @@ class PortfolioReportIntegrationTest {
     }
 
     @Test
+    void sessionResetRequiresAuthenticationAndCsrfAndRejectsADisabledService() throws Exception {
+        mockMvc.perform(delete("/api/reports/whatsapp/session").with(csrf()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/reports/whatsapp/session").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/reports/whatsapp/session")
+                        .with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("message").value("El servicio de WhatsApp Web está desactivado."));
+    }
+
+    @Test
     void generatesAndDownloadsBothReportFormats() throws Exception {
         var context = operationContext();
         save(context, LocalDate.of(2026, 1, 2), OperationType.DEPOSITO, null, null, null, "2000");
