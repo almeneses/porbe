@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import com.porbe.app.report.PortfolioReportTemplateModel.Source;
+
 import tools.jackson.databind.ObjectMapper;
 
 /** Redacta el comentario opcional del informe con los datos financieros ya calculados. */
@@ -64,7 +67,14 @@ public class PortfolioReportAiNoteService {
                 "sources": {
                   "type": "array",
                   "maxItems": 5,
-                  "items": {"type": "string", "maxLength": 260}
+                  "items": {"type": "object",
+                    "properties": {
+                      "title": {"type": "string", "maxLength": 200},
+                      "url": {"type": "string", "format": "uri"}
+                    },
+                    "required": ["title", "url"],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": ["title", "body", "actions", "sources"],
@@ -121,7 +131,7 @@ public class PortfolioReportAiNoteService {
                 "-c", "web_search_enabled=true",
                 "-c", "web_search_max_results=10",
                 "-c", "web_search_max_age_days=15",
-                "-c", "web_search=\"live\"",
+                "-c", "web_search=live",
                 "--sandbox", sandbox,
                 "--ignore-user-config",
                 "--ignore-rules",
@@ -153,17 +163,27 @@ public class PortfolioReportAiNoteService {
                     || generated.body() == null || generated.body().isBlank()) {
                 throw new IllegalStateException("Codex devolvió un comentario vacío.");
             }
+        
             var actions = generated.actions() == null
                     ? List.<String>of()
                     : generated.actions().stream().filter(action -> action != null && !action.isBlank()).limit(2).toList();
-            return new PortfolioReportTemplateModel.Note(generated.title().trim(), generated.body().trim(), actions);
+        
+            var sources = generated.sources() == null
+                    ? List.<PortfolioReportTemplateModel.Source>of()
+                    : generated.sources().stream().filter(source -> source != null).toList();
+        
+            return new PortfolioReportTemplateModel.Note(generated.title().trim(), generated.body().trim(), actions, sources);
+        
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             LoggerFactory.getLogger(getClass()).warn("Se interrumpió la generación del comentario con Codex.", exception);
+        
             return null;
+        
         } catch (IOException | RuntimeException exception) {
             LoggerFactory.getLogger(getClass()).warn("No fue posible generar el comentario del informe con Codex.", exception);
             return null;
+
         } finally {
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
@@ -280,6 +300,6 @@ public class PortfolioReportAiNoteService {
         }
     }
 
-    private record GeneratedNote(String title, String body, List<String> actions) {
+    private record GeneratedNote(String title, String body, List<String> actions, List<Source> sources) {
     }
 }

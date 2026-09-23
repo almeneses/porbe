@@ -28,7 +28,10 @@ class PortfolioReportPreviewGenerator {
                 "Tu portafolio terminó el periodo por encima de donde comenzó. Ecopetrol fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
                 List.of(
                         "No necesitas hacer cambios apresurados para el próximo mes.",
-                        "Mantener el dinero repartido ayuda a reducir el efecto de una sola caída."));
+                        "Mantener el dinero repartido ayuda a reducir el efecto de una sola caída."),
+                List.of(new PortfolioReportTemplateModel.Source(
+                        "Banco de la República",
+                        "https://www.banrep.gov.co/es/estadisticas/indicadores-economicos")));
 
         var data = sampleData();
         Files.writeString(OUTPUT, renderer.render(data, note));

@@ -95,7 +95,10 @@ class PortfolioReportHtmlRendererTest {
                 "Tu portafolio creció y recibió dividendos.",
                 List.of(
                         "Mantener una mezcla de empresas ayuda a repartir el riesgo.",
-                        "Revisar la concentración antes del próximo aporte.")));
+                        "Revisar la concentración antes del próximo aporte."),
+                List.of(new PortfolioReportTemplateModel.Source(
+                        "Banco de la República",
+                        "https://www.banrep.gov.co/es/estadisticas/indicadores-economicos"))));
 
         assertThat(html)
                 .contains("COMENTARIO DEL PERIODO")

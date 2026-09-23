@@ -98,10 +98,17 @@ public record PortfolioReportTemplateModel(
             String iconDataUri) {
     }
 
+    /** Fuente de información utilizada en el comentario. */
+    public record Source(
+            String title,
+            String url) {
+    }
+
     /** Comentario opcional que traduce el resultado del periodo a palabras sencillas. */
     public record Note(
             String title,
             String body,
-            List<String> actions) {
+            List<String> actions,
+            List<Source> sources) {
     }
 }
