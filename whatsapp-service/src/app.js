@@ -24,6 +24,14 @@ function createApp({ gateway, internalToken }) {
     response.json(gateway.currentStatus())
   })
 
+  app.delete('/api/session', async (_request, response, next) => {
+    try {
+      response.json(await gateway.resetSession())
+    } catch (error) {
+      next(error)
+    }
+  })
+
   app.post('/api/messages/report', async (request, response, next) => {
     try {
       validateReportRequest(request.body)

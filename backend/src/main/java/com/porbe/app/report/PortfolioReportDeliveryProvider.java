@@ -1,6 +1,12 @@
 package com.porbe.app.report;
 
 import com.porbe.app.config.WhatsAppProperties;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+import java.util.Locale;
+
 import org.springframework.stereotype.Component;
 
 /** Entrega informes mediante el servicio interno de WhatsApp Web. */
@@ -8,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class PortfolioReportDeliveryProvider {
 
     private static final String DISABLED_MESSAGE = "El servicio de WhatsApp Web está desactivado.";
+    private final Locale LOCALE_COLOMBIA = Locale.forLanguageTag("es-CO");
 
     private final WhatsAppWebClient client;
     private final WhatsAppProperties properties;
@@ -48,12 +55,26 @@ public class PortfolioReportDeliveryProvider {
         return "WHATSAPP_WEB";
     }
 
+    public WhatsAppConnectionStatus resetSession() {
+        if (!configured()) throw new WhatsAppDeliveryException(DISABLED_MESSAGE);
+        return client.resetSession();
+    }
+
     private String caption(PortfolioReport report) {
         return "Informe de " + report.getPortfolioName() + " · "
-                + report.getFrom() + " al " + report.getTo();
+                + humanizeDate(report.getFrom()) + " al " + humanizeDate(report.getTo());
     }
 
     private String filename(PortfolioReport report) {
         return "informe_portafolio_" + report.getFrom() + "_" + report.getTo() + ".png";
     }
+
+    private String humanizeDate(LocalDate date) {
+        DateTimeFormatter f = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+                                .withLocale( LOCALE_COLOMBIA ) ;
+        
+        return date.format(f) ;
+
+    }
+
 }

@@ -102,6 +102,8 @@ class PortfolioHistoryIntegrationTest {
                 .andExpect(jsonPath("$.weeks[2].externalCashFlow").value(0))
                 .andExpect(jsonPath("$.weeks[2].timeWeightedReturn").value(0.11))
                 .andExpect(jsonPath("$.weeks[2].annualizedReturn").exists())
+                .andExpect(jsonPath("$.yearMoneyWeightedReturn").value(0.11))
+                .andExpect(jsonPath("$.annualizedMoneyWeightedReturn").isNumber())
                 .andExpect(jsonPath("$.weeks[2].positions[0].ticker").value("ECOPETROL.CL"))
                 .andExpect(jsonPath("$.weeks[2].positions[0].quantity").value(10))
                 .andExpect(jsonPath("$.weeks[2].positions[0].closePrice").value(120))
@@ -124,6 +126,49 @@ class PortfolioHistoryIntegrationTest {
                 .andExpect(jsonPath("$.weeks[0].unpricedPositions").value(1))
                 .andExpect(jsonPath("$.weeks[0].positions[0].valued").value(false))
                 .andExpect(jsonPath("$.weeks[0].positions[0].marketValue").doesNotExist());
+    }
+
+    @Test
+    void moneyWeightedTotalIncludesTheFirstContributionEvenWhenHistoryIsFiltered() throws Exception {
+        var context = operationContext();
+        save(context, LocalDate.of(2024, 1, 5), OperationType.DEPOSITO, null, null, null, "1000");
+        save(context, LocalDate.of(2024, 1, 5), OperationType.COMPRA, "ECOPETROL.CL", "10", "100", "1000");
+        marketDataPersistenceService.save(new MarketDataSeries(
+                "ECOPETROL.CL", "Ecopetrol", "COP", "BVC", "EQUITY", "America/Bogota", new BigDecimal("121"),
+                List.of(close(LocalDate.of(2024, 1, 5), "100"), close(LocalDate.of(2026, 1, 9), "121"))), "TEST");
+
+        mockMvc.perform(get("/api/portfolio/history/weekly")
+                        .param("from", "2026-01-09").param("to", "2026-01-09")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weekCount").value(1))
+                .andExpect(jsonPath("$.totalMoneyWeightedReturn").value(0.21))
+                .andExpect(jsonPath("$.annualizedMoneyWeightedReturn").value(
+                        org.hamcrest.Matchers.closeTo(Math.pow(1.21, 365.0 / 735) - 1, 0.00000001)));
+    }
+
+    @Test
+    void moneyWeightedYearStartsAtThePreviousYearEndAndIncludesDividendsOnce() throws Exception {
+        var context = operationContext();
+        save(context, LocalDate.of(2025, 1, 2), OperationType.DEPOSITO, null, null, null, "1000");
+        save(context, LocalDate.of(2025, 1, 2), OperationType.COMPRA, "ECOPETROL.CL", "10", "100", "1000");
+        save(context, LocalDate.of(2026, 1, 5), OperationType.DEPOSITO, null, null, null, "1000");
+        save(context, LocalDate.of(2026, 1, 8), OperationType.RETIRO, null, null, null, "200");
+        save(context, LocalDate.of(2026, 1, 9), OperationType.DIVIDENDO, "ECOPETROL.CL", null, null, "20");
+        marketDataPersistenceService.save(new MarketDataSeries(
+                "ECOPETROL.CL", "Ecopetrol", "COP", "BVC", "EQUITY", "America/Bogota", new BigDecimal("220"),
+                List.of(close(LocalDate.of(2025, 12, 26), "190"), close(LocalDate.of(2025, 12, 31), "200"),
+                        close(LocalDate.of(2026, 1, 9), "220"))), "TEST");
+
+        mockMvc.perform(get("/api/portfolio/history/weekly")
+                        .param("from", "2026-01-09").param("to", "2026-01-09")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                // -2000 - 1000/(1+r)^(5/9) + 200/(1+r)^(8/9) + 3020/(1+r) = 0.
+                .andExpect(jsonPath("$.yearMoneyWeightedReturn").value(org.hamcrest.Matchers.closeTo(0.09119857, 0.00000001)))
+                .andExpect(jsonPath("$.annualizedMoneyWeightedReturn").isNumber())
+                // MWR solo necesita flujos y valoraciones de sus extremos; un hueco antiguo no lo invalida.
+                .andExpect(jsonPath("$.weeks[0].timeWeightedReturn").doesNotExist());
     }
 
     @Test

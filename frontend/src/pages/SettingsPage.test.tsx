@@ -29,6 +29,7 @@ vi.mock('../report/api', () => ({
     updateAiInfo: vi.fn(),
     whatsAppRecipients: vi.fn(),
     whatsAppStatus: vi.fn(),
+    resetWhatsAppSession: vi.fn(),
     createWhatsAppRecipient: vi.fn(),
     updateWhatsAppRecipient: vi.fn(),
     deleteWhatsAppRecipient: vi.fn(),
@@ -56,6 +57,7 @@ describe('SettingsPage', () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   it('consulta y actualiza la programación de precios desde Configuración', async () => {
@@ -117,6 +119,39 @@ describe('SettingsPage', () => {
 
     await waitFor(() => expect(updateScheduledReport).toHaveBeenCalledWith(1, false))
     expect(screen.getByText('1 portafolio')).toBeInTheDocument()
+  })
+
+  it('confirma el borrado, bloquea el botón mientras espera y muestra el nuevo QR conservando destinatarios', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const qrStatus = { ...whatsAppStatus, state: 'QR_REQUIRED' as const, ready: false, accountLabel: null, qrDataUrl: 'data:image/png;base64,new-qr' }
+    let finishReset!: (value: typeof qrStatus) => void
+    vi.mocked(reportApi.resetWhatsAppSession).mockImplementation(() => new Promise((resolve) => { finishReset = resolve }))
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Borrar vinculación' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    expect(reportApi.resetWhatsAppSession).not.toHaveBeenCalled()
+    confirm.mockReturnValue(true)
+    fireEvent.click(button)
+    expect(screen.getByRole('button', { name: 'Borrando vinculación…' })).toBeDisabled()
+    vi.mocked(reportApi.whatsAppStatus).mockResolvedValue(qrStatus)
+    finishReset(qrStatus)
+    expect(await screen.findByRole('img', { name: 'Código QR para vincular WhatsApp' })).toHaveAttribute('src', qrStatus.qrDataUrl)
+    expect(screen.getByRole('form', { name: 'Alejo' })).toBeInTheDocument()
+    expect(reportApi.resetWhatsAppSession).toHaveBeenCalledTimes(1)
+    expect(reportApi.deleteWhatsAppRecipient).not.toHaveBeenCalled()
+    expect(screen.queryByText('Cuenta vinculada: •••• 4567')).not.toBeInTheDocument()
+  })
+
+  it('muestra el error de borrado y permite reintentar', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(reportApi.resetWhatsAppSession).mockRejectedValue(new Error('unavailable'))
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Borrar vinculación' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    expect(await screen.findByText('No fue posible borrar la vinculación de WhatsApp. Intenta nuevamente.')).toBeInTheDocument()
+    await waitFor(() => expect(button).toBeEnabled())
   })
 })
 

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Puente HTTP interno entre Porbe y WhatsApp Web",
   "scripts": {
+    "postinstall": "node scripts/patch-whatsapp.js",
     "start": "node src/server.js",
     "test": "node --test"
   },

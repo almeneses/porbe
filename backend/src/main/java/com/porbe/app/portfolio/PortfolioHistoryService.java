@@ -3,6 +3,7 @@ package com.porbe.app.portfolio;
 import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.annualizedReturn;
 import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.compoundGrowth;
 import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.growthFactor;
+import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.moneyWeightedReturn;
 import static com.porbe.app.portfolio.PortfolioPerformanceCalculator.returnFromGrowth;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.latestPrice;
 import static com.porbe.app.portfolio.PortfolioValuationCalculator.roundMoney;
@@ -145,6 +146,35 @@ public class PortfolioHistoryService {
             }
         }
 
+        BigDecimal totalMwr = null;
+        BigDecimal yearMwr = null;
+        BigDecimal annualizedMwr = null;
+        if (!weeks.isEmpty()) {
+            var end = weeks.getLast().weekEnding();
+            var finalValue = performanceValue(weeks.getLast());
+            var flows = operations.stream()
+                    .filter(operation -> !operation.getDate().isAfter(end))
+                    .filter(PortfolioValuationCalculator::isContribution)
+                    .filter(operation -> operation.getTotalAmount().signum() != 0)
+                    .map(operation -> new PortfolioPerformanceCalculator.CashFlow(operation.getDate(),
+                            operation.getTotalAmount().multiply(BigDecimal.valueOf(-operation.getType().cashSign()))))
+                    .toList();
+            if (!flows.isEmpty()) {
+                var firstContribution = flows.getFirst().date();
+                totalMwr = moneyWeightedReturn(firstContribution, BigDecimal.ZERO, flows, end, finalValue, false);
+                annualizedMwr = moneyWeightedReturn(firstContribution, BigDecimal.ZERO, flows, end, finalValue, true);
+                var yearStart = LocalDate.of(end.getYear(), 1, 1);
+                var opening = new PortfolioValuationCalculator(baseCurrency, instruments);
+                operations.stream().filter(operation -> operation.getDate().isBefore(yearStart)).forEach(opening::apply);
+                var initialValue = performanceValue(snapshot(yearStart.minusDays(1), opening, prices, null));
+                var yearFlows = flows.stream().filter(flow -> !flow.date().isBefore(yearStart)).toList();
+                var start = firstContribution.isBefore(yearStart) ? yearStart.minusDays(1) : firstContribution;
+                if (initialValue != null && initialValue.signum() == 0 && !yearFlows.isEmpty()) {
+                    start = yearFlows.getFirst().date();
+                }
+                yearMwr = moneyWeightedReturn(start, initialValue, yearFlows, end, finalValue, false);
+            }
+        }
         return new PortfolioHistoryResponse(
                 OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC),
                 baseCurrency,
@@ -154,6 +184,9 @@ public class PortfolioHistoryService {
                 operations.size(),
                 weeks.size(),
                 weeks.stream().allMatch(PortfolioWeeklySnapshot::valuationComplete),
+                totalMwr,
+                yearMwr,
+                annualizedMwr,
                 weeks);
     }
 
@@ -268,6 +301,9 @@ public class PortfolioHistoryService {
                 operationCount,
                 0,
                 true,
+                null,
+                null,
+                null,
                 List.of());
     }
 }

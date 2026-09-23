@@ -1,16 +1,19 @@
 package com.porbe.app.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -68,6 +71,37 @@ class WhatsAppWebClientTest {
 
         assertThat(response.status()).isEqualTo("SENT");
         assertThat(response.messageId()).isEqualTo("message-1");
+        server.verify();
+    }
+
+    @Test
+    void resetsTheSessionUsingTheInternalToken() {
+        server.expect(requestTo("http://whatsapp-web:3001/api/session"))
+                .andExpect(method(HttpMethod.DELETE))
+                .andExpect(header("X-Porbe-Internal-Token", "token-prueba"))
+                .andRespond(withSuccess("""
+                        {"state":"STARTING","ready":false,"qrDataUrl":null,
+                         "accountLabel":null,"message":"Preparando QR","updatedAt":null}
+                        """, MediaType.APPLICATION_JSON));
+        assertThat(client.resetSession().state()).isEqualTo("STARTING");
+        server.verify();
+    }
+
+    @Test
+    void reportsABusySessionInsteadOfConfirmingDeletion() {
+        server.expect(requestTo("http://whatsapp-web:3001/api/session"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+        assertThatThrownBy(client::resetSession).isInstanceOf(WhatsAppDeliveryException.class)
+                .hasMessageContaining("Espera a que termine");
+        server.verify();
+    }
+
+    @Test
+    void rejectsAnEmptyDeletionResponse() {
+        server.expect(requestTo("http://whatsapp-web:3001/api/session"))
+                .andRespond(withSuccess());
+        assertThatThrownBy(client::resetSession).isInstanceOf(WhatsAppDeliveryException.class)
+                .hasMessageContaining("no confirmó");
         server.verify();
     }
 }

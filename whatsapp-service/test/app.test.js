@@ -9,11 +9,17 @@ const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
 let server
 let baseUrl
 let sentRequest
+let resets
 
 beforeEach(async () => {
   sentRequest = null
+  resets = 0
   const gateway = {
     currentStatus: () => ({ state: 'READY', ready: true }),
+    resetSession: async () => {
+      resets++
+      return { state: 'STARTING', ready: false }
+    },
     sendReport: async (request) => {
       sentRequest = request
       return { status: 'SENT', messageId: 'message-1' }
@@ -38,6 +44,18 @@ test('expone salud sin revelar el estado de la sesión', async () => {
 test('protege los endpoints internos con token', async () => {
   const response = await fetch(`${baseUrl}/api/status`)
   assert.equal(response.status, 401)
+})
+
+test('solo borra la sesión con el token interno y devuelve el nuevo estado', async () => {
+  const unauthorized = await fetch(`${baseUrl}/api/session`, { method: 'DELETE' })
+  assert.equal(unauthorized.status, 401)
+  assert.equal(resets, 0)
+  const response = await fetch(`${baseUrl}/api/session`, {
+    method: 'DELETE', headers: { 'X-Porbe-Internal-Token': TOKEN },
+  })
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { state: 'STARTING', ready: false })
+  assert.equal(resets, 1)
 })
 
 test('envía un informe PNG cuando la solicitud es válida', async () => {

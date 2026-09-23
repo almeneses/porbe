@@ -97,6 +97,36 @@ export function DashboardPage() {
       tone: 'blue',
     },
     {
+      key: 'totalMoneyWeightedReturn',
+      detailOnMobile: true,
+      value: formatPercentage(history?.totalMoneyWeightedReturn),
+      detail: history?.totalMoneyWeightedReturn == null
+        ? t('dashboard.mwrUnavailable')
+        : t('dashboard.totalMoneyWeightedReturnDetail', { date: formatDate(latestWeek!.weekEnding) }),
+      icon: ChartSpline,
+      tone: 'green',
+    },
+    {
+      key: 'yearMoneyWeightedReturn',
+      detailOnMobile: true,
+      value: formatPercentage(history?.yearMoneyWeightedReturn),
+      detail: history?.yearMoneyWeightedReturn == null
+        ? t('dashboard.mwrUnavailable')
+        : t('dashboard.yearMoneyWeightedReturnDetail', { year: latestWeek?.weekEnding.slice(0, 4), date: formatDate(latestWeek!.weekEnding) }),
+      icon: ChartSpline,
+      tone: 'green',
+    },
+    {
+      key: 'annualizedMoneyWeightedReturn',
+      detailOnMobile: true,
+      value: formatPercentage(history?.annualizedMoneyWeightedReturn),
+      detail: history?.annualizedMoneyWeightedReturn == null
+        ? t('dashboard.mwrUnavailable')
+        : t('dashboard.annualizedMoneyWeightedReturnDetail', { date: formatDate(latestWeek!.weekEnding) }),
+      icon: CalendarClock,
+      tone: 'blue',
+    },
+    {
       key: 'availableCash',
       value: summary ? formatCurrency(summary.cashBalance, currency) : '—',
       detail: summary ? t('dashboard.netContributions', { value: formatCurrency(summary.netContributions, currency) }) : t('dashboard.calculating'),
@@ -126,8 +156,8 @@ export function DashboardPage() {
       {error && <div className="portfolio-alert portfolio-alert--error"><AlertTriangle size={19} /><span>{error}</span></div>}
 
       <section className="metric-grid" aria-label={t('dashboard.summaryLabel')}>
-        {metrics.map(({ key, value, detail, icon: Icon, tone }) => (
-          <article className="metric-card" key={key}>
+        {metrics.map(({ key, value, detail, detailOnMobile, icon: Icon, tone }) => (
+          <article className={`metric-card${detailOnMobile ? ' metric-card--detailed' : ''}`} key={key}>
             <span className={`metric-card__icon metric-card__icon--${tone}`}><Icon size={20} /></span>
             <span className="metric-card__label">{t(`dashboard.${key}`)}</span>
             <strong>{value}</strong>

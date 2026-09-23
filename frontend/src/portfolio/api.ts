@@ -213,6 +213,9 @@ export interface PortfolioHistory {
   operationCount: number
   weekCount: number
   valuationComplete: boolean
+  totalMoneyWeightedReturn: number | null
+  yearMoneyWeightedReturn: number | null
+  annualizedMoneyWeightedReturn: number | null
   weeks: PortfolioWeeklySnapshot[]
 }
 

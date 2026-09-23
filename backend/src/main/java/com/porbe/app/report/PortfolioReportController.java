@@ -76,6 +76,11 @@ public class PortfolioReportController {
         return recipientService.list();
     }
 
+    @DeleteMapping("/whatsapp/session")
+    WhatsAppConnectionStatus resetWhatsAppSession() {
+        return reportService.resetWhatsAppSession();
+    }
+
     @PostMapping("/whatsapp/recipients")
     @ResponseStatus(HttpStatus.CREATED)
     WhatsAppRecipientResponse createWhatsAppRecipient(
