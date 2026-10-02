@@ -536,6 +536,10 @@
     "aiLoadError": "No fue posible consultar la configuración de IA.",
     "aiSaveError": "No fue posible guardar la configuración de IA.",
     "aiSaved": "Configuración de IA guardada.",
+    "aiModelsUpdate": "Actualizar Modelos",
+    "aiModelsUpdating": "Actualizando modelos…",
+    "aiModelsUpdated": "Lista de modelos actualizada.",
+    "aiModelsUpdateError": "No fue posible actualizar los modelos. Se conserva la lista anterior.",
     "aiCatalogAvailable": "Opciones consultadas desde la instalación actual de Codex.",
     "aiCatalogUnavailable": "Codex no respondió; se conserva la selección guardada.",
     "efforts": {

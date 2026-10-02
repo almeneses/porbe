@@ -83,7 +83,7 @@ export const reportApi = {
       method: 'PUT',
       body: JSON.stringify(schedule),
     }),
-  aiInfo: () => apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info'),
+  aiInfo: (refresh = false) => apiRequest<PortfolioReportAiSettings>(`/api/reports/ai-info${refresh ? '?refresh=true' : ''}`),
   updateAiInfo: (settings: Pick<PortfolioReportAiSettings, 'enabled' | 'model' | 'effort'>) =>
     apiRequest<PortfolioReportAiSettings>('/api/reports/ai-info', {
       method: 'PUT',

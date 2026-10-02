@@ -97,6 +97,46 @@ describe('SettingsPage', () => {
     expect(await screen.findByText('Configuración de IA guardada.')).toBeInTheDocument()
   })
 
+  it('renueva los modelos sin guardar ni perder la selección en edición', async () => {
+    renderPage()
+    const form = await screen.findByRole('form', { name: 'Comentario con IA' })
+    fireEvent.change(within(form).getByLabelText('Modelo'), { target: { value: 'gpt-5.5' } })
+    fireEvent.change(within(form).getByLabelText('Esfuerzo'), { target: { value: 'high' } })
+    let finishRefresh!: (value: PortfolioReportAiSettings) => void
+    vi.mocked(reportApi.aiInfo).mockImplementationOnce(() => new Promise((resolve) => { finishRefresh = resolve }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar Modelos' }))
+    expect(reportApi.aiInfo).toHaveBeenLastCalledWith(true)
+    expect(screen.getByRole('button', { name: 'Actualizando modelos…' })).toBeDisabled()
+    expect(within(form).getByRole('button', { name: 'Guardar IA' })).toBeDisabled()
+    finishRefresh({ ...aiSettings, models: [{ model: 'new-model', name: 'Nuevo modelo', defaultEffort: 'low', efforts: ['low'] }] })
+
+    expect(await screen.findByText('Lista de modelos actualizada.')).toBeInTheDocument()
+    expect(within(form).getByRole('option', { name: 'Nuevo modelo' })).toBeInTheDocument()
+    expect(within(form).getByLabelText('Modelo')).toHaveValue('gpt-5.5')
+    expect(within(form).getByLabelText('Esfuerzo')).toHaveValue('high')
+    expect(reportApi.updateAiInfo).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Actualizar Modelos' })).toBeEnabled()
+  })
+
+  it.each(['unavailable', 'network'])('conserva los modelos y permite reintentar si falla la actualización: %s', async (failure) => {
+    renderPage()
+    const form = await screen.findByRole('form', { name: 'Comentario con IA' })
+    if (failure === 'unavailable') {
+      vi.mocked(reportApi.aiInfo).mockResolvedValueOnce({ ...aiSettings, catalogAvailable: false, models: [] })
+    } else {
+      vi.mocked(reportApi.aiInfo).mockRejectedValueOnce(new Error('offline'))
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar Modelos' }))
+
+    expect(await screen.findByText('No fue posible actualizar los modelos. Se conserva la lista anterior.')).toBeInTheDocument()
+    expect(within(form).getByRole('option', { name: 'GPT-5.5' })).toBeInTheDocument()
+    expect(within(form).getByLabelText('Modelo')).toHaveValue(aiSettings.model)
+    expect(screen.getByRole('button', { name: 'Actualizar Modelos' })).toBeEnabled()
+    expect(reportApi.updateAiInfo).not.toHaveBeenCalled()
+  })
+
   it('agrega un destinatario y prueba el envío del último informe', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage()

@@ -18,7 +18,7 @@
             <span class="status-badge" th:classappend="${report.statusTone}" th:text="${report.statusLabel}">DATOS AL DÍA</span>
         </div>
         <div class="title-row">
-            <h1>Así va tu dinero</h1>
+            <!--<h1>Así va tu dinero</h1>-->
             <p class="period" th:text="${report.period}">1 ene 2026 - 31 ene 2026</p>
         </div>
     </header>
@@ -30,21 +30,19 @@
             <div class="summary-values">
                 <div>
                     <p class="summary-value" th:classappend="${report.periodTone}" th:text="${report.periodGain}">+$ 0</p>
-                    <p class="summary-label">Resultado en pesos</p>
                 </div>
                 <div class="summary-percent">
                     <p class="summary-value" th:classappend="${report.periodTone}" th:text="${report.periodReturn}">+0,00%</p>
-                    <p class="summary-label">Cambio en porcentaje</p>
                 </div>
             </div>
         </section>
 
         <section class="card impact">
             <h2>Las acciones que más cambiaron tu resultado</h2>
-            <p class="section-subtitle">Comparamos cuánto sumó o restó cada acción durante estas fechas.</p>
+            <p class="section-subtitle">Cuánto sumó o restó durante estas fechas.</p>
             <div class="impact-grid">
                 <article class="impact-box" th:with="asset=${report.bestImpact}">
-                    <p class="impact-caption">La que más ayudó</p>
+                    <!--<p class="impact-caption">La que más ayudó</p>-->
                     <div class="impact-asset" th:if="${asset.available}">
                         <div class="ticker-avatar" th:classappend="${asset.tone}">
                             <img th:if="${asset.iconDataUri != null}" th:src="${asset.iconDataUri}" alt=""/>

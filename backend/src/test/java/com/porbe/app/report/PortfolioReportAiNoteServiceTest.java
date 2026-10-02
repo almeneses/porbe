@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -53,6 +54,42 @@ class PortfolioReportAiNoteServiceTest {
                 .contains("Ecopetrol", "Resultado del periodo: 200 (10%)")
                 .contains("Cierres comparados para el rendimiento: 2026-01-02 a 2026-01-16")
                 .contains("Rentabilidad total: " + expectedReturn);
+    }
+
+    @Test
+    void refreshesCachedModelsAndKeepsTheCacheWhenRefreshFails() throws Exception {
+        var executable = temporaryDirectory.resolve("codex");
+        var catalog = temporaryDirectory.resolve("catalog.json");
+        Files.writeString(executable, """
+                #!/bin/sh
+                cat "$(dirname "$0")/catalog.json"
+                """);
+        Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwx------"));
+        var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5);
+        var settings = new PortfolioReportAiSettings(true, "saved-model", "low");
+        var original = """
+                {"models":[{"slug":"old-model","display_name":"Old model","default_reasoning_level":"low","supported_reasoning_levels":[{"effort":"low"}],"visibility":"list"}]}
+                """;
+        Files.writeString(catalog, original);
+        assertThat(service.info(settings).models()).extracting(PortfolioReportAiModelOption::model)
+                .containsExactly("saved-model", "old-model");
+
+        Files.writeString(catalog, original.replace("old-model", "new-model"));
+        assertThat(service.info(settings).models()).extracting(PortfolioReportAiModelOption::model)
+                .containsExactly("saved-model", "old-model");
+        var refreshed = service.info(settings, true);
+        assertThat(refreshed.catalogAvailable()).isTrue();
+        assertThat(refreshed.model()).isEqualTo(settings.model());
+        assertThat(refreshed.effort()).isEqualTo(settings.effort());
+        assertThat(refreshed.models()).extracting(PortfolioReportAiModelOption::model)
+                .containsExactly("saved-model", "new-model");
+
+        Files.writeString(catalog, "{\"models\":[]}");
+        assertThat(service.info(settings, true).catalogAvailable()).isFalse();
+        assertThat(service.info(settings).models()).isEqualTo(refreshed.models());
+        Files.delete(catalog);
+        assertThat(service.info(settings, true).catalogAvailable()).isFalse();
+        assertThat(service.info(settings).models()).isEqualTo(refreshed.models());
     }
 
     private PortfolioReportData data(BigDecimal totalReturn) {

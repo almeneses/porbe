@@ -128,8 +128,8 @@ public class PortfolioReportController {
     }
 
     @GetMapping("/ai-info")
-    PortfolioReportAiSettingsResponse aiInfo() {
-        return aiNoteService.info(scheduleService.aiSettings());
+    PortfolioReportAiSettingsResponse aiInfo(@RequestParam(defaultValue = "false") boolean refresh) {
+        return aiNoteService.info(scheduleService.aiSettings(), refresh);
     }
 
     @PutMapping("/ai-info")
