@@ -196,6 +196,12 @@ class PortfolioReportIntegrationTest {
                 .andExpect(jsonPath("$.model").value("gpt-5.5"))
                 .andExpect(jsonPath("$.effort").value("medium"));
 
+        mockMvc.perform(get("/api/reports/ai-info").param("refresh", "true")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.model").value("gpt-5.5"))
+                .andExpect(jsonPath("$.effort").value("medium"));
+
         mockMvc.perform(get("/api/reports/whatsapp/status").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("DISABLED"))

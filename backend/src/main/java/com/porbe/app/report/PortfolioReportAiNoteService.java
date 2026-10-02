@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,7 @@ public class PortfolioReportAiNoteService {
                   "items": {"type": "object",
                     "properties": {
                       "title": {"type": "string", "maxLength": 200},
-                      "url": {"type": "string", "format": "uri"}
+                      "url": {"type": "string"}
                     },
                     "required": ["title", "url"],
                     "additionalProperties": false
@@ -104,7 +105,11 @@ public class PortfolioReportAiNoteService {
     }
 
     public PortfolioReportAiSettingsResponse info(PortfolioReportAiSettings settings) {
-        var models = new ArrayList<>(availableModels());
+        return info(settings, false);
+    }
+
+    public PortfolioReportAiSettingsResponse info(PortfolioReportAiSettings settings, boolean refresh) {
+        var models = new ArrayList<>(availableModels(refresh));
         var catalogAvailable = !models.isEmpty();
         if (models.stream().noneMatch(option -> option.model().equals(settings.model()))) {
             models.add(0, new PortfolioReportAiModelOption(
@@ -131,7 +136,7 @@ public class PortfolioReportAiNoteService {
                 "-c", "web_search_enabled=true",
                 "-c", "web_search_max_results=10",
                 "-c", "web_search_max_age_days=15",
-                "-c", "web_search=live",
+                "-c", "web_search=\"live\"",
                 "--sandbox", sandbox,
                 "--ignore-user-config",
                 "--ignore-rules",
@@ -140,7 +145,7 @@ public class PortfolioReportAiNoteService {
                 "--output-schema", schema.toString(),
                 "-")
                 .directory(directory.toFile())
-                .redirectError(ProcessBuilder.Redirect.DISCARD);
+                .redirectError(ProcessBuilder.Redirect.PIPE);
             
             processBuilder.environment().remove("OPENAI_API_KEY");
             processBuilder.environment().remove("CODEX_API_KEY");
@@ -183,7 +188,7 @@ public class PortfolioReportAiNoteService {
         } catch (IOException | RuntimeException exception) {
             LoggerFactory.getLogger(getClass()).warn("No fue posible generar el comentario del informe con Codex.", exception);
             return null;
-
+            
         } finally {
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
@@ -193,8 +198,8 @@ public class PortfolioReportAiNoteService {
     }
 
     /** Lee el catálogo que la misma CLI utilizará al generar el comentario. */
-    private List<PortfolioReportAiModelOption> availableModels() {
-        if (modelCache != null) {
+    private synchronized List<PortfolioReportAiModelOption> availableModels(boolean refresh) {
+        if (!refresh && modelCache != null) {
             return modelCache;
         }
         if (command.isBlank()) {
@@ -225,6 +230,9 @@ public class PortfolioReportAiNoteService {
                         model.path("display_name").asText(),
                         model.path("default_reasoning_level").asText(),
                         List.copyOf(efforts)));
+            }
+            if (models.isEmpty()) {
+                return List.of();
             }
             modelCache = List.copyOf(models);
             return modelCache;

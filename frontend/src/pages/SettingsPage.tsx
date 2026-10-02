@@ -390,9 +390,26 @@ function AiSettingsPanel({
   const [model, setModel] = useState(settings.model)
   const [effort, setEffort] = useState(settings.effort)
   const [saving, setSaving] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const selectedModel = settings.models.find((option) => option.model === model)
   const efforts = selectedModel?.efforts.length ? selectedModel.efforts : [effort]
+
+  async function refreshModels() {
+    setRefreshing(true)
+    setMessage(null)
+    try {
+      const updated = await reportApi.aiInfo(true)
+      if (updated.catalogAvailable) {
+        onSaved({ ...settings, models: updated.models, catalogAvailable: true })
+      }
+      setMessage(t(updated.catalogAvailable ? 'settings.aiModelsUpdated' : 'settings.aiModelsUpdateError'))
+    } catch (requestError) {
+      setMessage(requestError instanceof ApiRequestError ? requestError.message : t('settings.aiModelsUpdateError'))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   function selectModel(value: string) {
     const option = settings.models.find((candidate) => candidate.model === value)
@@ -422,13 +439,17 @@ function AiSettingsPanel({
       <div className="market-schedule-card__intro"><span><Sparkles size={20} /></span><div><h3>{t('settings.aiTitle')}</h3><p>{t('settings.aiBody')}</p></div></div>
       <form aria-label={t('settings.aiTitle')} onSubmit={save}>
         <label className="schedule-switch"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><span>{t(enabled ? 'settings.aiEnabled' : 'settings.aiDisabled')}</span></label>
-        <label><span>{t('settings.aiModel')}</span><select value={model} onChange={(event) => selectModel(event.target.value)} disabled={!enabled}>{settings.models.map((option) => <option key={option.model} value={option.model}>{option.name}</option>)}</select></label>
-        <label><span>{t('settings.aiEffort')}</span><select value={effort} onChange={(event) => setEffort(event.target.value)} disabled={!enabled}>{efforts.map((value) => <option key={value} value={value}>{t(`settings.efforts.${value}`)}</option>)}</select></label>
-        <button className="secondary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('settings.aiSave')}</button>
+        <label><span>{t('settings.aiModel')}</span><select value={model} onChange={(event) => selectModel(event.target.value)} disabled={!enabled}>{!selectedModel && <option value={model}>{model}</option>}{settings.models.map((option) => <option key={option.model} value={option.model}>{option.name}</option>)}</select></label>
+        <label><span>{t('settings.aiEffort')}</span><select value={effort} onChange={(event) => setEffort(event.target.value)} disabled={!enabled}>{!efforts.includes(effort) && <option value={effort}>{t(`settings.efforts.${effort}`)}</option>}{efforts.map((value) => <option key={value} value={value}>{t(`settings.efforts.${value}`)}</option>)}</select></label>
+        <button className="secondary-button" type="submit" disabled={saving || refreshing}>{saving ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}{t('settings.aiSave')}</button>
       </form>
       <div className="market-schedule-card__status">
+        <button className="quiet-button" type="button" onClick={refreshModels} disabled={saving || refreshing}>
+          {refreshing ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}
+          {t(refreshing ? 'settings.aiModelsUpdating' : 'settings.aiModelsUpdate')}
+        </button>
         <span>{t(settings.catalogAvailable ? 'settings.aiCatalogAvailable' : 'settings.aiCatalogUnavailable')}</span>
-        {message && <strong>{message}</strong>}
+        {message && <strong role="status">{message}</strong>}
       </div>
     </div>
   )

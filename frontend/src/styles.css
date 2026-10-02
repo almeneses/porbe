@@ -683,6 +683,7 @@ svg { stroke-width: 1.8; }
 .portfolio-report-settings__list { display: flex; flex-wrap: wrap; gap: 10px 20px; }
 .report-settings-card form { grid-template-columns: minmax(120px, 1fr) minmax(100px, .75fr) 90px minmax(160px, 1.25fr) 155px; }
 .ai-settings-card form { grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.4fr) minmax(120px, .8fr) 155px; }
+.ai-settings-card .market-schedule-card__status { align-items: center; }
 .whatsapp-settings-card { padding: 18px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); display: grid; gap: 16px; }
 .whatsapp-settings-card__heading { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; }
 .whatsapp-settings-card__heading > span { width: 42px; height: 42px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); display: grid; place-items: center; }
