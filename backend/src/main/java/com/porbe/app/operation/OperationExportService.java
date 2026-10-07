@@ -3,9 +3,8 @@ package com.porbe.app.operation;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.time.ZoneId;
-import java.util.Date;
 import java.util.List;
+import org.apache.poi.ss.util.NumberToTextConverter;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.ss.usermodel.Row;
@@ -50,8 +49,7 @@ public class OperationExportService {
                 var operation = operations.get(index);
                 var row = sheet.createRow(index + 1);
                 var dateCell = row.createCell(0);
-                dateCell.setCellValue(Date.from(operation.getDate()
-                        .atStartOfDay(ZoneId.of("America/Bogota")).toInstant()));
+                dateCell.setCellValue(operation.getDate());
                 dateCell.setCellStyle(dateStyle);
                 row.createCell(1).setCellValue(operation.getType().label());
                 text(row, 2, operation.getTicker());
@@ -84,7 +82,14 @@ public class OperationExportService {
 
     private void number(Row row, int column, java.math.BigDecimal value) {
         if (value != null) {
-            row.createCell(column).setCellValue(value.doubleValue());
+            var cell = row.createCell(column);
+            var numericValue = value.doubleValue();
+            // Conserva como texto los decimales que Excel redondearía al reimportar.
+            if (value.compareTo(new java.math.BigDecimal(NumberToTextConverter.toText(numericValue))) == 0) {
+                cell.setCellValue(numericValue);
+            } else {
+                cell.setCellValue(value.toPlainString());
+            }
         }
     }
 }

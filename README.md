@@ -98,7 +98,9 @@ Endpoint principal:
 - Origen visible para cada registro: archivo Excel o captura manual.
 - Reversión atómica de una importación completa con confirmación previa.
 - Bitácora de creaciones, modificaciones, eliminaciones y reversiones con usuario y fecha.
-- Exportación `.xlsx` del libro corregido, compatible con el formato de importación.
+- **Exportar portafolio** descarga todos los movimientos del portafolio seleccionado en `.xlsx`, aunque haya filtros activos. El archivo es compatible con la plantilla de importación de Porbe y conserva fechas, campos vacíos y precisión decimal.
+- **Exportar filtrados** descarga únicamente los movimientos que cumplen los filtros activos.
+- La reimportación mantiene los límites actuales de 5.000 movimientos y 5 MB por archivo. Si el portafolio los supera, utiliza filtros para exportarlo por partes.
 - Recalculo inmediato del dashboard y el histórico después de cada cambio.
 - Encabezados fijos y desplazamiento interno en las tablas que superan aproximadamente 20 filas.
 
@@ -108,7 +110,7 @@ Endpoints principales:
 - `POST /api/operations`: crea una operación manual.
 - `PUT /api/operations/{id}`: modifica una operación conservando su origen.
 - `DELETE /api/operations/{id}`: elimina una operación.
-- `GET /api/operations/export`: exporta el resultado filtrado a Excel.
+- `GET /api/operations/export?portfolioId=ID`: exporta todos los movimientos del portafolio a Excel. Los filtros opcionales permiten exportar un subconjunto.
 - `GET /api/operation-batches`: lista importaciones de Excel.
 - `DELETE /api/operation-batches/{id}`: revierte una importación completa.
 - `GET /api/operation-audit`: consulta las últimas acciones administrativas.
