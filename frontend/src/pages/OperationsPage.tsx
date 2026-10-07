@@ -102,9 +102,14 @@ export function OperationsPage() {
           <p>{t('operations.subtitle')}</p>
         </div>
         <div className="operations-heading__actions">
-          <a className="quiet-button" href={portfolioApi.operationExportUrl(activePortfolio.id, filters)} download>
-            <Download size={16} /> {t('operations.export')}
+          <a className="quiet-button" href={portfolioApi.operationExportUrl(activePortfolio.id)} title={t('operations.exportPortfolioHint')} download>
+            <Download size={16} /> {t('operations.exportPortfolio')}
           </a>
+          {Object.values(filters).some(Boolean) && (
+            <a className="quiet-button" href={portfolioApi.operationExportUrl(activePortfolio.id, filters)} download>
+              <Download size={16} /> {t('operations.export')}
+            </a>
+          )}
           <Link className="quiet-button" to="/importar"><FileSpreadsheet size={16} /> {t('operations.import')}</Link>
           <button className="secondary-button" type="button" onClick={() => setEditing('new')}>
             <Plus size={17} /> {t('operations.add')}
