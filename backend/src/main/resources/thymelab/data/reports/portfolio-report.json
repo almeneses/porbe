@@ -52,24 +52,87 @@
         "value": "$ 31,6 M"
       },
       "gridLines": [
-        { "y": 10, "label": "$ 38,8 M" },
-        { "y": 60, "label": "$ 29,1 M" },
-        { "y": 110, "label": "$ 19,4 M" },
-        { "y": 160, "label": "$ 9,7 M" },
-        { "y": 210, "label": "$ 0" }
+        {
+          "y": 10,
+          "label": "$ 38,8 M"
+        },
+        {
+          "y": 60,
+          "label": "$ 29,1 M"
+        },
+        {
+          "y": 110,
+          "label": "$ 19,4 M"
+        },
+        {
+          "y": 160,
+          "label": "$ 9,7 M"
+        },
+        {
+          "y": 210,
+          "label": "$ 0"
+        }
       ]
     },
     "gainsByAsset": [
-      { "name": "Ecopetrol", "amount": "+$ 3,1 M", "width": "100.00%", "tone": "positive", "color": "#6f5bd3" },
-      { "name": "Grupo Sura", "amount": "+$ 1,8 M", "width": "58.97%", "tone": "positive", "color": "#268bd2" },
-      { "name": "ISA", "amount": "+$ 1,3 M", "width": "40.38%", "tone": "positive", "color": "#2d896c" },
-      { "name": "Bancolombia preferencial", "amount": "-$ 420 mil", "width": "13.46%", "tone": "negative", "color": "#e76f51" }
+      {
+        "name": "Ecopetrol",
+        "amount": "+$ 3,1 M",
+        "width": "100.00%",
+        "tone": "positive",
+        "color": "#6f5bd3"
+      },
+      {
+        "name": "Grupo Sura",
+        "amount": "+$ 1,8 M",
+        "width": "58.97%",
+        "tone": "positive",
+        "color": "#268bd2"
+      },
+      {
+        "name": "ISA",
+        "amount": "+$ 1,3 M",
+        "width": "40.38%",
+        "tone": "positive",
+        "color": "#2d896c"
+      },
+      {
+        "name": "Bancolombia preferencial",
+        "amount": "-$ 420 mil",
+        "width": "13.46%",
+        "tone": "negative",
+        "color": "#e76f51"
+      }
     ],
     "dividendsByAsset": [
-      { "name": "Ecopetrol", "amount": "$ 680 mil", "width": "100.00%", "tone": "", "color": "#6f5bd3" },
-      { "name": "ISA", "amount": "$ 390 mil", "width": "57.35%", "tone": "", "color": "#268bd2" },
-      { "name": "Bancolombia preferencial", "amount": "$ 230 mil", "width": "33.82%", "tone": "", "color": "#2d896c" },
-      { "name": "Grupo Sura", "amount": "$ 120 mil", "width": "17.65%", "tone": "", "color": "#e76f51" }
+      {
+        "name": "Ecopetrol",
+        "amount": "$ 680 mil",
+        "width": "100.00%",
+        "tone": "",
+        "color": "#6f5bd3"
+      },
+      {
+        "name": "ISA",
+        "amount": "$ 390 mil",
+        "width": "57.35%",
+        "tone": "",
+        "color": "#268bd2"
+      },
+      {
+        "name": "Bancolombia preferencial",
+        "amount": "$ 230 mil",
+        "width": "33.82%",
+        "tone": "",
+        "color": "#2d896c"
+      },
+      {
+        "name": "Grupo Sura",
+        "amount": "$ 120 mil",
+        "width": "17.65%",
+        "tone": "",
+        "color": "#e76f51"
+      }
     ],
     "assetAllocation": [
       {
@@ -154,13 +217,14 @@
     ],
     "note": {
       "title": "Un mes tranquilo y con buen crecimiento",
-      "body": "Tu portafolio terminó el periodo por encima de donde comenzó. Ecopetrol fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
+      "body": "Tu portafolio terminó el periodo por encima de donde comenzó. <strong>Ecopetrol</strong> fue la acción que más ayudó y los dividendos también aportaron al resultado. Aunque Bancolombia bajó un poco, el balance general siguió siendo positivo.",
       "actions": [
         "No necesitas hacer cambios apresurados para el próximo mes.",
         "Mantener el dinero repartido ayuda a reducir el efecto de una sola caída."
       ]
     },
     "valuationMessage": "Rendimiento entre cierres del 19 ene 2024 al 28 ago 2026",
-    "valuationTone": "neutral"
+    "valuationTone": "neutral",
+    "note != null": ""
   }
 }

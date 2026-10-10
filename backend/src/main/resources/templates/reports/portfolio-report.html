@@ -222,9 +222,9 @@
         <section class="card note" th:if="${report.note != null}" th:with="note=${report.note}">
             <p class="eyebrow">COMENTARIO DEL PERIODO</p>
             <h2 th:text="${note.title}">Lo más importante de este periodo</h2>
-            <p class="note-body" th:text="${note.body}">Resumen sencillo del comportamiento del portafolio.</p>
+            <p class="note-body" th:utext="${note.body}">Resumen sencillo del comportamiento del portafolio.</p>
             <div class="note-actions" th:if="${note.actions != null and !note.actions.isEmpty()}">
-                <p class="note-suggestion" th:each="action : ${note.actions}" th:text="${action}">Una posibilidad para tener en cuenta.</p>
+                <p class="note-suggestion" th:each="action : ${note.actions}" th:utext="${action}">Una posibilidad para tener en cuenta.</p>
             </div>
         </section>
     </main>
