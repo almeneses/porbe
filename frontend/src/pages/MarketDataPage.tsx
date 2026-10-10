@@ -22,7 +22,11 @@ import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 import { TickerIcon } from '../components/TickerIcon'
 
-/** Muestra la cobertura de mercado y permite actualizar precios desde Yahoo. */
+function sourceName(source: string) {
+  return source === 'YAHOO_FINANCE' ? 'Yahoo Finance' : source === 'STOCK_ANALYSIS' ? 'Stock Analysis' : source
+}
+
+/** Muestra la cobertura de mercado y permite actualizar precios por proveedor. */
 export function MarketDataPage() {
   const { t } = useTranslation()
   const { activePortfolio } = usePortfolio()
@@ -96,7 +100,7 @@ export function MarketDataPage() {
       {status && hasTickers && (
         <>
           <section className="market-source-bar" aria-label={t('market.sourceLabel')}>
-            <div><CloudDownload size={18} /><span>{t('market.sourceLabel')}</span><strong>Yahoo Finance</strong></div>
+            <div><CloudDownload size={18} /><span>{t('market.sourceLabel')}</span><strong>{status.source.split(', ').map(sourceName).join(' · ')}</strong></div>
             <div><Database size={18} /><span>{t('market.coverage')}</span><strong>{status.tickers.length} {status.tickers.length === 1 ? t('market.asset') : t('market.assets')}</strong></div>
           </section>
 
@@ -146,7 +150,7 @@ function TickerCard({ ticker, onSectorSaved }: { ticker: MarketTickerStatus; onS
         </span>
       </div>
       <h2>{ticker.name ?? t('market.namePending')}</h2>
-      <p>{[ticker.exchange, ticker.currency].filter(Boolean).join(' · ') || 'Yahoo Finance'}</p>
+      <p>{[ticker.exchange, ticker.currency, sourceName(ticker.source)].filter(Boolean).join(' · ')}</p>
       <div className="market-card__price">
         <span>{t('market.lastPrice')}</span>
         <strong>{hasPrice ? formatCurrency(ticker.lastClose!, ticker.currency ?? 'COP') : '—'}</strong>

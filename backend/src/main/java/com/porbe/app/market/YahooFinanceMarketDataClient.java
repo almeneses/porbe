@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 /** Adaptador HTTP que consume y normaliza la API de gráficos de Yahoo Finance. */
-public class YahooFinanceMarketDataClient {
+public class YahooFinanceMarketDataClient implements MarketDataProvider {
 
     private static final Pattern TICKER_PATTERN = Pattern.compile("[A-Z0-9^][A-Z0-9.^=\\-]{0,29}");
     private static final Duration FINAL_CLOSE_GRACE_PERIOD = Duration.ofMinutes(15);
@@ -38,11 +38,13 @@ public class YahooFinanceMarketDataClient {
         this.clock = clock;
     }
 
+    @Override
     public String source() {
         return "YAHOO_FINANCE";
     }
 
     /** Consulta el intervalo diario usando marcas UTC para evitar desfases entre bolsas. */
+    @Override
     public MarketDataSeries fetchDaily(String ticker, LocalDate from, LocalDate toExclusive) {
         var normalizedTicker = normalizeTicker(ticker);
         if (from == null || toExclusive == null || !from.isBefore(toExclusive)) {

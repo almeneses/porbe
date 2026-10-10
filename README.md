@@ -41,21 +41,77 @@ El signo en caja se deriva del tipo de operación: compras y retiros restan; ven
 
 ### Incremento 3: datos de mercado
 
-- Proveedor `MarketDataProvider` desacoplado, con implementación inicial para Yahoo Finance.
-- Consulta JSON de velas diarias; no se extrae HTML de las páginas de Yahoo.
+- Contrato `MarketDataProvider` con Yahoo Finance para los tickers habituales y Stock Analysis para `NUCO.CL` del MGC en COP.
+- Yahoo se consulta mediante JSON. Para NUCO se extrae la serie estructurada incluida en el HTML público de `https://stockanalysis.com/quote/bvc/NUCO/history/`, sin ejecutar JavaScript ni abrir un navegador.
 - Persistencia de apertura, máximo, mínimo, cierre, cierre ajustado y volumen diario.
 - Actualización idempotente: ticker y fecha identifican un único precio, que se actualiza al volver a sincronizar.
 - Diferenciación entre precio provisional de la sesión actual y cierre confirmado.
 - Pantalla **Mercado** para consultar cobertura, último precio, días almacenados y ejecutar la actualización.
 - Sincronización independiente por ticker: un símbolo con error no impide actualizar los demás.
 
-La sincronización toma automáticamente los tickers presentes en las operaciones y consulta datos desde siete días antes de la primera operación hasta la fecha actual. Yahoo Finance no requiere credenciales en esta integración, pero su endpoint público no ofrece un contrato de servicio formal; el adaptador permite sustituirlo más adelante.
+La sincronización toma los tickers de las operaciones y comienza en el último día guardado con el mismo proveedor, incluyéndolo para corregir precios provisionales. Sin datos, o al cambiar de proveedor, comienza el 19 de enero de 2024. Para NUCO, la primera sincronización con Stock Analysis reemplaza únicamente las fechas disponibles en su serie pública y conserva las anteriores.
+
+Stock Analysis expone actualmente unos seis meses de histórico en esa página. La sincronización avisa cuando no cubre todo el rango solicitado. No reconstruye automáticamente el histórico anterior a esa ventana. El precio del día se considera provisional hasta el día siguiente en Bogotá. Si la página falla, cambia de formato o no identifica NUCO en COP, se reporta el error sin recurrir a Yahoo ni modificar los precios guardados de NUCO. `NU` de Estados Unidos sigue usando Yahoo y no se convierte a COP.
+
+Ninguna de estas consultas requiere credenciales. El scraping depende del formato y de la disponibilidad de la página pública, y no constituye una API con garantía de servicio.
 
 Endpoints principales:
 
 - `GET /api/market-data`: estado de precios para los tickers del portafolio.
-- `POST /api/market-data/sync`: consulta Yahoo y actualiza los cierres diarios.
+- `POST /api/market-data/sync`: consulta el proveedor de cada ticker y actualiza los cierres diarios.
 - `GET /api/market-data/{ticker}/daily?from=AAAA-MM-DD&to=AAAA-MM-DD`: serie diaria guardada.
+
+### Corrección puntual de NUCO.CL
+
+`scripts/replace_nuco_prices.py` usa la biblioteca estándar de Python y el PostgreSQL del servicio `database` de Docker Compose. Consulta Stock Analysis desde el **24 de abril de 2026 hasta el día actual en Bogotá**. Solo reemplaza `open_price`, `high_price`, `low_price`, `close_price` y `adjusted_close` de las fechas ya existentes de `NUCO.CL` en COP.
+
+Vista previa, sin conexión a la base. El SQL generado termina en `ROLLBACK`:
+
+```bash
+python scripts/replace_nuco_prices.py > /tmp/nuco-prices-preview.sql
+```
+
+Para aplicar en el Compose local:
+
+```bash
+python scripts/replace_nuco_prices.py --apply
+```
+
+Para usar el Compose de producción, ejecute en el servidor correspondiente:
+
+```bash
+python scripts/replace_nuco_prices.py --compose-file compose.prod.yaml --apply
+```
+
+Para cargar un archivo `.env` específico, agregue `--env-file`:
+
+```bash
+python scripts/replace_nuco_prices.py --compose-file compose.prod.yaml --env-file .env.prod --apply
+```
+
+La ruta del `.env` se resuelve desde el directorio donde ejecuta el script y se entrega a Docker Compose. El script verifica que el archivo exista antes de descargar los precios. Si omite la opción, conserva el comportamiento habitual de Compose. El servicio `database` debe estar en ejecución; la conexión usa el usuario y la base configurados en ese contenedor.
+
+Cada ejecución vuelve a consultar la fuente. Antes de actualizar, guarda las filas originales completas en una tabla `public.nuco_prices_backup_<fecha_UTC>`, cuyo nombre imprime el script. Respaldo y actualización se confirman en una sola transacción. Si faltan fechas en Porbe, la moneda no es COP o la fuente ya no cubre el inicio solicitado, aborta sin aplicar una corrección parcial. No inserta filas ni cambia volumen, fuente, estado de cierre o fechas de actualización.
+
+Mantenga desplegada la selección de Stock Analysis para NUCO antes de reactivar la sincronización automática, para evitar que Yahoo sobrescriba la corrección. El precio del día puede ser provisional y las fechas sin datos en la fuente no se rellenan.
+
+Para restaurar los cinco precios, sustituya `NOMBRE_DEL_RESPALDO` por la tabla que imprimió el script:
+
+```sql
+BEGIN;
+UPDATE public.market_price_daily p
+SET open_price = b.open_price, high_price = b.high_price, low_price = b.low_price,
+    close_price = b.close_price, adjusted_close = b.adjusted_close
+FROM public.NOMBRE_DEL_RESPALDO b
+WHERE p.id = b.id AND p.instrument_id = b.instrument_id AND p.price_date = b.price_date;
+COMMIT;
+```
+
+Pruebas del script:
+
+```bash
+python -m unittest discover -s scripts -p 'test_*.py'
+```
 
 ### Incremento 4: posiciones y valoración actual
 
@@ -236,7 +292,7 @@ seguirá apareciendo hasta que el proyecto publique una dependencia corregida.
 El backend queda disponible en `http://localhost:8080` y PostgreSQL en `localhost:5432`.
 Si alguno de esos puertos ya está ocupado, cámbielo en `.env`; por ejemplo, use `PORBE_API_PORT=18080` para la API.
 
-El proveedor se puede redirigir para pruebas o reemplazo mediante `YAHOO_FINANCE_BASE_URL`. Los tiempos máximos de conexión y lectura se configuran con `YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS` y `YAHOO_FINANCE_READ_TIMEOUT_SECONDS`.
+Yahoo se puede redirigir para pruebas mediante `YAHOO_FINANCE_BASE_URL`. Ambos clientes HTTP comparten el agente de usuario `YAHOO_FINANCE_USER_AGENT` y los tiempos máximos `YAHOO_FINANCE_CONNECT_TIMEOUT_SECONDS` y `YAHOO_FINANCE_READ_TIMEOUT_SECONDS`.
 
 ## Verificación
 

@@ -34,7 +34,7 @@ public class MarketDataScheduleService {
         return toResponse(repository.save(schedule));
     }
 
-    /** Marca la ejecución antes de salir a Yahoo para impedir reclamos duplicados. */
+    /** Marca la ejecución antes de consultar precios para impedir reclamos duplicados. */
     @Transactional
     public Optional<Long> claimIfDue() {
         var schedule = schedule();

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -22,6 +23,7 @@ import com.porbe.app.operation.PortfolioOperationRepository;
 import com.porbe.app.portfolio.PortfolioRepository;
 import com.porbe.app.portfolio.PortfolioService;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -66,6 +68,12 @@ class MarketDataIntegrationTest {
     @MockitoBean
     private YahooFinanceMarketDataClient provider;
 
+    @MockitoBean
+    private StockAnalysisMarketDataClient stockAnalysis;
+
+    @Autowired
+    private MarketDataSyncService syncService;
+
     @BeforeEach
     void cleanDatabase() {
         priceRepository.deleteAll();
@@ -73,6 +81,8 @@ class MarketDataIntegrationTest {
         operationRepository.deleteAll();
         importBatchRepository.deleteAll();
         portfolioRepository.deleteAll();
+        given(provider.source()).willReturn("YAHOO_FINANCE");
+        given(stockAnalysis.source()).willReturn("STOCK_ANALYSIS");
         scheduleRepository.findByScheduleKey(MarketDataSchedule.PORTFOLIO_CLOSES).ifPresent(schedule -> {
             schedule.update(false, DayOfWeek.SATURDAY, LocalTime.of(8, 0), "test");
             scheduleRepository.save(schedule);
@@ -125,6 +135,73 @@ class MarketDataIntegrationTest {
                 eq(LocalDate.of(2026, 8, 25)),
                 any(LocalDate.class));
         org.assertj.core.api.Assertions.assertThat(priceRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void switchesNucoToStockAnalysisRepairsAvailableDatesAndKeepsOlderHistory() {
+        createPurchase();
+        createPurchase("NUCO.CL");
+        var instrument = instrumentRepository.save(new MarketInstrument("NUCO.CL"));
+        var older = nucoBar(LocalDate.of(2024, 1, 19), "51820");
+        var latest = nucoBar(LocalDate.of(2026, 8, 25), "51820");
+        priceRepository.saveAll(List.of(
+                new MarketPriceDaily(instrument, older, "YAHOO_FINANCE", OffsetDateTime.now()),
+                new MarketPriceDaily(instrument, latest, "YAHOO_FINANCE", OffsetDateTime.now())));
+        given(provider.fetchDaily(eq("ECOPETROL.CL"), any(LocalDate.class), any(LocalDate.class))).willReturn(series());
+        var replacement = new MarketDataSeries("NUCO.CL", "Nu Holdings Ltd.", "COP", "BVC", "EQUITY",
+                "America/Bogota", new BigDecimal("49500"),
+                List.of(nucoBar(LocalDate.of(2026, 8, 25), "49500")));
+        given(stockAnalysis.fetchDaily(eq("NUCO.CL"), any(LocalDate.class), any(LocalDate.class))).willReturn(replacement);
+
+        var result = syncService.syncPortfolio();
+        assertThat(result.successfulTickers()).isEqualTo(2);
+        assertThat(result.results()).filteredOn(item -> item.ticker().equals("NUCO.CL"))
+                .extracting(TickerSyncResult::message).allMatch(message -> message.contains("solo cubre desde 2026-08-25"));
+        verify(stockAnalysis).fetchDaily(eq("NUCO.CL"), eq(MarketDataSyncService.MARKET_HISTORY_START), any(LocalDate.class));
+        verify(provider, never()).fetchDaily(eq("NUCO.CL"), any(LocalDate.class), any(LocalDate.class));
+        var prices = syncService.prices("NUCO.CL", LocalDate.of(2024, 1, 19), LocalDate.of(2026, 8, 25)).prices();
+        assertThat(prices).hasSize(2);
+        assertThat(prices.getFirst().close()).isEqualByComparingTo("51820");
+        assertThat(prices.getLast().close()).isEqualByComparingTo("49500");
+        var status = syncService.status(portfolioService.getOrCreateDefaultPortfolio().getId());
+        assertThat(status.source()).contains("STOCK_ANALYSIS", "YAHOO_FINANCE");
+        assertThat(status.tickers()).filteredOn(item -> item.ticker().equals("NUCO.CL"))
+                .extracting(MarketTickerStatus::source).containsExactly("STOCK_ANALYSIS");
+
+        syncService.syncPortfolio();
+        verify(stockAnalysis).fetchDaily(eq("NUCO.CL"), eq(LocalDate.of(2026, 8, 25)), any(LocalDate.class));
+        assertThat(priceRepository.countByInstrument(instrument)).isEqualTo(2);
+    }
+
+    @Test
+    void keepsNucoPricesOnScrapingFailureAndStillUpdatesOtherTickers() {
+        createPurchase();
+        createPurchase("NUCO.CL");
+        var instrument = instrumentRepository.save(new MarketInstrument("NUCO.CL"));
+        priceRepository.save(new MarketPriceDaily(instrument, nucoBar(LocalDate.of(2026, 8, 25), "49500"),
+                "STOCK_ANALYSIS", OffsetDateTime.now()));
+        given(stockAnalysis.fetchDaily(eq("NUCO.CL"), any(LocalDate.class), any(LocalDate.class)))
+                .willThrow(new MarketDataProviderException("Stock Analysis no respondió."));
+        given(provider.fetchDaily(eq("ECOPETROL.CL"), any(LocalDate.class), any(LocalDate.class))).willReturn(series());
+
+        var result = syncService.syncPortfolio();
+        assertThat(result.successfulTickers()).isEqualTo(1);
+        assertThat(result.results()).filteredOn(item -> item.ticker().equals("NUCO.CL"))
+                .extracting(TickerSyncResult::success).containsExactly(false);
+        assertThat(syncService.prices("NUCO.CL", LocalDate.of(2026, 8, 25), LocalDate.of(2026, 8, 25))
+                .prices().getFirst().close()).isEqualByComparingTo("49500");
+        verify(provider, never()).fetchDaily(eq("NUCO.CL"), any(LocalDate.class), any(LocalDate.class));
+    }
+
+    @Test
+    void keepsTheUsNuTickerOnYahoo() {
+        createPurchase("NU");
+        var usSeries = new MarketDataSeries("NU", "Nu Holdings Ltd.", "USD", "NYSE", "EQUITY",
+                "America/New_York", new BigDecimal("14"), List.of(nucoBar(LocalDate.of(2026, 8, 25), "14")));
+        given(provider.fetchDaily(eq("NU"), any(LocalDate.class), any(LocalDate.class))).willReturn(usSeries);
+        assertThat(syncService.syncPortfolio().successfulTickers()).isEqualTo(1);
+        verify(provider).fetchDaily(eq("NU"), any(LocalDate.class), any(LocalDate.class));
+        verify(stockAnalysis, never()).fetchDaily(any(), any(), any());
     }
 
     @Test
@@ -189,11 +266,15 @@ class MarketDataIntegrationTest {
     }
 
     private void createPurchase() {
+        createPurchase("ECOPETROL.CL");
+    }
+
+    private void createPurchase(String ticker) {
         var portfolio = portfolioService.getOrCreateDefaultPortfolio();
         var batch = importBatchRepository.save(new ImportBatch(
                 portfolio,
                 "mercado-test.xlsx",
-                "b2f0012411f6591eeac13c17ddf0f4907f22718512442e9afe15a6c027d7a551",
+                String.format("%064x", ticker.hashCode()),
                 1,
                 "admin"));
         operationRepository.save(new PortfolioOperation(
@@ -201,13 +282,18 @@ class MarketDataIntegrationTest {
                 batch,
                 LocalDate.of(2026, 8, 24),
                 OperationType.COMPRA,
-                "ECOPETROL.CL",
+                ticker,
                 "Ecopetrol",
                 new BigDecimal("100"),
                 new BigDecimal("2600"),
                 BigDecimal.ZERO,
                 new BigDecimal("260000"),
                 null));
+    }
+
+    private DailyMarketBar nucoBar(LocalDate date, String close) {
+        var price = new BigDecimal(close);
+        return new DailyMarketBar(date, price, price, price, price, price, 100L, true);
     }
 
     private MarketDataSeries series() {

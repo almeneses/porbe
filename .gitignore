@@ -17,6 +17,9 @@ backend/target/
 hs_err_pid*
 replay_pid*
 
+# Python
+__pycache__/
+
 # Node
 frontend/node_modules/
 whatsapp-service/node_modules/
