@@ -2,6 +2,7 @@ package com.porbe.app.config;
 
 import java.time.Clock;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,13 @@ public class MarketDataConfig {
                 .baseUrl(properties.baseUrl())
                 .requestFactory(requestFactory)
                 .defaultHeader("User-Agent", properties.userAgent())
+                .build();
+    }
+
+    @Bean
+    RestClient stockAnalysisRestClient(@Qualifier("yahooFinanceRestClient") RestClient yahooClient) {
+        return yahooClient.mutate()
+                .baseUrl("https://stockanalysis.com")
                 .build();
     }
 

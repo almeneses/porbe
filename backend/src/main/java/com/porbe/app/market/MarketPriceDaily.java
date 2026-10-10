@@ -108,4 +108,8 @@ public class MarketPriceDaily {
         return finalClose;
     }
 
+    public String getSource() {
+        return source;
+    }
+
 }

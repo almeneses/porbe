@@ -18,5 +18,6 @@ public record MarketTickerStatus(
         long storedDays,
         OffsetDateTime lastSyncedAt,
         boolean hasIcon,
-        OffsetDateTime iconUpdatedAt) {
+        OffsetDateTime iconUpdatedAt,
+        String source) {
 }

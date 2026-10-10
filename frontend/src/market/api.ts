@@ -15,6 +15,7 @@ export interface MarketTickerStatus {
   lastSyncedAt: string | null
   hasIcon: boolean
   iconUpdatedAt: string | null
+  source: string
 }
 
 /** Cobertura completa disponible en la fuente de mercado configurada. */

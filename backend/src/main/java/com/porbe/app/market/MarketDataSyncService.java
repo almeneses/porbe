@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,7 +32,8 @@ public class MarketDataSyncService {
     private final PortfolioOperationRepository operationRepository;
     private final MarketInstrumentRepository instrumentRepository;
     private final MarketPriceDailyRepository priceRepository;
-    private final YahooFinanceMarketDataClient provider;
+    private final MarketDataProvider yahooProvider;
+    private final MarketDataProvider stockAnalysisProvider;
     private final MarketDataPersistenceService persistenceService;
     private final PortfolioService portfolioService;
     private final Clock clock;
@@ -40,14 +42,16 @@ public class MarketDataSyncService {
             PortfolioOperationRepository operationRepository,
             MarketInstrumentRepository instrumentRepository,
             MarketPriceDailyRepository priceRepository,
-            YahooFinanceMarketDataClient provider,
+            YahooFinanceMarketDataClient yahooProvider,
+            StockAnalysisMarketDataClient stockAnalysisProvider,
             MarketDataPersistenceService persistenceService,
             PortfolioService portfolioService,
             Clock clock) {
         this.operationRepository = operationRepository;
         this.instrumentRepository = instrumentRepository;
         this.priceRepository = priceRepository;
-        this.provider = provider;
+        this.yahooProvider = yahooProvider;
+        this.stockAnalysisProvider = stockAnalysisProvider;
         this.persistenceService = persistenceService;
         this.portfolioService = portfolioService;
         this.clock = clock;
@@ -84,8 +88,10 @@ public class MarketDataSyncService {
 
         for (var tickerRange : tickerRanges) {
             var ticker = tickerRange.getTicker().toUpperCase(Locale.ROOT);
+            var provider = providerFor(ticker);
             var from = instrumentRepository.findByTicker(ticker)
                     .flatMap(priceRepository::findTopByInstrumentOrderByPriceDateDesc)
+                    .filter(price -> provider.source().equals(price.getSource()))
                     .map(MarketPriceDaily::getPriceDate)
                     .orElse(MARKET_HISTORY_START);
             try {
@@ -93,11 +99,17 @@ public class MarketDataSyncService {
                 var stored = persistenceService.save(series, provider.source());
                 totalStored += stored;
                 successful++;
+                var message = stored == 0 ? "El proveedor no devolvió cierres para el rango." : "Precios actualizados.";
+                if (provider == stockAnalysisProvider && !series.bars().isEmpty()
+                        && series.bars().getFirst().date().isAfter(from)) {
+                    message += " Stock Analysis solo cubre desde " + series.bars().getFirst().date()
+                            + "; los precios anteriores se conservan.";
+                }
                 results.add(new TickerSyncResult(
                         ticker,
                         true,
                         stored,
-                        stored == 0 ? "Yahoo Finance no devolvió cierres para el rango." : "Precios actualizados."));
+                        message));
             } catch (RuntimeException exception) {
                 results.add(new TickerSyncResult(ticker, false, 0, safeMessage(exception)));
             }
@@ -139,7 +151,8 @@ public class MarketDataSyncService {
                                 0,
                                 null,
                                 false,
-                                null);
+                                null,
+                                providerFor(ticker).source());
                     }
                     var latest = priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
                     return new MarketTickerStatus(
@@ -155,14 +168,20 @@ public class MarketDataSyncService {
                             priceRepository.countByInstrument(instrument),
                             instrument.getLastSyncedAt(),
                             instrument.hasIcon(),
-                            instrument.getIconUpdatedAt());
+                            instrument.getIconUpdatedAt(),
+                            latest == null ? providerFor(ticker).source() : latest.getSource());
                 })
                 .toList();
 
         return new MarketDataStatusResponse(
-                provider.source(),
+                tickerRanges.stream().map(range -> providerFor(range.getTicker().toUpperCase(Locale.ROOT)).source())
+                        .distinct().collect(Collectors.joining(", ")),
                 OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC),
                 statuses);
+    }
+
+    private MarketDataProvider providerFor(String ticker) {
+        return "NUCO.CL".equals(ticker) ? stockAnalysisProvider : yahooProvider;
     }
 
     @Transactional(readOnly = true)
