@@ -591,7 +591,24 @@
     "timezone": "Zona horaria",
     "marketTitle": "Datos de mercado",
     "marketBody": "Define cuándo se actualizan automáticamente los precios utilizados por el portafolio y los informes.",
-    "loading": "Cargando configuración…"
+    "loading": "Cargando configuración…",
+    "guidanceTitle": "Indicaciones para el próximo informe",
+    "guidanceBody": "Orienta el título, el tema o el tono del próximo comentario de IA de este portafolio.",
+    "guidancePortfolio": "Portafolio de la indicación",
+    "guidanceText": "Tu indicación",
+    "guidancePlaceholder": "En el título va: ‘TU PRIMERA INVERSIÓN INTERNACIONAL!!’. Habla de HIMS, su precio de compra y rendimiento. Felicita a la dueña del portafolio.",
+    "guidanceStatus": {
+      "NONE": "Sin indicación guardada. Se usará el comentario habitual.",
+      "PENDING": "Pendiente de utilizar en un informe con IA.",
+      "USED": "Utilizada. Se usará el comentario habitual hasta que guardes una nueva."
+    },
+    "guidanceHelp": "Cada guardado reemplaza la indicación anterior y la activa una vez. Solo se utiliza cuando se guarda correctamente un informe con comentario de IA. Cancelar no modifica un informe que ya se está generando.",
+    "guidanceSave": "Guardar indicación",
+    "guidanceCancel": "Cancelar indicación pendiente",
+    "guidanceSaved": "Indicación guardada para el próximo informe con IA.",
+    "guidanceCancelled": "Indicación pendiente cancelada.",
+    "guidanceLoadError": "No fue posible cargar la indicación.",
+    "guidanceSaveError": "No fue posible guardar la indicación."
   },
   "placeholder": {
     "eyebrow": "Próximo incremento",

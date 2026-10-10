@@ -1,9 +1,6 @@
 package com.porbe.app.report;
 
-import java.time.Clock;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,7 +19,8 @@ public class PortfolioReportService {
     private final PortfolioReportDeliveryProvider deliveryProvider;
     private final WhatsAppRecipientService recipientService;
     private final com.porbe.app.portfolio.PortfolioService portfolioService;
-    private final Clock clock;
+    private final PortfolioReportAiGuidanceService guidanceService;
+    private final com.porbe.app.portfolio.PortfolioHistoryService historyService;
 
     public PortfolioReportService(
             PortfolioReportCalculator calculator,
@@ -33,7 +31,8 @@ public class PortfolioReportService {
             PortfolioReportDeliveryProvider deliveryProvider,
             WhatsAppRecipientService recipientService,
             com.porbe.app.portfolio.PortfolioService portfolioService,
-            Clock clock) {
+            PortfolioReportAiGuidanceService guidanceService,
+            com.porbe.app.portfolio.PortfolioHistoryService historyService) {
         this.calculator = calculator;
         this.aiNoteService = aiNoteService;
         this.scheduleService = scheduleService;
@@ -42,7 +41,8 @@ public class PortfolioReportService {
         this.deliveryProvider = deliveryProvider;
         this.recipientService = recipientService;
         this.portfolioService = portfolioService;
-        this.clock = clock;
+        this.guidanceService = guidanceService;
+        this.historyService = historyService;
     }
 
     public PortfolioReportListItem generate(
@@ -54,17 +54,23 @@ public class PortfolioReportService {
         var portfolio = portfolioService.getPortfolio(portfolioId);
         var data = calculator.calculate(portfolio.getId(), from, to);
         var report = repository.save(new PortfolioReport(portfolio, data, triggerType, generatedBy));
+        PortfolioReportAiGuidanceService.Claim claim = null;
         try {
-            var artifacts = renderer.render(data, aiNoteService.create(data, scheduleService.aiSettings()));
-            report.markReady(
-                    artifacts.image(),
-                    artifacts.pdf(),
-                    OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
-            return toListItem(repository.save(report));
+            var settings = scheduleService.aiSettings();
+            if (settings.enabled()) claim = guidanceService.claim(portfolio.getId(), report.getId());
+            var note = claim == null ? aiNoteService.create(data, settings)
+                    : aiNoteService.create(data, settings, claim.text(), historyService
+                            .weeklyHistory(portfolio.getId(), data.valuationDate(), data.valuationDate())
+                            .weeks().stream().findFirst().map(com.porbe.app.portfolio.PortfolioWeeklySnapshot::positions)
+                            .orElse(List.of()));
+            var artifacts = renderer.render(data, note);
+            return toListItem(guidanceService.ready(report, artifacts, claim, note != null));
         } catch (RuntimeException exception) {
             report.markFailed(exception.getMessage());
             repository.save(report);
             throw exception;
+        } finally {
+            guidanceService.release(portfolio.getId(), claim);
         }
     }
 

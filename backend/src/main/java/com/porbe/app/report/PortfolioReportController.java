@@ -28,16 +28,19 @@ public class PortfolioReportController {
     private final PortfolioReportScheduleService scheduleService;
     private final PortfolioReportAiNoteService aiNoteService;
     private final WhatsAppRecipientService recipientService;
+    private final PortfolioReportAiGuidanceService guidanceService;
 
     public PortfolioReportController(
             PortfolioReportService reportService,
             PortfolioReportScheduleService scheduleService,
             PortfolioReportAiNoteService aiNoteService,
-            WhatsAppRecipientService recipientService) {
+            WhatsAppRecipientService recipientService,
+            PortfolioReportAiGuidanceService guidanceService) {
         this.reportService = reportService;
         this.scheduleService = scheduleService;
         this.aiNoteService = aiNoteService;
         this.recipientService = recipientService;
+        this.guidanceService = guidanceService;
     }
 
     @GetMapping
@@ -137,6 +140,22 @@ public class PortfolioReportController {
             @Valid @RequestBody PortfolioReportAiSettingsRequest request,
             Principal principal) {
         return aiNoteService.info(scheduleService.updateAi(request, principal.getName()));
+    }
+
+    @GetMapping("/ai-guidance")
+    PortfolioReportAiGuidanceResponse aiGuidance(@RequestParam Long portfolioId) {
+        return guidanceService.current(portfolioId);
+    }
+
+    @PutMapping("/ai-guidance")
+    PortfolioReportAiGuidanceResponse saveAiGuidance(@RequestParam Long portfolioId,
+            @Valid @RequestBody PortfolioReportAiGuidanceRequest request) {
+        return guidanceService.save(portfolioId, request.text());
+    }
+
+    @DeleteMapping("/ai-guidance")
+    PortfolioReportAiGuidanceResponse cancelAiGuidance(@RequestParam Long portfolioId) {
+        return guidanceService.cancel(portfolioId);
     }
 
     private ResponseEntity<byte[]> file(PortfolioReportFile file, boolean download) {

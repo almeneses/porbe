@@ -874,3 +874,21 @@ svg { stroke-width: 1.8; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.ai-guidance-card > label, .ai-guidance-form > label {
+  display: grid;
+  gap: 8px;
+}
+.ai-guidance-card > label { margin-bottom: 16px; }
+.ai-guidance-card .ai-guidance-form { display: block; grid-column: 1 / -1; }
+.ai-guidance-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.ai-guidance-form p { color: var(--text-soft); }

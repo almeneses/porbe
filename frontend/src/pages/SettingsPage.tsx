@@ -8,6 +8,7 @@ import type { MarketDataSchedule, WeekDay } from '../market/api'
 import { usePortfolio } from '../portfolio/PortfolioProvider'
 import type { PortfolioDefinition } from '../portfolio/PortfolioProvider'
 import { reportApi } from '../report/api'
+import { AiGuidancePanel } from '../report/AiGuidancePanel'
 import type { PortfolioReportAiSettings, PortfolioReportSchedule, WhatsAppConnectionStatus, WhatsAppRecipient } from '../report/api'
 import { formatDateTime } from '../utils/formatters'
 
@@ -115,6 +116,7 @@ export function SettingsPage() {
         {!aiSettings && !aiError && <LoadingSettings />}
         {aiError && <SettingsError message={aiError} />}
         {aiSettings && <AiSettingsPanel settings={aiSettings} onSaved={setAiSettings} />}
+        <AiGuidancePanel portfolios={portfolios} />
       </section>
 
       <section className="settings-section" aria-labelledby="whatsapp-settings-title">

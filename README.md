@@ -228,6 +228,19 @@ abre su propio navegador sin interfaz; no depende de que el navegador del usuari
 
 Docker ya incluye una versión compatible de Chromium. En desarrollo local se detecta Chromium en las
 rutas comunes o puede indicarse explícitamente con `PORTFOLIO_REPORT_BROWSER_EXECUTABLE`.
+En **Configuración → Indicaciones para el próximo informe**, seleccione el portafolio y guarde
+una orientación de título, tema o tono. Cada guardado explícito reemplaza la anterior y activa
+una nueva revisión, incluso si el texto es el mismo. Se utiliza una sola vez, únicamente cuando
+el informe se guarda correctamente con comentario de IA. Si falla la IA o la generación, queda
+pendiente. Descargar o enviar el informe no la consume. Cancelar no modifica un informe ya
+iniciado; guardar otra durante la generación la conserva para el siguiente informe.
+
+La IA recibe las posiciones del cierre consultado, con su costo promedio contable, moneda,
+ganancia acumulada y fecha de precio. Ese promedio no representa el precio de una compra
+concreta. Sin una indicación nueva, mantiene su comentario habitual. Una generación reserva
+la indicación hasta completar el informe; si el proceso se interrumpe, otro intento puede
+recuperarla después de diez minutos. El informe antiguo no puede completar esa misma reserva.
+
 Para incluir el comentario al ejecutar el backend directamente, inicie sesión una vez con `codex login`
 y exporte `CODEX_COMMAND=codex` antes de iniciar Spring. Fuera de Docker, Codex se ejecuta en un
 directorio temporal de solo lectura. Sin el comando, o si Codex falla, el informe omite la sección.
