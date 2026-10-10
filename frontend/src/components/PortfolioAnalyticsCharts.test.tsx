@@ -1,11 +1,13 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import '../i18n'
 import type { PortfolioSummary } from '../portfolio/api'
 import { PortfolioAnalyticsCharts } from './PortfolioAnalyticsCharts'
 
 /** Comprueba que las cuatro vistas analíticas usen posiciones y sectores reales. */
 describe('PortfolioAnalyticsCharts', () => {
+  afterEach(cleanup)
+
   it('muestra composición, ganancias y dividendos', () => {
     render(<PortfolioAnalyticsCharts summary={summary()} />)
 
@@ -15,6 +17,24 @@ describe('PortfolioAnalyticsCharts', () => {
     expect(screen.getByRole('heading', { name: 'Dividendos por acción' })).toBeInTheDocument()
     expect(screen.getAllByText('ECOPETROL.CL').length).toBeGreaterThan(1)
     expect(screen.getAllByText('Energía')).toHaveLength(2)
+  })
+
+  it.each([
+    { gains: [100, -900, 500, 300, -10, 200, -500, null, 0], expected: ['ACTIVO-2', 'ACTIVO-3', 'ACTIVO-5', 'ACTIVO-1', 'ACTIVO-6'] },
+    { gains: [10, 50, 20, 40, 30, 60], expected: ['ACTIVO-5', 'ACTIVO-1', 'ACTIVO-3', 'ACTIVO-0', 'ACTIVO-2'] },
+    { gains: [10, -20], expected: ['ACTIVO-0', 'ACTIVO-1'] },
+    { gains: [-10, -30, -20], expected: ['ACTIVO-1', 'ACTIVO-2'] },
+    { gains: [20, 20, 20, 20, 20], expected: ['ACTIVO-0', 'ACTIVO-1', 'ACTIVO-2', 'ACTIVO-4', 'ACTIVO-3'] },
+    { gains: [null, 0], expected: [] },
+  ])('selecciona ganancias sin repetir activos: $gains', ({ gains, expected }) => {
+    const data = summary()
+    data.positions = gains.map((totalGain, index) => ({ ...data.positions[0], ticker: `ACTIVO-${index}`, totalGain }))
+    render(<PortfolioAnalyticsCharts summary={data} />)
+
+    const card = screen.getByRole('heading', { name: 'Ganancias por activo' }).closest('article')!
+    expect([...card.querySelectorAll('.analytics-bar strong')].map((label) => label.textContent)).toEqual(expected)
+    const dividendCard = screen.getByRole('heading', { name: 'Dividendos por acción' }).closest('article')!
+    expect(within(dividendCard).getAllByText(/^ACTIVO-/)).toHaveLength(Math.min(8, gains.length))
   })
 })
 

@@ -106,11 +106,17 @@ function allocationBySector(positions: PortfolioPosition[]): ChartItem[] {
 }
 
 function performanceItems(positions: PortfolioPosition[], kind: 'gain' | 'dividends'): ChartItem[] {
-  const values = positions
+  let values = positions
     .map((position) => ({ position, value: kind === 'gain' ? position.totalGain : position.dividends }))
     .filter((item): item is { position: PortfolioPosition; value: number } => item.value !== null && item.value !== 0)
-    .sort((left, right) => Math.abs(right.value) - Math.abs(left.value))
-    .slice(0, 8)
+    .sort((left, right) => kind === 'gain' ? right.value - left.value : Math.abs(right.value) - Math.abs(left.value))
+  if (kind === 'gain') {
+    const winners = values.filter((item) => item.value > 0).slice(0, 3)
+    const lowest = values.filter((item) => !winners.includes(item)).reverse().slice(0, 2)
+    values = [...winners, ...lowest]
+  } else {
+    values = values.slice(0, 8)
+  }
   const maximum = Math.max(1, ...values.map((item) => Math.abs(item.value)))
   return values.map((item, index) => ({
     label: item.position.ticker,
