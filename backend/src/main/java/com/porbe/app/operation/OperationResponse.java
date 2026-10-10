@@ -26,7 +26,8 @@ public record OperationResponse(
         OffsetDateTime updatedAt,
         String updatedBy,
         BigDecimal quantityAfter,
-        String consistencyIssue) {
+        String consistencyIssue,
+        String currency) {
 
     static OperationResponse from(
             PortfolioOperation operation,
@@ -54,6 +55,7 @@ public record OperationResponse(
                 operation.getUpdatedAt(),
                 operation.getUpdatedBy(),
                 quantityAfter,
-                consistencyIssue);
+                consistencyIssue,
+                operation.getCurrency());
     }
 }

@@ -21,7 +21,7 @@ export interface PortfolioImportResult {
 export interface PortfolioOperation {
   id: number
   date: string
-  type: 'compra' | 'venta' | 'dividendo' | 'depósito' | 'retiro'
+  type: OperationTypeCode
   ticker: string | null
   name: string | null
   quantity: number | null
@@ -30,6 +30,7 @@ export interface PortfolioOperation {
   totalAmount: number
   cashImpact: number
   notes: string | null
+  currency?: 'COP' | 'USD'
   importBatchId: number
   sourceType: 'IMPORT' | 'MANUAL'
   sourceFilename: string
@@ -49,7 +50,7 @@ export interface OperationsResponse {
   operations: PortfolioOperation[]
 }
 
-export type OperationTypeCode = 'compra' | 'venta' | 'dividendo' | 'depósito' | 'retiro'
+export type OperationTypeCode = 'compra' | 'venta' | 'dividendo' | 'depósito' | 'retiro' | 'compra USD' | 'venta USD'
 
 /** Datos editables enviados al crear o modificar una operación manualmente. */
 export interface OperationInput {
@@ -62,6 +63,7 @@ export interface OperationInput {
   commission: number
   totalAmount: number
   notes: string | null
+  currency?: 'COP' | 'USD'
 }
 
 /** Filtros compartidos por la consulta y la exportación del libro. */

@@ -11,5 +11,11 @@ public record PortfolioReportMovement(
         String name,
         BigDecimal quantity,
         BigDecimal totalAmount,
-        byte[] icon) {
+        byte[] icon,
+        String currency) {
+
+    public PortfolioReportMovement(LocalDate date, String type, String ticker, String name,
+            BigDecimal quantity, BigDecimal totalAmount, byte[] icon) {
+        this(date, type, ticker, name, quantity, totalAmount, icon, "COP");
+    }
 }

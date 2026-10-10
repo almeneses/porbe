@@ -62,13 +62,25 @@ public class MarketDataSyncService {
      * sin perder los precios válidos obtenidos para los demás activos.
      */
     public MarketDataSyncResponse syncPortfolio() {
-        var tickerRanges = operationRepository.findPortfolioTickerRanges();
+        var tickerRanges = withDollar(operationRepository.findPortfolioTickerRanges(), operationRepository.firstUsdOperationDate());
         return syncRanges(tickerRanges);
     }
 
     public MarketDataSyncResponse syncPortfolio(Long portfolioId) {
         var portfolio = portfolioService.getPortfolio(portfolioId);
-        return syncRanges(operationRepository.findPortfolioTickerRanges(portfolio));
+        return syncRanges(withDollar(operationRepository.findPortfolioTickerRanges(portfolio), operationRepository.firstUsdOperationDate(portfolio)));
+    }
+
+    private List<com.porbe.app.operation.PortfolioTickerRange> withDollar(
+            List<com.porbe.app.operation.PortfolioTickerRange> ranges, java.util.Optional<LocalDate> firstUsdDate) {
+        var result = new ArrayList<>(ranges);
+        if (firstUsdDate != null && firstUsdDate.isPresent() && ranges.stream().noneMatch(range -> "COP=X".equals(range.getTicker()))) {
+            result.add(new com.porbe.app.operation.PortfolioTickerRange() {
+                public String getTicker() { return "COP=X"; }
+                public LocalDate getFirstOperationDate() { return firstUsdDate.get(); }
+            });
+        }
+        return result;
     }
 
     private MarketDataSyncResponse syncRanges(List<com.porbe.app.operation.PortfolioTickerRange> tickerRanges) {
@@ -93,7 +105,18 @@ public class MarketDataSyncService {
                     .flatMap(priceRepository::findTopByInstrumentOrderByPriceDateDesc)
                     .filter(price -> provider.source().equals(price.getSource()))
                     .map(MarketPriceDaily::getPriceDate)
-                    .orElse(MARKET_HISTORY_START);
+                    .orElse(tickerRange.getFirstOperationDate().isBefore(MARKET_HISTORY_START)
+                            ? tickerRange.getFirstOperationDate() : MARKET_HISTORY_START);
+            if ("COP=X".equals(ticker)) {
+                var requiredDate = tickerRange.getFirstOperationDate();
+                var instrument = instrumentRepository.findByTicker(ticker).orElse(null);
+                if (instrument == null || priceRepository
+                        .findTopByInstrumentAndPriceDateLessThanEqualOrderByPriceDateDesc(instrument, requiredDate).isEmpty()) {
+                    // Include the previous week so a weekend operation can use its preceding close.
+                    var historicalStart = requiredDate.minusDays(7);
+                    if (historicalStart.isBefore(from)) from = historicalStart;
+                }
+            }
             try {
                 var series = provider.fetchDaily(ticker, from, toExclusive);
                 var stored = persistenceService.save(series, provider.source());
@@ -125,7 +148,7 @@ public class MarketDataSyncService {
     /** Combina operaciones, instrumentos y último precio en una vista compacta. */
     public MarketDataStatusResponse status(Long portfolioId) {
         var portfolio = portfolioService.getPortfolio(portfolioId);
-        return status(operationRepository.findPortfolioTickerRanges(portfolio));
+        return status(withDollar(operationRepository.findPortfolioTickerRanges(portfolio), operationRepository.firstUsdOperationDate(portfolio)));
     }
 
     private MarketDataStatusResponse status(List<com.porbe.app.operation.PortfolioTickerRange> tickerRanges) {
@@ -213,7 +236,7 @@ public class MarketDataSyncService {
     @Transactional(readOnly = true)
     public MarketWeeklyClosesResponse weeklyCloses(Long portfolioId) {
         var portfolio = portfolioService.getPortfolio(portfolioId);
-        return weeklyCloses(operationRepository.findPortfolioTickerRanges(portfolio));
+        return weeklyCloses(withDollar(operationRepository.findPortfolioTickerRanges(portfolio), operationRepository.firstUsdOperationDate(portfolio)));
     }
 
     private MarketWeeklyClosesResponse weeklyCloses(

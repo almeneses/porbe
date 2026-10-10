@@ -10,7 +10,9 @@ public enum OperationType {
     VENTA("venta", 1),
     DIVIDENDO("dividendo", 1),
     DEPOSITO("depósito", 1),
-    RETIRO("retiro", -1);
+    RETIRO("retiro", -1),
+    COMPRA_USD("compra USD", -1),
+    VENTA_USD("venta USD", 1);
 
     private final String label;
     private final int cashSign;
@@ -22,6 +24,10 @@ public enum OperationType {
 
     public String label() {
         return label;
+    }
+
+    public boolean isExchange() {
+        return this == COMPRA_USD || this == VENTA_USD;
     }
 
     public int cashSign() {
@@ -40,6 +46,8 @@ public enum OperationType {
             case "dividendo" -> Optional.of(DIVIDENDO);
             case "deposito" -> Optional.of(DEPOSITO);
             case "retiro" -> Optional.of(RETIRO);
+            case "compra usd" -> Optional.of(COMPRA_USD);
+            case "venta usd" -> Optional.of(VENTA_USD);
             default -> Optional.empty();
         };
     }

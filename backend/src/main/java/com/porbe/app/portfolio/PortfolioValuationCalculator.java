@@ -28,37 +28,82 @@ public final class PortfolioValuationCalculator {
     private final String baseCurrency;
     private final Map<String, MarketInstrument> instruments;
     private final Map<String, PortfolioPositionLedger> ledgers = new LinkedHashMap<>();
+    private final Function<LocalDate, MarketPriceDaily> fxAtDate;
+    private final Map<String, String> currencies = new LinkedHashMap<>();
+    private final PortfolioPositionLedger dollars = new PortfolioPositionLedger("COP=X");
+    private boolean usesUsd;
+    private BigDecimal dollarPurchasesCop = BigDecimal.ZERO;
     private BigDecimal cashBalance = BigDecimal.ZERO;
     private BigDecimal netContributions = BigDecimal.ZERO;
 
-    PortfolioValuationCalculator(String baseCurrency, Map<String, MarketInstrument> instruments) {
+    PortfolioValuationCalculator(String baseCurrency, Map<String, MarketInstrument> instruments,
+            Function<LocalDate, MarketPriceDaily> fxAtDate) {
         this.baseCurrency = baseCurrency;
         this.instruments = instruments;
+        this.fxAtDate = fxAtDate;
     }
 
     void apply(PortfolioOperation operation) {
-        var ticker = operation.getTicker() == null ? null : normalizeTicker(operation.getTicker());
-        if (ticker != null) {
-            ledgers.computeIfAbsent(ticker, PortfolioPositionLedger::new).apply(operation);
+        var type = operation.getType();
+        var amount = operation.getTotalAmount();
+        if (type.isExchange()) {
+            usesUsd = true;
+            var quantity = operation.getQuantity();
+            cashBalance = cashBalance.add(amount.multiply(BigDecimal.valueOf(type.cashSign())));
+            if (type == OperationType.COMPRA_USD) {
+                dollars.purchase(quantity, amount);
+                dollarPurchasesCop = dollarPurchasesCop.add(amount);
+            } else {
+                dollars.sale(quantity, amount);
+            }
+            return;
         }
-        var cashImpact = operation.getTotalAmount().multiply(BigDecimal.valueOf(operation.getType().cashSign()));
-        if (ticker == null || !isForeign(ticker)) {
+        var ticker = operation.getTicker() == null ? null : normalizeTicker(operation.getTicker());
+        var usd = "USD".equals(operation.getCurrency());
+        var fx = usd ? fxAtDate.apply(operation.getDate()) : null;
+        var converted = usd ? fx == null ? null : amount.multiply(fx.getClose()) : amount;
+        if (ticker != null && (type == OperationType.COMPRA || type == OperationType.VENTA || type == OperationType.DIVIDENDO)) {
+            var ledger = ledgers.computeIfAbsent(ticker, PortfolioPositionLedger::new);
+            ledger.name(operation.getName());
+            var previousCurrency = currencies.putIfAbsent(ticker, operation.getCurrency());
+            if (previousCurrency != null && !previousCurrency.equals(operation.getCurrency())) ledger.incomplete();
+            // Keep quantities even when a historical exchange rate is missing.
+            if (converted == null) ledger.incomplete();
+            switch (type) {
+                case COMPRA -> ledger.purchase(operation.getQuantity(), converted == null ? BigDecimal.ZERO : converted);
+                case VENTA -> ledger.sale(operation.getQuantity(), converted == null ? BigDecimal.ZERO : converted);
+                case DIVIDENDO -> ledger.dividend(converted == null ? BigDecimal.ZERO : converted);
+                default -> { }
+            }
+        }
+        var cashImpact = amount.multiply(BigDecimal.valueOf(type.cashSign()));
+        if (usd) {
+            usesUsd = true;
+            if (converted == null) dollars.incomplete();
+            if (cashImpact.signum() < 0) {
+                dollars.sale(amount, converted == null ? BigDecimal.ZERO : converted);
+            } else if (cashImpact.signum() > 0) {
+                dollars.purchase(amount, converted == null ? BigDecimal.ZERO : converted);
+            }
+        } else if (isContribution(operation) || ticker == null || !currencyMismatch(ticker)) {
             cashBalance = cashBalance.add(cashImpact);
         }
-        if (isContribution(operation)) {
-            netContributions = netContributions.add(cashImpact);
-        }
+        if (isContribution(operation)) netContributions = netContributions.add(cashImpact);
     }
 
     List<PortfolioPositionResponse> positions(Function<String, MarketPriceDaily> priceAtCutoff) {
-        return ledgers.values().stream()
-                .map(ledger -> valuePosition(ledger, instruments.get(ledger.ticker()), priceAtCutoff.apply(ledger.ticker())))
-                .toList();
+        var fx = priceAtCutoff.apply("COP=X");
+        var result = new java.util.ArrayList<PortfolioPositionResponse>();
+        ledgers.values().forEach(ledger -> result.add(valuePosition(ledger, instruments.get(ledger.ticker()),
+                priceAtCutoff.apply(ledger.ticker()), "USD".equals(currencies.get(ledger.ticker())) ? fx : null,
+                "USD".equals(currencies.get(ledger.ticker())))));
+        if (usesUsd) result.add(valuePosition(dollars, null, fx, null, false));
+        return result;
     }
 
     /**
      * Construye la valoración de un ticker a partir de su contabilidad acumulada,
-     * sin modificarla ni convertir importes entre monedas.
+     * con costos históricos en COP y precios USD convertidos a la fecha de corte.
      *
      * <p>Con contabilidad completa, una posición cerrada (cantidad neta cero) no
      * necesita precio y vale cero. Si la contabilidad está incompleta o falta el precio de
@@ -80,15 +125,20 @@ public final class PortfolioValuationCalculator {
     private PortfolioPositionResponse valuePosition(
             PortfolioPositionLedger ledger,
             MarketInstrument instrument,
-            MarketPriceDaily latest) {
-        var currency = instrument == null || instrument.getCurrency() == null
-                ? baseCurrency
-                : instrument.getCurrency().toUpperCase(Locale.ROOT);
-        var foreignCurrency = !baseCurrency.equals(currency);
+            MarketPriceDaily latest,
+            MarketPriceDaily fx,
+            boolean usd) {
+        var declaredCurrency = usd ? "USD" : baseCurrency;
+        var foreignCurrency = instrument != null && instrument.getCurrency() != null
+                && !declaredCurrency.equalsIgnoreCase(instrument.getCurrency());
+        var currency = foreignCurrency ? instrument.getCurrency().toUpperCase(Locale.ROOT) : baseCurrency;
+        var dollarPosition = ledger == dollars;
+        var usablePrice = latest != null && (!usd || fx != null);
+        var price = !usablePrice ? null : latest.getClose().multiply(usd ? fx.getClose() : BigDecimal.ONE);
         var closed = ledger.netQuantity().signum() == 0;
-        var valued = ledger.calculationComplete() && (closed || latest != null);
+        var valued = ledger.calculationComplete() && (closed || usablePrice);
         var marketValue = valued
-                ? closed ? BigDecimal.ZERO : ledger.netQuantity().multiply(latest.getClose())
+                ? closed ? BigDecimal.ZERO : ledger.netQuantity().multiply(price)
                 : null;
         // La ganancia no realizada compara el valor de mercado con el costo aún invertido.
         var unrealizedGain = valued ? marketValue.subtract(ledger.costBasis()) : null;
@@ -99,9 +149,9 @@ public final class PortfolioValuationCalculator {
 
         return new PortfolioPositionResponse(
                 ledger.ticker(),
-                instrument != null && instrument.getName() != null ? instrument.getName() : ledger.name(),
+                dollarPosition ? "Dólar disponible" : instrument != null && instrument.getName() != null ? instrument.getName() : ledger.name(),
                 currency,
-                instrument == null
+                dollarPosition ? "Efectivo" : instrument == null
                         ? MarketSectorCatalog.suggestedSector(ledger.ticker())
                         : instrument.getSector(),
                 roundValue(ledger.netQuantity()),
@@ -113,9 +163,9 @@ public final class PortfolioValuationCalculator {
                         : null,
                 ledger.calculationComplete() ? roundMoney(ledger.costBasis()) : null,
                 roundMoney(ledger.totalPurchases()),
-                latest == null ? null : roundValue(latest.getClose()),
-                latest == null ? null : latest.getPriceDate(),
-                latest != null && !latest.isFinalClose(),
+                price == null ? null : roundValue(price),
+                !usablePrice ? null : usd && fx.getPriceDate().isBefore(latest.getPriceDate()) ? fx.getPriceDate() : latest.getPriceDate(),
+                latest != null && (!latest.isFinalClose() || (usd && fx != null && !fx.isFinalClose())),
                 marketValue == null ? null : roundMoney(marketValue),
                 null,
                 ledger.calculationComplete() ? roundMoney(ledger.realizedGain()) : null,
@@ -139,30 +189,37 @@ public final class PortfolioValuationCalculator {
 
     // El historial suma los importes contables antes de redondear el consolidado.
     BigDecimal realizedGain() {
-        return sumEligibleLedgers(PortfolioPositionLedger::realizedGain);
+        return sumEligibleLedgers(PortfolioPositionLedger::realizedGain).add(dollars.calculationComplete() ? dollars.realizedGain() : BigDecimal.ZERO);
     }
 
     BigDecimal totalPurchases() {
-        return sumEligibleLedgers(PortfolioPositionLedger::totalPurchases);
+        return ledgers.values().stream()
+                .filter(ledger -> ledger.calculationComplete() && !currencyMismatch(ledger.ticker())
+                        && !"USD".equals(currencies.get(ledger.ticker())))
+                .map(PortfolioPositionLedger::totalPurchases).reduce(dollarPurchasesCop, BigDecimal::add);
     }
 
     private BigDecimal sumEligibleLedgers(Function<PortfolioPositionLedger, BigDecimal> amount) {
         return ledgers.values().stream()
-                .filter(ledger -> !isForeign(ledger.ticker()) && ledger.calculationComplete())
+                .filter(ledger -> ledger.calculationComplete() && !currencyMismatch(ledger.ticker()))
                 .map(amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private boolean isForeign(String ticker) {
+    private boolean currencyMismatch(String ticker) {
         var instrument = instruments.get(ticker);
         return instrument != null && instrument.getCurrency() != null
-                && !baseCurrency.equals(instrument.getCurrency().toUpperCase(Locale.ROOT));
+                && !currencies.getOrDefault(ticker, baseCurrency).equalsIgnoreCase(instrument.getCurrency());
     }
 
     static Set<String> tickers(List<PortfolioOperation> operations) {
-        return operations.stream().map(PortfolioOperation::getTicker).filter(Objects::nonNull)
+        var result = operations.stream().map(PortfolioOperation::getTicker).filter(Objects::nonNull)
                 .map(PortfolioValuationCalculator::normalizeTicker)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (operations.stream().anyMatch(operation -> "USD".equals(operation.getCurrency()) || operation.getType().isExchange())) {
+            result.add("COP=X");
+        }
+        return result;
     }
 
     static MarketPriceDaily latestPrice(NavigableMap<LocalDate, MarketPriceDaily> prices, LocalDate cutoff) {

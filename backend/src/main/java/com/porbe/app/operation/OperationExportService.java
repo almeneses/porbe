@@ -23,7 +23,8 @@ public class OperationExportService {
             "precio unitario",
             "comisión",
             "total del movimiento",
-            "notas");
+            "notas",
+            "moneda");
 
     public byte[] export(List<PortfolioOperation> operations) {
         try (var workbook = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
@@ -59,11 +60,12 @@ public class OperationExportService {
                 number(row, 6, operation.getCommission());
                 number(row, 7, operation.getTotalAmount());
                 text(row, 8, operation.getNotes());
+                text(row, 9, operation.getCurrency());
             }
 
             sheet.createFreezePane(0, 1);
-            sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, operations.size()), 0, 8));
-            int[] widths = {14, 16, 20, 28, 16, 18, 14, 22, 40};
+            sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, Math.max(0, operations.size()), 0, 9));
+            int[] widths = {14, 16, 20, 28, 16, 18, 14, 22, 40, 12};
             for (var index = 0; index < widths.length; index++) {
                 sheet.setColumnWidth(index, widths[index] * 256);
             }

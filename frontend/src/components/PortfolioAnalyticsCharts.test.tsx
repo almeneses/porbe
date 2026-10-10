@@ -9,9 +9,9 @@ describe('PortfolioAnalyticsCharts', () => {
   it('muestra composición, ganancias y dividendos', () => {
     render(<PortfolioAnalyticsCharts summary={summary()} />)
 
-    expect(screen.getByRole('heading', { name: 'Composición por acción' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Composición por activo' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Composición por sector' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Ganancias por acción' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Ganancias por activo' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Dividendos por acción' })).toBeInTheDocument()
     expect(screen.getAllByText('ECOPETROL.CL').length).toBeGreaterThan(1)
     expect(screen.getAllByText('Energía')).toHaveLength(2)

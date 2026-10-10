@@ -139,7 +139,7 @@ public class PortfolioReportTemplateModelFactory {
         var title = capitalize(movement.type()) + (ticker == null ? "" : " · " + ticker);
         var detail = movement.quantity() == null
                 ? compactMoney(movement.totalAmount())
-                : formatQuantity(movement.quantity()) + " acciones · " + compactMoney(movement.totalAmount());
+                : formatQuantity(movement.quantity()) + (movement.type().toLowerCase(SPANISH).endsWith("usd") ? " USD · " : " acciones · ") + compactMoney(movement.totalAmount()) + " " + movement.currency();
         return new PortfolioReportTemplateModel.Movement(
                 movement.type(),
                 ticker,
@@ -234,7 +234,7 @@ public class PortfolioReportTemplateModelFactory {
         if (data.unpricedPositions() == 0 && data.provisionalPrices() == 0) {
             return "Hay precios históricos o movimientos que necesitan revisión antes de completar el informe";
         }
-        return "Faltan precios para " + data.unpricedPositions() + " acciones y "
+        return "Faltan precios para " + data.unpricedPositions() + " activos y "
                 + data.provisionalPrices() + " precios todavía son aproximados";
     }
 

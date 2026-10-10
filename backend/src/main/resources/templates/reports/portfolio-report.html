@@ -38,7 +38,7 @@
         </section>
 
         <section class="card impact">
-            <h2>Las acciones que más cambiaron tu resultado</h2>
+            <h2>Los activos que más cambiaron tu resultado</h2>
             <p class="section-subtitle">Cuánto sumó o restó durante estas fechas.</p>
             <div class="impact-grid">
                 <article class="impact-box" th:with="asset=${report.bestImpact}">
@@ -56,7 +56,7 @@
                     <div class="impact-asset impact-empty" th:unless="${asset.available}">
                         <div class="ticker-avatar" th:classappend="${asset.tone}" th:text="${asset.initials}">✓</div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name}">Todavía no hay una acción destacada</p>
+                            <p class="impact-name" th:text="${asset.name}">Todavía no hay un activo destacado</p>
                             <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">Sin aumento registrado</p>
                         </div>
                     </div>
@@ -76,7 +76,7 @@
                     <div class="impact-asset impact-empty" th:unless="${asset.available}">
                         <div class="ticker-avatar" th:classappend="${asset.tone}" th:text="${asset.initials}">✓</div>
                         <div class="impact-copy">
-                            <p class="impact-name" th:text="${asset.name}">Ninguna acción redujo el resultado</p>
+                            <p class="impact-name" th:text="${asset.name}">Ningún activo redujo el resultado</p>
                             <p class="impact-result" th:classappend="${asset.tone}" th:text="${asset.result}">Buena señal para este periodo</p>
                         </div>
                     </div>
@@ -132,10 +132,10 @@
         </section>
 
 
-        <section class="performance-grid" aria-label="Resultados por acción">
+        <section class="performance-grid" aria-label="Resultados por activo">
             <article class="card performance-card">
                 <header>
-                    <h3>Ganancias por acción</h3>
+                    <h3>Ganancias por activo</h3>
                     <p>Ganancia o pérdida acumulada de cada posición.</p>
                 </header>
                 <p class="performance-empty" th:if="${report.gainsByAsset.isEmpty()}">Aún no hay ganancias o pérdidas para mostrar.</p>
@@ -169,12 +169,12 @@
 
         <section class="card composition">
             <h2>¿Dónde está invertido tu dinero?</h2>
-            <p class="section-subtitle">El gráfico muestra qué parte del portafolio representa cada acción.</p>
+            <p class="section-subtitle">El gráfico muestra qué parte del portafolio representa cada activo.</p>
             <div class="composition-grid">
                 <div class="composition-column">
                     <p class="empty-breakdown" th:if="${report.assetAllocation.isEmpty()}">Aún no hay información para mostrar.</p>
                     <div class="asset-donut-layout" th:unless="${report.assetAllocation.isEmpty()}">
-                        <svg class="asset-donut" viewBox="0 0 240 240" role="img" aria-label="Composición por acción">
+                        <svg class="asset-donut" viewBox="0 0 240 240" role="img" aria-label="Composición por activo">
                             <circle class="donut-base" cx="120" cy="120" r="82"/>
                             <circle class="donut-segment" cx="120" cy="120" r="82" pathLength="100"
                                     transform="rotate(-90 120 120)"

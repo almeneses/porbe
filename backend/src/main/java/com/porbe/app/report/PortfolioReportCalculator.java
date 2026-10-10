@@ -280,7 +280,8 @@ public class PortfolioReportCalculator {
                 operation.getName(),
                 operation.getQuantity(),
                 operation.getTotalAmount(),
-                operation.getTicker() == null ? null : icons.get(operation.getTicker().toUpperCase(Locale.ROOT))))
+                operation.getTicker() == null ? null : icons.get(operation.getTicker().toUpperCase(Locale.ROOT)),
+                operation.getCurrency()))
                 .toList();
     }
 

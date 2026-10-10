@@ -55,19 +55,28 @@ public class PortfolioValuationService {
         var operations = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio);
         var baseCurrency = portfolio.getBaseCurrency().toUpperCase(Locale.ROOT);
         var instruments = instrumentsByTicker(PortfolioValuationCalculator.tickers(operations));
-        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments);
+        var cutoff = java.time.LocalDate.ofInstant(clock.instant(), java.time.ZoneId.of("America/Bogota"));
+        var fxHistory = new java.util.TreeMap<java.time.LocalDate, com.porbe.app.market.MarketPriceDaily>();
+        var dollar = instruments.get("COP=X");
+        if (dollar != null) {
+            priceRepository.findByInstrumentAndPriceDateLessThanEqualOrderByPriceDateAsc(dollar, cutoff)
+                    .forEach(price -> fxHistory.put(price.getPriceDate(), price));
+        }
+        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments,
+                date -> PortfolioValuationCalculator.latestPrice(fxHistory, date));
         operations.forEach(calculator::apply);
         var rawPositions = calculator.positions(ticker -> {
+            if ("COP=X".equals(ticker)) return PortfolioValuationCalculator.latestPrice(fxHistory, cutoff);
             var instrument = instruments.get(ticker);
-            return instrument == null ? null
-                    : priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElse(null);
+            return instrument == null ? null : priceRepository
+                    .findTopByInstrumentAndPriceDateLessThanEqualOrderByPriceDateDesc(instrument, cutoff).orElse(null);
         });
         var issues = rawPositions.stream()
                 .filter(position -> !position.calculationComplete())
                 .map(position -> new PortfolioValuationIssue(
                         position.ticker(),
-                        "VENTA_SIN_POSICION",
-                        "La cantidad vendida supera la posición disponible. Revisa el orden y las cantidades importadas."))
+                        position.quantity().signum() < 0 ? "VENTA_SIN_POSICION" : "CONTABILIDAD_INCOMPLETA",
+                        "Revisa saldos, monedas y cotizaciones históricas USD/COP; el costo o la cantidad no se pudo reconstruir."))
                 .toList();
 
         var eligibleMarketValue = rawPositions.stream()
@@ -88,7 +97,7 @@ public class PortfolioValuationService {
         var dividends = sumAmounts(eligiblePositions, PortfolioPositionResponse::dividends);
         var realizedGain = sumAmounts(eligiblePositions, PortfolioPositionResponse::realizedGain);
         var unrealizedGain = sumAmounts(eligiblePositions, PortfolioPositionResponse::unrealizedGain);
-        var totalPurchases = sumAmounts(eligiblePositions, PortfolioPositionResponse::totalPurchases);
+        var totalPurchases = calculator.totalPurchases();
         var totalGain = realizedGain.add(unrealizedGain).add(dividends);
         var cashBalance = calculator.cashBalance();
         var netContributions = calculator.netContributions();

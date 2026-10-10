@@ -96,7 +96,7 @@ public class PortfolioHistoryService {
         var baseCurrency = portfolio.getBaseCurrency().toUpperCase(Locale.ROOT);
         var instruments = instrumentsByTicker(PortfolioValuationCalculator.tickers(operations));
         var prices = pricesByTicker(instruments, lastCompletedWeek);
-        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments);
+        var calculator = new PortfolioValuationCalculator(baseCurrency, instruments, date -> latestPrice(prices.get("COP=X"), date));
         var weeks = new ArrayList<PortfolioWeeklySnapshot>();
         var operationIndex = 0;
         BigDecimal previousPortfolioValue = null;
@@ -164,7 +164,7 @@ public class PortfolioHistoryService {
                 totalMwr = moneyWeightedReturn(firstContribution, BigDecimal.ZERO, flows, end, finalValue, false);
                 annualizedMwr = moneyWeightedReturn(firstContribution, BigDecimal.ZERO, flows, end, finalValue, true);
                 var yearStart = LocalDate.of(end.getYear(), 1, 1);
-                var opening = new PortfolioValuationCalculator(baseCurrency, instruments);
+                var opening = new PortfolioValuationCalculator(baseCurrency, instruments, date -> latestPrice(prices.get("COP=X"), date));
                 operations.stream().filter(operation -> operation.getDate().isBefore(yearStart)).forEach(opening::apply);
                 var initialValue = performanceValue(snapshot(yearStart.minusDays(1), opening, prices, null));
                 var yearFlows = flows.stream().filter(flow -> !flow.date().isBefore(yearStart)).toList();

@@ -44,4 +44,9 @@ public interface PortfolioOperationRepository extends JpaRepository<PortfolioOpe
             ORDER BY UPPER(operation.ticker)
             """)
     List<PortfolioTickerRange> findPortfolioTickerRanges(Portfolio portfolio);
+    @Query("SELECT MIN(o.date) FROM PortfolioOperation o WHERE o.currency = 'USD' OR o.type IN (com.porbe.app.operation.OperationType.COMPRA_USD, com.porbe.app.operation.OperationType.VENTA_USD)")
+    java.util.Optional<LocalDate> firstUsdOperationDate();
+
+    @Query("SELECT MIN(o.date) FROM PortfolioOperation o WHERE o.portfolio = :portfolio AND (o.currency = 'USD' OR o.type IN (com.porbe.app.operation.OperationType.COMPRA_USD, com.porbe.app.operation.OperationType.VENTA_USD))")
+    java.util.Optional<LocalDate> firstUsdOperationDate(Portfolio portfolio);
 }

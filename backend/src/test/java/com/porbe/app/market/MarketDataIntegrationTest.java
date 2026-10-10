@@ -265,6 +265,28 @@ class MarketDataIntegrationTest {
                 .andExpect(jsonPath("$.storedPrices").value(0));
     }
 
+    @Test
+    void syncsDollarCashWithoutStocksAndBackfillsBeforePreviouslyStoredHistory() {
+        var portfolio = portfolioService.getOrCreateDefaultPortfolio();
+        var batch = importBatchRepository.save(new ImportBatch(portfolio, "usd", "usd-hash", 1, "admin"));
+        var firstDate = LocalDate.of(2023, 1, 7);
+        operationRepository.save(new PortfolioOperation(portfolio, batch, firstDate, OperationType.COMPRA_USD,
+                null, null, new BigDecimal("100"), new BigDecimal("4000"), BigDecimal.ZERO, new BigDecimal("400000"), null));
+        var instrument = instrumentRepository.save(new MarketInstrument("COP=X"));
+        var latest = LocalDate.of(2026, 1, 9);
+        priceRepository.save(new MarketPriceDaily(instrument, nucoBar(latest, "4200"), "YAHOO_FINANCE", OffsetDateTime.now()));
+        var resultSeries = new MarketDataSeries("COP=X", "USD/COP", "COP", "CCY", "CURRENCY", "Europe/London",
+                new BigDecimal("4200"), List.of(nucoBar(firstDate.minusDays(1), "4000"), nucoBar(latest, "4200")));
+        given(provider.fetchDaily(eq("COP=X"), any(LocalDate.class), any(LocalDate.class))).willReturn(resultSeries);
+        var response = syncService.syncPortfolio(portfolio.getId());
+        assertThat(response.totalTickers()).isEqualTo(1);
+        assertThat(response.successfulTickers()).isEqualTo(1);
+        verify(provider).fetchDaily(eq("COP=X"), eq(firstDate.minusDays(7)), any(LocalDate.class));
+        assertThat(syncService.status(portfolio.getId()).tickers()).extracting(MarketTickerStatus::ticker).containsExactly("COP=X");
+        syncService.syncPortfolio(portfolio.getId());
+        verify(provider).fetchDaily(eq("COP=X"), eq(latest), any(LocalDate.class));
+    }
+
     private void createPurchase() {
         createPurchase("ECOPETROL.CL");
     }

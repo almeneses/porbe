@@ -38,19 +38,38 @@ public class OperationRules {
                 request.unitPrice(),
                 request.commission() == null ? BigDecimal.ZERO : request.commission(),
                 request.totalAmount(),
-                nullIfBlank(request.notes()));
+                nullIfBlank(request.notes()),
+                request.currency() == null || request.currency().isBlank() ? "COP" : request.currency().trim().toUpperCase(Locale.ROOT));
     }
 
     /** Devuelve todos los problemas para corregir el formulario en un solo intento. */
     public List<OperationFieldError> validate(OperationData data) {
         var errors = new ArrayList<OperationFieldError>();
+        if (!"COP".equals(data.currency()) && !"USD".equals(data.currency())) {
+            errors.add(error("currency", "Selecciona COP o USD."));
+        }
+        if (data.type() != null && (data.type().isExchange() || data.type() == OperationType.DEPOSITO
+                || data.type() == OperationType.RETIRO) && !"COP".equals(data.currency())) {
+            errors.add(error("currency", "Los cambios de moneda, depósitos y retiros se registran en COP."));
+        }
+        if (data.type() != null && data.type().isExchange()
+                && ((data.quantity() != null && data.quantity().signum() <= 0)
+                || (data.unitPrice() != null && data.unitPrice().signum() <= 0))) {
+            errors.add(error("quantity", "La cantidad USD y la tasa COP/USD deben ser mayores que cero."));
+        }
+        if (data.type() != null && data.type().isExchange() && data.ticker() != null) {
+            errors.add(error("ticker", "El cambio de moneda no lleva ticker."));
+        }
+        if ("COP=X".equals(data.ticker())) {
+            errors.add(error("ticker", "COP=X es la cotización del dólar. Usa compra USD o venta USD."));
+        }
         if (data.date() == null) {
             errors.add(error("date", "La fecha es obligatoria."));
         } else if (data.date().isAfter(LocalDate.now(clock.withZone(BUSINESS_ZONE)))) {
             errors.add(error("date", "La fecha no puede estar en el futuro."));
         }
         if (data.type() == null) {
-            errors.add(error("type", "Selecciona compra, venta, dividendo, depósito o retiro."));
+            errors.add(error("type", "Selecciona compra, venta, dividendo, depósito, retiro, compra USD o venta USD."));
         }
         if (data.ticker() != null && !TICKER_PATTERN.matcher(data.ticker()).matches()) {
             errors.add(error("ticker", "El ticker no tiene un formato Yahoo Finance válido."));
@@ -82,7 +101,7 @@ public class OperationRules {
             errors.add(error("name", "El nombre es obligatorio para esta operación."));
         }
 
-        if (data.type() == OperationType.COMPRA || data.type() == OperationType.VENTA) {
+        if (data.type() == OperationType.COMPRA || data.type() == OperationType.VENTA || data.type().isExchange()) {
             if (data.quantity() == null) {
                 errors.add(error("quantity", "La cantidad es obligatoria para compras y ventas."));
             }
@@ -91,7 +110,7 @@ public class OperationRules {
             }
             if (data.quantity() != null && data.unitPrice() != null && data.totalAmount() != null) {
                 var gross = data.quantity().multiply(data.unitPrice());
-                var expected = data.type() == OperationType.COMPRA
+                var expected = data.type() == OperationType.COMPRA || data.type() == OperationType.COMPRA_USD
                         ? gross.add(data.commission())
                         : gross.subtract(data.commission());
                 validateExpectedTotal(expected, data.totalAmount(), errors);

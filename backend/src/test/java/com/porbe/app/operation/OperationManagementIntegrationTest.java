@@ -226,6 +226,49 @@ class OperationManagementIntegrationTest {
         assertThat(operationRepository.findAllByPortfolioOrderByDateAscIdAsc(other)).hasSize(1);
     }
 
+    @Test
+    void exportsAndReimportsUsdAndAtomicExchangeAndRejectsUnknownCurrencies() throws Exception {
+        var source = portfolioService.getOrCreateDefaultPortfolio();
+        var target = portfolioService.create("USD import");
+        var exchange = """
+                {"date":"2026-01-02","type":"compra USD","currency":"COP","quantity":1000,
+                 "unitPrice":4000,"commission":0,"totalAmount":4000000}
+                """;
+        mockMvc.perform(post("/api/operations").param("portfolioId", source.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON).content(exchange)
+                        .with(user("admin").roles("ADMIN")).with(csrf().asHeader()))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.currency").value("COP"));
+        var purchase = """
+                {"date":"2026-01-03","type":"compra","currency":"USD","ticker":"HIMS","name":"Hims",
+                 "quantity":2,"unitPrice":200,"commission":0,"totalAmount":400}
+                """;
+        mockMvc.perform(post("/api/operations").param("portfolioId", source.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON).content(purchase)
+                        .with(user("admin").roles("ADMIN")).with(csrf().asHeader()))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.currency").value("USD"))
+                .andExpect(jsonPath("$.consistencyIssue").doesNotExist());
+        mockMvc.perform(post("/api/operations").contentType(MediaType.APPLICATION_JSON)
+                        .content(purchase.replace("USD", "EUR")).with(user("admin").roles("ADMIN")).with(csrf().asHeader()))
+                .andExpect(status().isUnprocessableEntity());
+        var bytes = mockMvc.perform(get("/api/operations/export").param("portfolioId", source.getId().toString())
+                        .with(user("admin").roles("ADMIN"))).andReturn().getResponse().getContentAsByteArray();
+        mockMvc.perform(multipart("/api/portfolio-import").file(new MockMultipartFile("file", "usd.xlsx",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes))
+                        .param("portfolioId", target.id().toString()).with(user("admin").roles("ADMIN")).with(csrf().asHeader()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.importedRows").value(2));
+        var imported = operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolioService.getPortfolio(target.id()));
+        assertThat(imported).extracting(PortfolioOperation::getCurrency).containsExactly("COP", "USD");
+        assertThat(imported).extracting(PortfolioOperation::getType).containsExactly(OperationType.COMPRA_USD, OperationType.COMPRA);
+        var template = mockMvc.perform(get("/api/portfolio-import/template").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(template))) {
+            assertThat(workbook.getSheet("Operaciones").getRow(0).getCell(9).getStringCellValue()).isEqualTo("moneda");
+            assertThat(workbook.getSheet("Operaciones").getDataValidations().stream()
+                    .filter(validation -> validation.getRegions().getCellRangeAddresses()[0].getFirstColumn() == 1)
+                    .findFirst().orElseThrow().getValidationConstraint().getFormula1()).contains("compra USD", "venta USD");
+        }
+    }
+
     private String purchase(String quantity, String price, String commission, String total) {
         return operationJson("compra", quantity, price, commission, total);
     }

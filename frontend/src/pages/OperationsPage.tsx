@@ -232,7 +232,7 @@ function OperationRow({ operation, onEdit, onDelete }: { operation: PortfolioOpe
     <tr className={operation.consistencyIssue ? 'operation-row--issue' : undefined}>
       <td>{formatDate(operation.date)}</td><td><OperationBadge type={operation.type} /></td><td><Asset operation={operation} /></td>
       <td className="numeric-cell">{operation.quantity == null ? '—' : formatQuantity(operation.quantity)}</td>
-      <td className={`numeric-cell cash-impact${operation.cashImpact >= 0 ? ' cash-impact--positive' : ' cash-impact--negative'}`}>{operation.cashImpact >= 0 ? '+' : '−'} {formatAmount(Math.abs(operation.cashImpact))}</td>
+      <td className={`numeric-cell cash-impact${operation.cashImpact >= 0 ? ' cash-impact--positive' : ' cash-impact--negative'}`}>{operation.cashImpact >= 0 ? '+' : '−'} {formatAmount(Math.abs(operation.cashImpact))} {operation.currency ?? 'COP'}</td>
       <td><SourceLabel operation={operation} /></td>
       <td>{operation.consistencyIssue ? <span className="operation-issue" title={operation.consistencyIssue}><AlertCircle size={13} />{t('operations.review')}</span> : <span className="operation-ok">{t('operations.consistent')}</span>}</td>
       <td><RowActions operation={operation} onEdit={onEdit} onDelete={onDelete} /></td>
@@ -247,7 +247,7 @@ function OperationCard({ operation, onEdit, onDelete }: { operation: PortfolioOp
       <div className="operation-card__top"><OperationBadge type={operation.type} /><time>{formatDate(operation.date)}</time></div>
       <Asset operation={operation} />
       {operation.consistencyIssue && <p className="operation-card__issue"><AlertCircle size={14} />{operation.consistencyIssue}</p>}
-      <div className="operation-card__numbers"><span><small>{t('operations.quantity')}</small><strong>{operation.quantity == null ? '—' : formatQuantity(operation.quantity)}</strong></span><span><small>{t('operations.total')}</small><strong className={operation.cashImpact >= 0 ? 'positive' : 'negative'}>{operation.cashImpact >= 0 ? '+' : '−'} {formatAmount(Math.abs(operation.cashImpact))}</strong></span></div>
+      <div className="operation-card__numbers"><span><small>{t('operations.quantity')}</small><strong>{operation.quantity == null ? '—' : formatQuantity(operation.quantity)}</strong></span><span><small>{t('operations.total')}</small><strong className={operation.cashImpact >= 0 ? 'positive' : 'negative'}>{operation.cashImpact >= 0 ? '+' : '−'} {formatAmount(Math.abs(operation.cashImpact))} {operation.currency ?? 'COP'}</strong></span></div>
       <div className="operation-card__footer"><SourceLabel operation={operation} /><RowActions operation={operation} onEdit={onEdit} onDelete={onDelete} /></div>
     </article>
   )
@@ -274,7 +274,7 @@ function OperationBadge({ type }: { type: PortfolioOperation['type'] }) {
 
 function OperationTypeOptions() {
   const { t } = useTranslation()
-  return <>{(['compra', 'venta', 'dividendo', 'depósito', 'retiro'] as const).map((type) => <option key={type} value={type}>{t(`operations.types.${type}`)}</option>)}</>
+  return <>{(['compra', 'venta', 'dividendo', 'depósito', 'retiro', 'compra USD', 'venta USD'] as const).map((type) => <option key={type} value={type}>{t(`operations.types.${type}`)}</option>)}</>
 }
 
 /** Lista lotes Excel por separado para hacer explícito el alcance de una reversión. */
