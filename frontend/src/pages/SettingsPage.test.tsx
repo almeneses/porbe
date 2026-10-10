@@ -25,6 +25,9 @@ vi.mock('../report/api', () => ({
   reportApi: {
     schedule: vi.fn(),
     updateSchedule: vi.fn(),
+    aiGuidance: vi.fn(),
+    saveAiGuidance: vi.fn(),
+    cancelAiGuidance: vi.fn(),
     aiInfo: vi.fn(),
     updateAiInfo: vi.fn(),
     whatsAppRecipients: vi.fn(),
@@ -43,6 +46,7 @@ describe('SettingsPage', () => {
     vi.mocked(marketDataApi.updateSchedule).mockResolvedValue({ ...schedule, dayOfWeek: 'FRIDAY', runTime: '18:00' })
     vi.mocked(reportApi.schedule).mockResolvedValue(reportSchedule)
     vi.mocked(reportApi.updateSchedule).mockResolvedValue({ ...reportSchedule, dayOfWeek: 'MONDAY', runTime: '07:15', timezone: 'America/Lima' })
+    vi.mocked(reportApi.aiGuidance).mockResolvedValue({ text: "", status: "NONE", revision: 0, updatedAt: null })
     vi.mocked(reportApi.aiInfo).mockResolvedValue(aiSettings)
     vi.mocked(reportApi.updateAiInfo).mockResolvedValue({ ...aiSettings, model: 'gpt-5.5', effort: 'medium' })
     vi.mocked(reportApi.whatsAppRecipients).mockResolvedValue(recipients)

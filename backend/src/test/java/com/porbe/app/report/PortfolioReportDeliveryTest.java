@@ -5,7 +5,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.porbe.app.portfolio.Portfolio;
-import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,9 @@ class PortfolioReportDeliveryTest {
                 deliveryProvider,
                 recipientService,
                 mock(com.porbe.app.portfolio.PortfolioService.class),
-                Clock.systemUTC());
+                mock(com.porbe.app.operation.PortfolioOperationRepository.class),
+                mock(PortfolioReportAiGuidanceService.class),
+                mock(com.porbe.app.portfolio.PortfolioHistoryService.class));
 
         when(repository.findById(7L)).thenReturn(Optional.of(report));
         when(repository.save(report)).thenReturn(report);

@@ -75,7 +75,19 @@ export interface WhatsAppRecipient {
   updatedAt: string
 }
 
+export interface PortfolioReportAiGuidance {
+  text: string
+  status: 'NONE' | 'PENDING' | 'USED'
+  revision: number
+  updatedAt: string | null
+}
+
 export const reportApi = {
+  aiGuidance: (portfolioId: number) => apiRequest<PortfolioReportAiGuidance>(`/api/reports/ai-guidance?portfolioId=${portfolioId}`),
+  saveAiGuidance: (portfolioId: number, text: string) => apiRequest<PortfolioReportAiGuidance>(`/api/reports/ai-guidance?portfolioId=${portfolioId}`, {
+    method: 'PUT', body: JSON.stringify({ text }),
+  }),
+  cancelAiGuidance: (portfolioId: number) => apiRequest<PortfolioReportAiGuidance>(`/api/reports/ai-guidance?portfolioId=${portfolioId}`, { method: 'DELETE' }),
   list: (portfolioId: number) => apiRequest<PortfolioReport[]>(`/api/reports?portfolioId=${portfolioId}`),
   schedule: () => apiRequest<PortfolioReportSchedule>('/api/reports/schedule'),
   updateSchedule: (schedule: Pick<PortfolioReportSchedule, 'enabled' | 'dayOfWeek' | 'runTime' | 'timezone'>) =>
