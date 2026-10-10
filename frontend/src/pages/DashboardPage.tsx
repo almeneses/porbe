@@ -243,6 +243,7 @@ function ValuationAlert({ summary }: { summary: PortfolioSummary }) {
       <div>
         <strong>{t('dashboard.partialTitle')}</strong>
         {summary.unpricedPositions > 0 && <p>{t('dashboard.unpricedWarning', { count: summary.unpricedPositions })}</p>}
+        {summary.positions.some((position) => position.ticker === 'COP=X') && <p>{t('dashboard.usdValuationHint')}</p>}
         {summary.foreignCurrencyPositions > 0 && <p>{t('dashboard.foreignWarning', { count: summary.foreignCurrencyPositions, currency: summary.baseCurrency })}</p>}
         {summary.issues.map((issue) => <p key={`${issue.ticker}-${issue.code}`}><b>{issue.ticker}:</b> {issue.message}</p>)}
       </div>

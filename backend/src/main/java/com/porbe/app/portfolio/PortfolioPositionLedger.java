@@ -1,6 +1,5 @@
 package com.porbe.app.portfolio;
 
-import com.porbe.app.operation.PortfolioOperation;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -26,44 +25,42 @@ final class PortfolioPositionLedger {
         this.ticker = ticker;
     }
 
-    /** Aplica una operación y libera costo promedio cuando se registra una venta. */
-    void apply(PortfolioOperation operation) {
-        if (operation.getName() != null && !operation.getName().isBlank()) {
-            name = operation.getName();
-        }
-        switch (operation.getType()) {
-            case COMPRA -> applyPurchase(operation);
-            case VENTA -> applySale(operation);
-            case DIVIDENDO -> dividends = dividends.add(operation.getTotalAmount());
-            case DEPOSITO, RETIRO -> {
-                // Los movimientos de caja no pertenecen a una posición por ticker.
-            }
-        }
-    }
-
-    private void applyPurchase(PortfolioOperation operation) {
-        netQuantity = netQuantity.add(operation.getQuantity());
-        totalPurchases = totalPurchases.add(operation.getTotalAmount());
+    void purchase(BigDecimal quantity, BigDecimal amount) {
+        netQuantity = netQuantity.add(quantity);
+        totalPurchases = totalPurchases.add(amount);
         if (calculationComplete) {
-            accountingQuantity = accountingQuantity.add(operation.getQuantity());
-            costBasis = costBasis.add(operation.getTotalAmount());
+            accountingQuantity = accountingQuantity.add(quantity);
+            costBasis = costBasis.add(amount);
         }
     }
 
-    private void applySale(PortfolioOperation operation) {
-        netQuantity = netQuantity.subtract(operation.getQuantity());
+    /** Libera costo promedio y reconoce el resultado realizado de la salida. */
+    void sale(BigDecimal quantity, BigDecimal amount) {
+        netQuantity = netQuantity.subtract(quantity);
         if (!calculationComplete) {
             return;
         }
-        if (accountingQuantity.signum() <= 0 || operation.getQuantity().compareTo(accountingQuantity) > 0) {
+        if (accountingQuantity.signum() <= 0 || quantity.compareTo(accountingQuantity) > 0) {
             calculationComplete = false;
             return;
         }
         var averageCost = costBasis.divide(accountingQuantity, CALCULATION_SCALE, RoundingMode.HALF_UP);
-        var releasedCost = averageCost.multiply(operation.getQuantity());
-        realizedGain = realizedGain.add(operation.getTotalAmount().subtract(releasedCost));
-        accountingQuantity = accountingQuantity.subtract(operation.getQuantity());
+        var releasedCost = averageCost.multiply(quantity);
+        realizedGain = realizedGain.add(amount.subtract(releasedCost));
+        accountingQuantity = accountingQuantity.subtract(quantity);
         costBasis = accountingQuantity.signum() == 0 ? BigDecimal.ZERO : costBasis.subtract(releasedCost);
+    }
+
+    void name(String name) {
+        if (name != null && !name.isBlank()) this.name = name;
+    }
+
+    void dividend(BigDecimal amount) {
+        dividends = dividends.add(amount);
+    }
+
+    void incomplete() {
+        calculationComplete = false;
     }
 
     String ticker() {

@@ -28,7 +28,7 @@ El archivo contiene las hojas `Instrucciones`, `Operaciones` y `Ejemplos`. La ho
 | Columna | Regla principal |
 | --- | --- |
 | `fecha` | Fecha de la operación en `dd-mm-aaaa`, `dd/mm/aaaa` o `aaaa-mm-dd`; también admite una fecha nativa de Excel y no puede estar en el futuro. |
-| `operación` | `compra`, `venta`, `dividendo`, `depósito` o `retiro`. |
+| `operación` | `compra`, `venta`, `dividendo`, `depósito`, `retiro`, `compra USD` o `venta USD`. |
 | `ticker` | Símbolo de Yahoo Finance, por ejemplo `ECOPETROL.CL`. |
 | `nombre` | Nombre del activo. |
 | `cantidad` | Obligatoria para compras y ventas. |
@@ -36,8 +36,21 @@ El archivo contiene las hojas `Instrucciones`, `Operaciones` y `Ejemplos`. La ho
 | `comisión` | Valor positivo o cero. |
 | `total del movimiento` | Magnitud positiva del movimiento. |
 | `notas` | Texto opcional. |
+| `moneda` | COP o USD para acciones. Opcional en archivos antiguos, que mantienen COP. Cambios de moneda, depósitos y retiros usan COP. |
 
 El signo en caja se deriva del tipo de operación: compras y retiros restan; ventas, dividendos y depósitos suman. Para compras y ventas se comprueba que el total coincida con cantidad por precio, ajustado por comisión.
+
+### Dólares e inversiones internacionales
+
+En **Operaciones**, `Compra de dólares` y `Venta de dólares` registran en una sola fila la cantidad USD, la tasa real COP/USD y la comisión COP. El total COP incluye la comisión al comprar y la descuenta al vender. No son aportes ni retiros del portafolio. Compras de acciones en USD consumen ese saldo; ventas y dividendos en USD lo aumentan. La interfaz y Excel permiten elegir explícitamente la moneda, incluso antes de sincronizar Yahoo.
+
+`COP=X` se añade automáticamente a Mercado cuando hay movimientos USD, aunque sólo se hayan comprado dólares. Yahoo guarda su histórico diario como los demás precios, sin depender de una consulta en vivo para cada valoración. Su cotización no sustituye la tasa real de tus cambios de moneda. El acceso público a Yahoo para COP=X fue comprobado el 9 de octubre de 2026, sin garantía de disponibilidad futura.
+
+Resumen, historial semanal y reportes expresan los importes de posiciones internacionales en COP. La fila `COP=X · Dólar disponible` muestra cantidad USD, costo promedio de adquisición COP y su valor actual COP. **Efectivo COP** sólo contiene pesos, por lo que los dólares no se suman dos veces. Las acciones USD mantienen cantidades de acciones y muestran precios equivalentes COP.
+
+Se usa la última cotización USD/COP cuya fecha sea menor o igual al corte, nunca una futura. Costos, ventas y dividendos se convierten con la cotización histórica de su operación. Al consumir dólares se libera su costo promedio COP y se reconoce el efecto cambiario; al vender acciones o recibir dividendos se incorpora efectivo USD con costo COP de esa fecha. Las comisiones quedan incluidas. La ganancia económica total incluye bolsa y cambio de moneda, sin separar ambos efectos en paneles nuevos. La rentabilidad simple divide la ganancia por compras acumuladas de acciones COP más el total COP entregado al comprar dólares, evitando contar primero dólares y luego acciones USD como dos inversiones. Vender dólares o retirar efectivo no borra ese capital histórico; TWR/MWR conservan sólo depósitos/retiros COP como flujos externos.
+
+Si faltan cotizaciones actuales o históricas, hay saldo USD negativo, ventas sin posición o un mismo ticker mezcla monedas, la valoración queda incompleta y las tasas TWR/MWR afectadas no se publican. Los totales parciales no representan la valoración completa. Las operaciones antiguas no se reescriben: conservan COP. Si Yahoo identifica una moneda incompatible, la posición se mantiene fuera del consolidado con aviso hasta corregir la moneda y registrar el efectivo USD previo. No se incluyen otras monedas, cuentas múltiples, depósitos/retiros USD ni cálculos fiscales.
 
 ### Incremento 3: datos de mercado
 
@@ -51,7 +64,7 @@ El signo en caja se deriva del tipo de operación: compras y retiros restan; ven
 
 La sincronización toma los tickers de las operaciones y comienza en el último día guardado con el mismo proveedor, incluyéndolo para corregir precios provisionales. Sin datos, o al cambiar de proveedor, comienza el 19 de enero de 2024. Para NUCO, la primera sincronización con Stock Analysis reemplaza únicamente las fechas disponibles en su serie pública y conserva las anteriores.
 
-Stock Analysis expone actualmente unos seis meses de histórico en esa página. La sincronización avisa cuando no cubre todo el rango solicitado. No reconstruye automáticamente el histórico anterior a esa ventana. El precio del día se considera provisional hasta el día siguiente en Bogotá. Si la página falla, cambia de formato o no identifica NUCO en COP, se reporta el error sin recurrir a Yahoo ni modificar los precios guardados de NUCO. `NU` de Estados Unidos sigue usando Yahoo y no se convierte a COP.
+Stock Analysis expone actualmente unos seis meses de histórico en esa página. La sincronización avisa cuando no cubre todo el rango solicitado. No reconstruye automáticamente el histórico anterior a esa ventana. El precio del día se considera provisional hasta el día siguiente en Bogotá. Si la página falla, cambia de formato o no identifica NUCO en COP, se reporta el error sin recurrir a Yahoo ni modificar los precios guardados de NUCO. `NU` de Estados Unidos sigue usando Yahoo y se convierte a COP si sus operaciones se registran en USD.
 
 Ninguna de estas consultas requiere credenciales. El scraping depende del formato y de la disponibilidad de la página pública, y no constituye una API con garantía de servicio.
 
@@ -120,11 +133,11 @@ python -m unittest discover -s scripts -p 'test_*.py'
 - Ganancia realizada en ventas y ganancia no realizada contra el último precio.
 - Dividendos, efectivo acumulado, aportes netos y resultado total del portafolio.
 - Detección de ventas superiores a la cantidad disponible.
-- Valoración parcial explícita cuando falta un precio o el activo usa otra moneda.
+- Valoración parcial explícita cuando falta un precio, una cotización histórica USD/COP o la moneda registrada es incompatible.
 - Dashboard conectado a datos reales, con mejor y menor resultado por activo.
 - Posiciones en tabla para computador y tarjetas para móvil.
 
-La valoración usa los importes de compra con comisión incluida y los importes netos de venta. Las posiciones en una moneda diferente a la moneda base se muestran individualmente, pero se excluyen del total hasta incorporar conversión de divisas.
+La valoración usa los importes de compra con comisión incluida y los importes netos de venta. Las posiciones registradas en USD se convierten a COP con cotizaciones históricas de COP=X. Las monedas incompatibles se muestran individualmente y quedan fuera del total hasta corregir las operaciones.
 
 Endpoint principal:
 

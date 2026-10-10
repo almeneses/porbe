@@ -30,7 +30,32 @@ public class PortfolioImportController {
 
     @GetMapping("/template")
     ResponseEntity<Resource> template() throws IOException {
-        var resource = new ClassPathResource("templates/plantilla_importacion_portafolio.xlsx");
+        var template = new ClassPathResource("templates/plantilla_importacion_portafolio.xlsx");
+        org.springframework.core.io.ByteArrayResource resource;
+        try (var input = template.getInputStream();
+                var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(input);
+                var output = new java.io.ByteArrayOutputStream()) {
+            var sheet = workbook.getSheet("Operaciones");
+            var currencyHeader = sheet.getRow(0).createCell(9);
+            currencyHeader.setCellValue("moneda");
+            currencyHeader.setCellStyle(sheet.getRow(0).getCell(8).getCellStyle());
+            sheet.setColumnWidth(9, 12 * 256);
+            for (var row : sheet) {
+                if (row.getRowNum() > 0 && row.getCell(0) != null) row.createCell(9).setCellValue("COP");
+            }
+            for (var index = 0; index < sheet.getDataValidations().size(); index++) {
+                var validation = sheet.getDataValidations().get(index);
+                if (validation.getRegions().getCellRangeAddresses()[0].getFirstColumn() == 1) {
+                    sheet.getCTWorksheet().getDataValidations().getDataValidationArray(index)
+                            .setFormula1("\"compra,venta,dividendo,depósito,retiro,compra USD,venta USD\"");
+                }
+            }
+            var helper = sheet.getDataValidationHelper();
+            sheet.addValidationData(helper.createValidation(helper.createExplicitListConstraint(new String[]{"COP", "USD"}),
+                    new org.apache.poi.ss.util.CellRangeAddressList(1, 5000, 9, 9)));
+            workbook.write(output);
+            resource = new org.springframework.core.io.ByteArrayResource(output.toByteArray());
+        }
         return ResponseEntity.ok()
                 .contentType(XLSX_MEDIA_TYPE)
                 .contentLength(resource.contentLength())

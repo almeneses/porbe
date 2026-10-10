@@ -95,8 +95,8 @@
     "partialTitle": "Valoración parcial",
     "unpricedWarning_one": "Hay {{count}} posición abierta sin precio. Actualiza los datos de mercado para incluirla en el total.",
     "unpricedWarning_other": "Hay {{count}} posiciones abiertas sin precio. Actualiza los datos de mercado para incluirlas en el total.",
-    "foreignWarning_one": "{{count}} posición usa otra moneda y se muestra por separado del total en {{currency}}.",
-    "foreignWarning_other": "{{count}} posiciones usan otra moneda y se muestran por separado del total en {{currency}}.",
+    "foreignWarning_one": "{{count}} posición tiene una moneda incompatible y está fuera del total en {{currency}}. Revisa la moneda de sus operaciones.",
+    "foreignWarning_other": "{{count}} posiciones tienen una moneda incompatible y están fuera del total en {{currency}}. Revisa la moneda de sus operaciones.",
     "updatePrices": "Actualizar precios",
     "performanceEyebrow": "Rendimiento por activo",
     "noPerformanceTitle": "Sin valoración disponible",
@@ -123,11 +123,11 @@
     "analyticsEyebrow": "Distribución y resultados",
     "analyticsTitle": "Radiografía del portafolio",
     "analyticsSubtitle": "Composición, ganancias y dividendos por activo",
-    "assetComposition": "Composición por acción",
+    "assetComposition": "Composición por activo",
     "assetCompositionBody": "Participación sobre el valor de mercado en COP.",
     "sectorComposition": "Composición por sector",
     "sectorCompositionBody": "Agrupación según la clasificación de cada activo.",
-    "gainsByAsset": "Ganancias por acción",
+    "gainsByAsset": "Ganancias por activo",
     "gainsByAssetBody": "Resultado total realizado, no realizado y dividendos.",
     "dividendsByAsset": "Dividendos por acción",
     "dividendsByAssetBody": "Ingresos acumulados registrados en el libro.",
@@ -140,7 +140,9 @@
       "unpriced": "Sin precio",
       "provisional": "Precio provisional",
       "valued": "Actualizada"
-    }
+    },
+    "cashBalance": "Efectivo COP",
+    "usdValuationHint": "Todos los valores de posiciones están expresados en COP. Dólar disponible (COP=X) muestra cantidad USD, costo histórico COP y la fecha de cotización utilizada. Revisa la moneda de las operaciones antiguas de acciones internacionales."
   },
   "history": {
     "eyebrow": "Evolución del portafolio",
@@ -160,7 +162,7 @@
     "annualizedReturn": "TWR anualizada",
     "estimatedReturn": "Rentabilidad estimada: {{value}}",
     "performanceUnavailable": "No disponible: revisa los precios y movimientos históricos.",
-    "cashBalance": "Efectivo acumulado",
+    "cashBalance": "Efectivo COP",
     "dividends": "Dividendos acumulados",
     "chartTitle": "Evolución semanal",
     "chartSubtitle": "Valor total frente al capital aportado neto.",
@@ -178,8 +180,8 @@
     "partialTitle": "Cierre con valoración parcial",
     "unpricedWarning_one": "Hay {{count}} posición sin precio para este cierre.",
     "unpricedWarning_other": "Hay {{count}} posiciones sin precio para este cierre.",
-    "foreignWarning_one": "{{count}} posición usa otra moneda y está separada del consolidado en {{currency}}.",
-    "foreignWarning_other": "{{count}} posiciones usan otra moneda y están separadas del consolidado en {{currency}}.",
+    "foreignWarning_one": "{{count}} posición tiene una moneda incompatible y está fuera del consolidado en {{currency}}. Revisa sus operaciones.",
+    "foreignWarning_other": "{{count}} posiciones tienen una moneda incompatible y están fuera del consolidado en {{currency}}. Revisa sus operaciones.",
     "inconsistentWarning_one": "Hay {{count}} posición con operaciones inconsistentes.",
     "inconsistentWarning_other": "Hay {{count}} posiciones con operaciones inconsistentes.",
     "updatePrices": "Actualizar precios",
@@ -203,8 +205,8 @@
     "emptyBody": "Importa tus operaciones para comenzar a reconstruir el portafolio semana por semana.",
     "emptyAction": "Importar portafolio",
     "noWeeksTitle": "Aún no hay un cierre semanal disponible",
-    "noWeeksBody": "El histórico se habilita después del primer viernes y necesita precios de mercado para valorar las posiciones."
-    ,"marketClosesEyebrow": "Precios de mercado",
+    "noWeeksBody": "El histórico se habilita después del primer viernes y necesita precios de mercado para valorar las posiciones.",
+    "marketClosesEyebrow": "Precios de mercado",
     "marketClosesTitle": "Cierres de todos los viernes",
     "marketClosesBody": "Último cierre disponible por ticker para cada viernes desde el 19 de enero de 2024.",
     "marketClosesLoading": "Cargando cierres semanales…",
@@ -304,7 +306,9 @@
       "venta": "Venta",
       "dividendo": "Dividendo",
       "depósito": "Depósito",
-      "retiro": "Retiro"
+      "retiro": "Retiro",
+      "compra USD": "Compra de dólares",
+      "venta USD": "Venta de dólares"
     },
     "batchesEyebrow": "Control de importaciones",
     "batchesTitle": "Archivos importados",
@@ -348,7 +352,11 @@
       "origin": "Origen conservado: {{source}}.",
       "saveChanges": "Guardar cambios",
       "create": "Crear operación",
-      "saveError": "No fue posible guardar la operación."
+      "saveError": "No fue posible guardar la operación.",
+      "currency": "Moneda de los importes",
+      "usdQuantity": "Cantidad de dólares (USD)",
+      "exchangeRate": "Tasa COP por USD",
+      "exchangeHint": "El total y la comisión se registran en COP. Este cambio mueve efectivo entre COP y USD sin crear un aporte."
     }
   },
   "market": {
@@ -378,8 +386,8 @@
     "priceDate": "Fecha del precio",
     "storedDays": "Días guardados",
     "updatedAt": "Actualizado {{date}}",
-    "neverUpdated": "Todavía no se han consultado los precios."
-    ,"sector": "Sector",
+    "neverUpdated": "Todavía no se han consultado los precios.",
+    "sector": "Sector",
     "saveSector": "Guardar sector",
     "scheduleLoadError": "No fue posible consultar la programación automática.",
     "scheduleTitle": "Actualización automática",

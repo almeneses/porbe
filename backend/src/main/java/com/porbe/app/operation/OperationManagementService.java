@@ -77,7 +77,7 @@ public class OperationManagementService {
                 1,
                 username,
                 ImportSourceType.MANUAL));
-        var operation = operationRepository.saveAndFlush(new PortfolioOperation(
+        var operation = new PortfolioOperation(
                 portfolio,
                 batch,
                 data.date(),
@@ -88,7 +88,9 @@ public class OperationManagementService {
                 data.unitPrice(),
                 data.commission(),
                 data.totalAmount(),
-                data.notes()));
+                data.notes());
+        operation.setCurrency(data.currency());
+        operation = operationRepository.saveAndFlush(operation);
         auditRepository.save(new OperationAudit(
                 portfolio,
                 operation.getId(),
@@ -118,6 +120,7 @@ public class OperationManagementService {
                 data.totalAmount(),
                 data.notes(),
                 username);
+        operation.setCurrency(data.currency());
         operationRepository.saveAndFlush(operation);
         auditRepository.save(new OperationAudit(
                 portfolio,
@@ -256,7 +259,27 @@ public class OperationManagementService {
     private Map<Long, ConsistencyState> consistencyByOperation(List<PortfolioOperation> operations) {
         var quantities = new LinkedHashMap<String, BigDecimal>();
         var states = new LinkedHashMap<Long, ConsistencyState>();
+        var currencies = new LinkedHashMap<String, String>();
+        var usdBalance = BigDecimal.ZERO;
         for (var operation : operations) {
+            String balanceIssue = null;
+            if (operation.getType().isExchange()) {
+                usdBalance = usdBalance.add(operation.getQuantity().multiply(BigDecimal.valueOf(-operation.getType().cashSign())));
+            } else if ("USD".equals(operation.getCurrency())) {
+                usdBalance = usdBalance.add(operation.getTotalAmount().multiply(BigDecimal.valueOf(operation.getType().cashSign())));
+            }
+            if (usdBalance.signum() < 0 && (operation.getType().isExchange() || "USD".equals(operation.getCurrency()))) {
+                balanceIssue = "Esta operación deja el saldo USD negativo. Registra o corrige la compra de dólares previa.";
+                states.put(operation.getId(), new ConsistencyState(null, balanceIssue));
+            }
+            if (operation.getTicker() != null && (operation.getType() == OperationType.COMPRA
+                    || operation.getType() == OperationType.VENTA || operation.getType() == OperationType.DIVIDENDO)) {
+                var previousCurrency = currencies.putIfAbsent(normalizeTicker(operation.getTicker()), operation.getCurrency());
+                if (previousCurrency != null && !previousCurrency.equals(operation.getCurrency())) {
+                    balanceIssue = "El mismo ticker tiene operaciones en monedas diferentes. Revisa la moneda.";
+                    states.put(operation.getId(), new ConsistencyState(null, balanceIssue));
+                }
+            }
             if (operation.getTicker() == null
                     || operation.getQuantity() == null
                     || (operation.getType() != OperationType.COMPRA && operation.getType() != OperationType.VENTA)) {
@@ -267,7 +290,7 @@ public class OperationManagementService {
             var after = operation.getType() == OperationType.COMPRA
                     ? current.add(operation.getQuantity())
                     : current.subtract(operation.getQuantity());
-            String issue = null;
+            String issue = balanceIssue;
             if (after.signum() < 0) {
                 issue = operation.getType() == OperationType.VENTA
                         ? "Esta venta supera la cantidad disponible y deja la posición negativa."
@@ -364,6 +387,7 @@ public class OperationManagementService {
             BigDecimal commission,
             BigDecimal totalAmount,
             String notes,
+            String currency,
             OffsetDateTime updatedAt,
             String updatedBy) {
 
@@ -379,6 +403,7 @@ public class OperationManagementService {
                     operation.getCommission(),
                     operation.getTotalAmount(),
                     operation.getNotes(),
+                    operation.getCurrency(),
                     operation.getUpdatedAt(),
                     operation.getUpdatedBy());
         }

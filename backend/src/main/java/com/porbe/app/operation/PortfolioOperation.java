@@ -64,6 +64,9 @@ public class PortfolioOperation {
     @Column(length = 1000)
     private String notes;
 
+    @Column(nullable = false, length = 3)
+    private String currency = "COP";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -126,6 +129,14 @@ public class PortfolioOperation {
         this.totalAmount = totalAmount;
         this.notes = notes;
         this.updatedBy = username;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 
     public Long getId() {

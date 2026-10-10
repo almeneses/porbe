@@ -189,6 +189,54 @@ class PortfolioValuationIntegrationTest {
                 .andExpect(jsonPath("$.positions[0].calculationComplete").value(false));
     }
 
+    @Test
+    void valuesUsdCashAndInternationalStocksInCopAcrossSummaryHistoryAndReport() throws Exception {
+        var context = operationContext("usd-test.xlsx", "usd-test-hash");
+        var date = LocalDate.of(2026, 1, 2);
+        save(context, date, OperationType.DEPOSITO, null, null, null, "0", "4010000");
+        save(context, date, OperationType.COMPRA_USD, null, "1000", "4000", "10000", "4010000");
+        var stock = new PortfolioOperation(context.portfolio(), context.batch(), date, OperationType.COMPRA,
+                "HIMS", "Hims & Hers", new BigDecimal("2"), new BigDecimal("200"), BigDecimal.ZERO,
+                new BigDecimal("400"), null);
+        stock.setCurrency("USD");
+        operationRepository.save(stock);
+        var end = date.plusWeeks(1);
+        persistSeries("COP=X", "COP", date, "4000", end, "4200");
+        persistSeries("HIMS", "USD", date, "200", end, "220");
+        mockMvc.perform(get("/api/portfolio/summary").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valuationComplete").value(true))
+                .andExpect(jsonPath("$.cashBalance").value(0))
+                .andExpect(jsonPath("$.portfolioValue").value(4368000))
+                .andExpect(jsonPath("$.netContributions").value(4010000))
+                .andExpect(jsonPath("$.totalGain").value(358000))
+                .andExpect(jsonPath("$.returnRate").value(org.hamcrest.Matchers.closeTo(0.08927681, 0.00000001)));
+        var history = historyService.weeklyHistory(context.portfolio().getId(), end, end);
+        var snapshot = history.weeks().getFirst();
+        assertThat(snapshot.valuationComplete()).isTrue();
+        assertThat(snapshot.portfolioValue()).isEqualByComparingTo("4368000");
+        assertThat(snapshot.totalGain()).isEqualByComparingTo("358000");
+        assertThat(snapshot.externalCashFlow()).isEqualByComparingTo("0");
+        assertThat(snapshot.timeWeightedReturn()).isEqualByComparingTo("0.08927681");
+        assertThat(history.totalMoneyWeightedReturn()).isEqualByComparingTo("0.08927681");
+        assertThat(snapshot.returnRate()).isEqualByComparingTo("0.08927681");
+        var report = reportCalculator.calculate(context.portfolio().getId(), date, end);
+        assertThat(report.portfolioValue()).isEqualByComparingTo("4368000");
+        assertThat(report.accumulatedGain()).isEqualByComparingTo("358000");
+        assertThat(report.movements().stream().filter(movement -> "HIMS".equals(movement.ticker())).findFirst().orElseThrow().currency()).isEqualTo("USD");
+    }
+
+    private void persistSeries(String ticker, String currency, LocalDate from, String initial, LocalDate to, String last) {
+        var first = new BigDecimal(initial);
+        var close = new BigDecimal(last);
+        marketDataPersistenceService.save(new MarketDataSeries(ticker, ticker, currency, "TEST", "EQUITY",
+                "America/Bogota", close, List.of(
+                        new DailyMarketBar(from, first, first, first, first, first, 0L, true),
+                        new DailyMarketBar(to, close, close, close, close, close, 0L, true),
+                        new DailyMarketBar(LocalDate.of(2100, 1, 1), BigDecimal.ONE, BigDecimal.ONE,
+                                BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, 0L, true))), "TEST");
+    }
+
     private OperationContext operationContext(String filename, String hash) {
         var portfolio = portfolioService.getOrCreateDefaultPortfolio();
         var batch = importBatchRepository.save(new ImportBatch(portfolio, filename, hash, 5, "admin"));

@@ -23,6 +23,7 @@ interface FormState {
   commission: string
   totalAmount: string
   notes: string
+  currency: 'COP' | 'USD'
 }
 
 /** Formulario modal compartido por la creación y edición manual. */
@@ -33,6 +34,7 @@ export function OperationFormDialog({ portfolioId, operation, onClose, onSaved }
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const cashOperation = form.type === 'depósito' || form.type === 'retiro'
+  const exchange = form.type === 'compra USD' || form.type === 'venta USD'
   const canCalculate = !cashOperation && form.quantity !== '' && form.unitPrice !== ''
 
   const setField = (field: keyof FormState, value: string) => {
@@ -52,7 +54,7 @@ export function OperationFormDialog({ portfolioId, operation, onClose, onSaved }
     const commission = Number(form.commission || 0)
     if (!Number.isFinite(quantity) || !Number.isFinite(price) || !Number.isFinite(commission)) return
     const gross = quantity * price
-    const total = form.type === 'compra' ? gross + commission : gross - commission
+    const total = form.type === 'compra' || form.type === 'compra USD' ? gross + commission : gross - commission
     setField('totalAmount', Math.max(0, total).toFixed(2))
   }
 
@@ -92,9 +94,11 @@ export function OperationFormDialog({ portfolioId, operation, onClose, onSaved }
           {error && <div className="inline-alert inline-alert--error"><span>{error}</span></div>}
           <div className="operation-form__grid">
             <FormField label={t('operations.form.date')} error={fieldErrors.date}><input type="date" max={todayInBogota()} value={form.date} onChange={(event) => setField('date', event.target.value)} /></FormField>
-            <FormField label={t('operations.form.type')} error={fieldErrors.type}><select value={form.type} onChange={(event) => setField('type', event.target.value as OperationTypeCode)}>{(['compra', 'venta', 'dividendo', 'depósito', 'retiro'] as const).map((type) => <option key={type} value={type}>{t(`operations.types.${type}`)}</option>)}</select></FormField>
-            {!cashOperation && <><FormField label={t('operations.form.ticker')} error={fieldErrors.ticker}><input value={form.ticker} placeholder="ECOPETROL.CL" maxLength={30} onChange={(event) => setField('ticker', event.target.value.toUpperCase())} /></FormField><FormField label={t('operations.form.name')} error={fieldErrors.name}><input value={form.name} maxLength={160} onChange={(event) => setField('name', event.target.value)} /></FormField></>}
-            {!cashOperation && <><FormField label={t('operations.form.quantity')} error={fieldErrors.quantity}><input type="number" min="0" step="any" value={form.quantity} onChange={(event) => setField('quantity', event.target.value)} /></FormField><FormField label={t('operations.form.unitPrice')} error={fieldErrors.unitPrice}><input type="number" min="0" step="any" value={form.unitPrice} onChange={(event) => setField('unitPrice', event.target.value)} /></FormField><FormField label={t('operations.form.commission')} error={fieldErrors.commission}><input type="number" min="0" step="0.01" value={form.commission} onChange={(event) => setField('commission', event.target.value)} /></FormField></>}
+            <FormField label={t('operations.form.type')} error={fieldErrors.type}><select value={form.type} onChange={(event) => setField('type', event.target.value as OperationTypeCode)}>{(['compra', 'venta', 'dividendo', 'depósito', 'retiro', 'compra USD', 'venta USD'] as const).map((type) => <option key={type} value={type}>{t(`operations.types.${type}`)}</option>)}</select></FormField>
+            {!cashOperation && !exchange && <><FormField label={t('operations.form.ticker')} error={fieldErrors.ticker}><input value={form.ticker} placeholder="ECOPETROL.CL" maxLength={30} onChange={(event) => setField('ticker', event.target.value.toUpperCase())} /></FormField><FormField label={t('operations.form.name')} error={fieldErrors.name}><input value={form.name} maxLength={160} onChange={(event) => setField('name', event.target.value)} /></FormField></>}
+            <FormField label={t('operations.form.currency')} error={fieldErrors.currency}><select disabled={cashOperation || exchange} value={cashOperation || exchange ? 'COP' : form.currency} onChange={(event) => setField('currency', event.target.value)}><option value="COP">COP</option><option value="USD">USD</option></select></FormField>
+            {exchange && <p>{t('operations.form.exchangeHint')}</p>}
+            {!cashOperation && <><FormField label={t(exchange ? 'operations.form.usdQuantity' : 'operations.form.quantity')} error={fieldErrors.quantity}><input type="number" min="0" step="any" value={form.quantity} onChange={(event) => setField('quantity', event.target.value)} /></FormField><FormField label={t(exchange ? 'operations.form.exchangeRate' : 'operations.form.unitPrice')} error={fieldErrors.unitPrice}><input type="number" min="0" step="any" value={form.unitPrice} onChange={(event) => setField('unitPrice', event.target.value)} /></FormField><FormField label={t('operations.form.commission')} error={fieldErrors.commission}><input type="number" min="0" step="0.01" value={form.commission} onChange={(event) => setField('commission', event.target.value)} /></FormField></>}
             <FormField label={t('operations.form.totalAmount')} error={fieldErrors.totalAmount}><div className="amount-input"><input type="number" min="0" step="0.01" value={form.totalAmount} onChange={(event) => setField('totalAmount', event.target.value)} />{canCalculate && <button type="button" title={t('operations.form.calculate')} aria-label={t('operations.form.calculate')} onClick={calculateTotal}><Calculator size={16} /></button>}</div></FormField>
             <FormField className="operation-form__notes" label={t('operations.form.notes')} error={fieldErrors.notes}><textarea rows={3} maxLength={1000} value={form.notes} onChange={(event) => setField('notes', event.target.value)} /></FormField>
           </div>
@@ -123,16 +127,19 @@ function initialForm(operation: PortfolioOperation | null): FormState {
     commission: operation == null ? '0' : String(operation.commission),
     totalAmount: operation == null ? '' : String(operation.totalAmount),
     notes: operation?.notes ?? '',
+    currency: operation?.currency ?? 'COP',
   }
 }
 
 function formPayload(form: FormState): OperationInput {
   const cashOperation = form.type === 'depósito' || form.type === 'retiro'
+  const exchange = form.type === 'compra USD' || form.type === 'venta USD'
   return {
+    currency: cashOperation || exchange ? 'COP' : form.currency,
     date: form.date,
     type: form.type,
-    ticker: cashOperation ? null : blankToNull(form.ticker),
-    name: cashOperation ? null : blankToNull(form.name),
+    ticker: cashOperation || exchange ? null : blankToNull(form.ticker),
+    name: cashOperation || exchange ? null : blankToNull(form.name),
     quantity: cashOperation ? null : numberOrNull(form.quantity),
     unitPrice: cashOperation ? null : numberOrNull(form.unitPrice),
     commission: cashOperation ? 0 : numberOrZero(form.commission),

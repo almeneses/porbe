@@ -108,7 +108,8 @@ public class PortfolioImportService {
                 username));
 
         var operations = parsed.operations().stream()
-                .map(item -> new PortfolioOperation(
+                .map(item -> {
+                    var operation = new PortfolioOperation(
                         portfolio,
                         batch,
                         item.date(),
@@ -119,7 +120,10 @@ public class PortfolioImportService {
                         item.unitPrice(),
                         item.commission(),
                         item.totalAmount(),
-                        item.notes()))
+                        item.notes());
+                    operation.setCurrency(item.currency());
+                    return operation;
+                })
                 .toList();
         operationRepository.saveAll(operations);
 
@@ -232,7 +236,7 @@ public class PortfolioImportService {
             errors.add(new ImportRowError(
                     rowNumber,
                     "operación",
-                    "Use compra, venta, dividendo, depósito o retiro."));
+                    "Use compra, venta, dividendo, depósito, retiro, compra USD o venta USD."));
         }
 
         var ticker = uppercaseOrNull(readText(cell(row, columns, "ticker"), evaluator));
@@ -248,6 +252,8 @@ public class PortfolioImportService {
                 false,
                 errors);
         var notes = nullIfBlank(readText(cell(row, columns, "notas"), evaluator));
+        var currency = uppercaseOrNull(readText(cell(row, columns, "moneda"), evaluator));
+        if (currency == null) currency = "COP";
 
         if (commission == null) {
             commission = BigDecimal.ZERO;
@@ -264,7 +270,7 @@ public class PortfolioImportService {
                         unitPrice,
                         commission,
                         totalAmount,
-                        notes),
+                        notes, currency),
                 errors,
                 initialErrors);
 
@@ -280,7 +286,7 @@ public class PortfolioImportService {
                 unitPrice,
                 commission,
                 totalAmount,
-                notes);
+                notes, currency);
     }
 
     /** Adapta los errores compartidos a los nombres de columna usados por Excel. */
@@ -426,7 +432,7 @@ public class PortfolioImportService {
     }
 
     private Cell cell(Row row, Map<String, Integer> columns, String header) {
-        return row == null ? null : row.getCell(columns.get(header), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+        return row == null || !columns.containsKey(header) ? null : row.getCell(columns.get(header), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
     }
 
     private String normalize(String value) {
