@@ -237,7 +237,9 @@ iniciado; guardar otra durante la generación la conserva para el siguiente info
 
 La IA recibe las posiciones del cierre consultado, con su costo promedio contable, moneda,
 ganancia acumulada y fecha de precio. Ese promedio no representa el precio de una compra
-concreta. Sin una indicación nueva, mantiene su comentario habitual. Una generación reserva
+concreta. También recibe la última compra registrada por activo hasta ese cierre, con su precio
+unitario, comisión y total en la moneda original. Sin una indicación nueva, mantiene su comentario
+habitual. Una generación reserva
 la indicación hasta completar el informe; si el proceso se interrumpe, otro intento puede
 recuperarla después de diez minutos. El informe antiguo no puede completar esa misma reserva.
 

@@ -29,6 +29,7 @@ class PortfolioReportDeliveryTest {
                 deliveryProvider,
                 recipientService,
                 mock(com.porbe.app.portfolio.PortfolioService.class),
+                mock(com.porbe.app.operation.PortfolioOperationRepository.class),
                 mock(PortfolioReportAiGuidanceService.class),
                 mock(com.porbe.app.portfolio.PortfolioHistoryService.class));
 

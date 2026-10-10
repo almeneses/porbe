@@ -67,16 +67,22 @@ class PortfolioReportAiNoteServiceTest {
         Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwx------"));
         var service = new PortfolioReportAiNoteService(new ObjectMapper(), executable.toString(), "read-only", 5);
         var position = new com.porbe.app.portfolio.PortfolioWeeklyPositionResponse(
-                "HIMS", "Hims & Hers", "USD", "Salud", new BigDecimal("2"), new BigDecimal("25"),
-                LocalDate.of(2026, 1, 16), false, new BigDecimal("50"), new BigDecimal("40"),
-                BigDecimal.ZERO, new BigDecimal("10"), true, true, true);
+                "HIMS", "Hims & Hers", "COP", "Salud", new BigDecimal("2"), new BigDecimal("100000"),
+                LocalDate.of(2026, 1, 16), false, new BigDecimal("200000"), new BigDecimal("160000"),
+                BigDecimal.ZERO, new BigDecimal("40000"), true, true, false);
+        var purchase = new com.porbe.app.operation.PortfolioOperation(null,
+                org.mockito.Mockito.mock(com.porbe.app.importer.ImportBatch.class), LocalDate.of(2026, 1, 12),
+                com.porbe.app.operation.OperationType.COMPRA, "HIMS", "Hims & Hers", new BigDecimal("2"),
+                new BigDecimal("20"), new BigDecimal("1"), new BigDecimal("41"), null);
+        purchase.setCurrency("USD");
         var note = service.create(data(BigDecimal.ZERO), new PortfolioReportAiSettings(true, "test", "low"),
-                "En el título va: TU PRIMERA INVERSION INTERNACIONAL!! Habla de HIMS y felicita a la dueña.", List.of(position));
+                "En el título va: TU PRIMERA INVERSION INTERNACIONAL!! Habla de HIMS y felicita a la dueña.", List.of(position), List.of(purchase));
         assertThat(note.title()).isEqualTo("TU PRIMERA INVERSION INTERNACIONAL!!");
         assertThat(Files.readString(temporaryDirectory.resolve("guidance-prompt.txt")))
                 .contains("Tiene prioridad", "consérvalo exactamente", "FIN DE INDICACIÓN EDITORIAL")
-                .contains("Hims & Hers (HIMS): moneda=USD, cantidad=2, costo promedio=20.00000000")
-                .contains("ganancia acumulada=10", "no precio de una compra concreta");
+                .contains("Hims & Hers (HIMS): moneda=COP, cantidad=2, costo promedio=80000.00000000")
+                .contains("ganancia acumulada=40000", "no precio de una compra concreta")
+                .contains("fecha=2026-01-12, moneda=USD, cantidad=2, precio unitario de compra=20, comisión=1, total=41");
     }
 
     @Test

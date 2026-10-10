@@ -2,6 +2,11 @@ package com.porbe.app.report;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import com.porbe.app.operation.OperationType;
+import com.porbe.app.operation.PortfolioOperation;
+import com.porbe.app.operation.PortfolioOperationRepository;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +24,7 @@ public class PortfolioReportService {
     private final PortfolioReportDeliveryProvider deliveryProvider;
     private final WhatsAppRecipientService recipientService;
     private final com.porbe.app.portfolio.PortfolioService portfolioService;
+    private final PortfolioOperationRepository operationRepository;
     private final PortfolioReportAiGuidanceService guidanceService;
     private final com.porbe.app.portfolio.PortfolioHistoryService historyService;
 
@@ -31,6 +37,7 @@ public class PortfolioReportService {
             PortfolioReportDeliveryProvider deliveryProvider,
             WhatsAppRecipientService recipientService,
             com.porbe.app.portfolio.PortfolioService portfolioService,
+            PortfolioOperationRepository operationRepository,
             PortfolioReportAiGuidanceService guidanceService,
             com.porbe.app.portfolio.PortfolioHistoryService historyService) {
         this.calculator = calculator;
@@ -41,6 +48,7 @@ public class PortfolioReportService {
         this.deliveryProvider = deliveryProvider;
         this.recipientService = recipientService;
         this.portfolioService = portfolioService;
+        this.operationRepository = operationRepository;
         this.guidanceService = guidanceService;
         this.historyService = historyService;
     }
@@ -62,7 +70,7 @@ public class PortfolioReportService {
                     : aiNoteService.create(data, settings, claim.text(), historyService
                             .weeklyHistory(portfolio.getId(), data.valuationDate(), data.valuationDate())
                             .weeks().stream().findFirst().map(com.porbe.app.portfolio.PortfolioWeeklySnapshot::positions)
-                            .orElse(List.of()));
+                            .orElse(List.of()), lastPurchases(portfolio, data.valuationDate()));
             var artifacts = renderer.render(data, note);
             return toListItem(guidanceService.ready(report, artifacts, claim, note != null));
         } catch (RuntimeException exception) {
@@ -72,6 +80,16 @@ public class PortfolioReportService {
         } finally {
             guidanceService.release(portfolio.getId(), claim);
         }
+    }
+
+    private List<PortfolioOperation> lastPurchases(com.porbe.app.portfolio.Portfolio portfolio, LocalDate cutoff) {
+        var purchases = new LinkedHashMap<String, PortfolioOperation>();
+        for (var operation : operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio)) {
+            if (operation.getType() == OperationType.COMPRA && !operation.getDate().isAfter(cutoff)) {
+                purchases.put(operation.getTicker().toUpperCase(Locale.ROOT), operation);
+            }
+        }
+        return List.copyOf(purchases.values());
     }
 
     public PortfolioReportListItem generateScheduledIfMissing(Long portfolioId, LocalDate from, LocalDate to) {

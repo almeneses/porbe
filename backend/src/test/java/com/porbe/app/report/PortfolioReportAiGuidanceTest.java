@@ -45,6 +45,7 @@ class PortfolioReportAiGuidanceTest {
     @MockitoSpyBean PortfolioReportRepository reportRepository;
     @Autowired PortfolioService portfolios;
     @Autowired MockMvc mvc;
+    @MockitoBean com.porbe.app.operation.PortfolioOperationRepository operations;
     @MockitoBean PortfolioReportCalculator calculator;
     @MockitoBean PortfolioReportAiNoteService ai;
     @MockitoBean PortfolioReportArtifactRenderer renderer;
@@ -57,7 +58,7 @@ class PortfolioReportAiGuidanceTest {
 
     @BeforeEach
     void setup() {
-        reset(ai, calculator, renderer, history, clock, reportRepository);
+        reset(ai, calculator, renderer, history, clock, reportRepository, operations);
         when(clock.instant()).thenReturn(Instant.parse("2026-10-09T20:00:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
         guidanceRepository.deleteAll();
@@ -73,7 +74,7 @@ class PortfolioReportAiGuidanceTest {
         when(history.weeklyHistory(eq(portfolioId), any(), any())).thenReturn(
                 org.mockito.Mockito.mock(PortfolioHistoryResponse.class));
         when(renderer.render(any(), any())).thenReturn(new PortfolioReportArtifacts(new byte[]{1}, new byte[]{2}));
-        when(ai.create(any(), any(), anyString(), any())).thenReturn(note);
+        when(ai.create(any(), any(), anyString(), any(), any())).thenReturn(note);
         when(ai.create(any(), any())).thenReturn(note);
     }
 
@@ -90,7 +91,7 @@ class PortfolioReportAiGuidanceTest {
         assertThat(guidance.current(other).status()).isEqualTo("NONE");
         assertThat(guidance.claim(other, 900L)).isNull();
         assertThat(generate().status()).isEqualTo("READY");
-        org.mockito.Mockito.verify(ai).create(eq(data), any(), eq("última"), any());
+        org.mockito.Mockito.verify(ai).create(eq(data), any(), eq("última"), any(), any());
         assertThat(guidance.current(portfolioId).status()).isEqualTo("USED");
         generate();
         org.mockito.Mockito.verify(ai).create(eq(data), any());
@@ -102,7 +103,7 @@ class PortfolioReportAiGuidanceTest {
     void newSaveDuringGenerationRemainsPending() {
         guidance.save(portfolioId, "anterior");
         doAnswer(invocation -> { guidance.save(portfolioId, "nueva"); return note; })
-                .when(ai).create(eq(data), any(), eq("anterior"), any());
+                .when(ai).create(eq(data), any(), eq("anterior"), any(), any());
         generate();
         assertThat(guidance.current(portfolioId).text()).isEqualTo("nueva");
         assertThat(guidance.current(portfolioId).status()).isEqualTo("PENDING");
@@ -113,10 +114,10 @@ class PortfolioReportAiGuidanceTest {
     @Test
     void aiAndRenderFailuresKeepPendingAndReleaseReservation() {
         guidance.save(portfolioId, "pendiente");
-        when(ai.create(any(), any(), anyString(), any())).thenReturn(null);
+        when(ai.create(any(), any(), anyString(), any(), any())).thenReturn(null);
         assertThat(generate().status()).isEqualTo("READY");
         assertThat(guidance.current(portfolioId).status()).isEqualTo("PENDING");
-        when(ai.create(any(), any(), anyString(), any())).thenReturn(note);
+        when(ai.create(any(), any(), anyString(), any(), any())).thenReturn(note);
         when(renderer.render(any(), any())).thenThrow(new IllegalStateException("render falló"));
         assertThatThrownBy(this::generate).hasMessage("render falló");
         assertThat(guidance.current(portfolioId).status()).isEqualTo("PENDING");
@@ -163,6 +164,32 @@ class PortfolioReportAiGuidanceTest {
                     second.get(10, java.util.concurrent.TimeUnit.SECONDS));
             assertThat(claims.stream().filter(java.util.Objects::nonNull).count()).isEqualTo(1);
         }
+    }
+
+    @Test
+    void suppliesLastRealPurchasePerTickerWithoutOperationsAfterClosingDate() {
+        guidance.save(portfolioId, "Habla del precio de compra de HIMS.");
+        var first = purchase("HIMS", "2026-10-02", "19");
+        var latest = purchase("HIMS", "2026-10-09", "20");
+        var sameDayLast = purchase("HIMS", "2026-10-09", "21");
+        var future = purchase("HIMS", "2026-10-10", "99");
+        var other = purchase("AAPL", "2026-10-09", "200");
+        var sale = purchase("HIMS", "2026-10-09", "22");
+        when(sale.getType()).thenReturn(com.porbe.app.operation.OperationType.VENTA);
+        when(operations.findAllByPortfolioOrderByDateAscIdAsc(any())).thenReturn(List.of(first, latest, sameDayLast, other, sale, future));
+        generate();
+        org.mockito.Mockito.verify(ai).create(eq(data), any(), anyString(), any(), eq(List.of(sameDayLast, other)));
+        org.mockito.Mockito.verify(history).weeklyHistory(portfolioId, data.valuationDate(), data.valuationDate());
+    }
+
+    private com.porbe.app.operation.PortfolioOperation purchase(String ticker, String date, String price) {
+        var purchase = org.mockito.Mockito.mock(com.porbe.app.operation.PortfolioOperation.class);
+        when(purchase.getType()).thenReturn(com.porbe.app.operation.OperationType.COMPRA);
+        when(purchase.getTicker()).thenReturn(ticker);
+        when(purchase.getDate()).thenReturn(LocalDate.parse(date));
+        when(purchase.getUnitPrice()).thenReturn(new BigDecimal(price));
+        when(purchase.getCurrency()).thenReturn("USD");
+        return purchase;
     }
 
     @Test
