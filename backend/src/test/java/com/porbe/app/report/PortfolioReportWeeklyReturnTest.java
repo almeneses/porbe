@@ -54,6 +54,47 @@ class PortfolioReportWeeklyReturnTest {
     private final MarketInstrumentRepository instrumentRepository = mock(MarketInstrumentRepository.class);
     private PortfolioHistoryService history;
 
+    @ParameterizedTest
+    @CsvSource({
+        "100|-900|500|300|-10|200|-500|0, TEST2.CL|TEST3.CL|TEST5.CL|TEST1.CL|TEST6.CL",
+        "10|50|20|40|30|60, TEST5.CL|TEST1.CL|TEST3.CL|TEST0.CL|TEST2.CL",
+        "10|-20, TEST0.CL|TEST1.CL",
+        "-10|-30|-20, TEST1.CL|TEST2.CL",
+        "20|20|20|20|20, TEST0.CL|TEST1.CL|TEST2.CL|TEST4.CL|TEST3.CL"
+    })
+    void selectsThreeWinnersAndTwoLowestGainsWithoutDuplicates(String gains, String expectedTickers) {
+        var amounts = gains.split("\\|");
+        operation("2026-01-02", OperationType.DEPOSITO, String.valueOf(amounts.length * 1000), null);
+        var instruments = new ArrayList<MarketInstrument>();
+        var priceRepository = mock(MarketPriceDailyRepository.class);
+        for (var index = 0; index < amounts.length; index++) {
+            var asset = new MarketInstrument("TEST" + index + ".CL");
+            instruments.add(asset);
+            operations.add(new PortfolioOperation(
+                    portfolio, batch, LocalDate.parse("2026-01-02"), OperationType.COMPRA,
+                    asset.getTicker(), asset.getTicker(), BigDecimal.ONE, new BigDecimal("1000"),
+                    BigDecimal.ZERO, new BigDecimal("1000"), null));
+            var close = new BigDecimal("1000").add(new BigDecimal(amounts[index]));
+            when(priceRepository.findByInstrumentAndPriceDateLessThanEqualOrderByPriceDateAsc(
+                    eq(asset), any(LocalDate.class)))
+                    .thenReturn(List.of(
+                            new MarketPriceDaily(asset, new DailyMarketBar(LocalDate.parse("2026-01-02"),
+                                    new BigDecimal("1000"), null, null, new BigDecimal("1000"),
+                                    new BigDecimal("1000"), 100L, true), "TEST", OffsetDateTime.now(CLOCK)),
+                            new MarketPriceDaily(asset, new DailyMarketBar(LocalDate.parse("2026-01-09"),
+                                    close, null, null, close, close, 100L, true), "TEST", OffsetDateTime.now(CLOCK))));
+        }
+        when(portfolioService.getPortfolio(1L)).thenReturn(portfolio);
+        when(operationRepository.findAllByPortfolioOrderByDateAscIdAsc(portfolio)).thenReturn(operations);
+        when(instrumentRepository.findByTickerIn(any())).thenReturn(instruments);
+        history = new PortfolioHistoryService(
+                portfolioService, operationRepository, instrumentRepository, priceRepository, CLOCK);
+
+        assertThat(report("2026-01-05", "2026-01-09").gainsByAsset())
+                .extracting(PortfolioReportAssetValue::ticker)
+                .containsExactly(expectedTickers.split("\\|"));
+    }
+
     @ParameterizedTest(name = "Precio final {0}: nominal {1} COP, tasa {2}")
     @CsvSource({
         "100000, 0, 0",

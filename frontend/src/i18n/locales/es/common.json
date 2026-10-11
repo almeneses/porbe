@@ -128,7 +128,7 @@
     "sectorComposition": "Composición por sector",
     "sectorCompositionBody": "Agrupación según la clasificación de cada activo.",
     "gainsByAsset": "Ganancias por activo",
-    "gainsByAssetBody": "Resultado total realizado, no realizado y dividendos.",
+    "gainsByAssetBody": "Hasta 3 activos con mayor ganancia y los 2 con menor ganancia, sin repetir.",
     "dividendsByAsset": "Dividendos por acción",
     "dividendsByAssetBody": "Ingresos acumulados registrados en el libro.",
     "chartSegments": "grupos",

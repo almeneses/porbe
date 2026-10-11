@@ -112,8 +112,8 @@ public class PortfolioReportCalculator {
                 .map(week -> new PortfolioReportChartPoint(
                         week.weekEnding(), week.portfolioValue(), week.netContributions()))
                 .toList();
-        var gainsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::totalGain);
-        var dividendsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::dividends);
+        var gainsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::totalGain, true);
+        var dividendsByAsset = assetValues(end.positions(), PortfolioWeeklyPositionResponse::dividends, false);
         var assetAllocation = assetAllocation(end.positions(), icons);
         var sectorAllocation = sectorAllocation(end.positions());
         var provisionalPrices = (int) end.positions().stream()
@@ -151,18 +151,23 @@ public class PortfolioReportCalculator {
                 end.unpricedPositions());
     }
 
-    /** Replica los gráficos del resumen: hasta cinco montos, ordenados por impacto absoluto. */
     private List<PortfolioReportAssetValue> assetValues(
             List<PortfolioWeeklyPositionResponse> positions,
-            Function<PortfolioWeeklyPositionResponse, BigDecimal> extractor) {
-        return positions.stream()
+            Function<PortfolioWeeklyPositionResponse, BigDecimal> extractor,
+            boolean gains) {
+        var values = positions.stream()
                 .map(position -> new PortfolioReportAssetValue(
                         position.ticker(), position.name(), extractor.apply(position)))
                 .filter(value -> value.amount() != null && value.amount().signum() != 0)
                 .sorted(Comparator.comparing(
-                        (PortfolioReportAssetValue value) -> value.amount().abs()).reversed())
-                .limit(5)
+                        (PortfolioReportAssetValue value) -> gains ? value.amount() : value.amount().abs()).reversed())
                 .toList();
+        if (!gains) {
+            return values.stream().limit(5).toList();
+        }
+        var winners = values.stream().filter(value -> value.amount().signum() > 0).limit(3).toList();
+        var lowest = values.reversed().stream().filter(value -> !winners.contains(value)).limit(2).toList();
+        return java.util.stream.Stream.concat(winners.stream(), lowest.stream()).toList();
     }
 
     /**
