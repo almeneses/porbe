@@ -13,6 +13,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -54,6 +56,23 @@ class YahooFinanceMarketDataClientTest {
         assertThat(series.bars().getFirst().close()).isEqualByComparingTo("2690");
         assertThat(series.bars().getLast().volume()).isEqualTo(18_610_466L);
         assertThat(series.bars()).allMatch(DailyMarketBar::finalClose);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NU", "ECOPETROL.CL", "COP=X"})
+    void treatsOnlyNuAsFinalBeforeTheSessionEnds(String ticker) {
+        var builder = RestClient.builder().baseUrl("https://query1.finance.yahoo.com");
+        server = MockRestServiceServer.bindTo(builder).build();
+        client = new YahooFinanceMarketDataClient(builder.build(), new ObjectMapper(),
+                Clock.fixed(Instant.parse("2026-08-25T18:00:00Z"), ZoneOffset.UTC));
+        server.expect(request -> assertThat(request.getURI().getPath()).isEqualTo("/v8/finance/chart/" + ticker))
+                .andRespond(withSuccess(validResponse().replace("ECOPETROL.CL", ticker), MediaType.APPLICATION_JSON));
+
+        var series = client.fetchDaily(ticker, LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 26));
+
+        assertThat(series.bars().getFirst().finalClose()).isTrue();
+        assertThat(series.bars().getLast().finalClose()).isEqualTo("NU".equals(ticker));
         server.verify();
     }
 

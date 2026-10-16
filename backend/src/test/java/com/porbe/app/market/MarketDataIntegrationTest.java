@@ -74,6 +74,9 @@ class MarketDataIntegrationTest {
     @Autowired
     private MarketDataSyncService syncService;
 
+    @Autowired
+    private MarketDataPersistenceService persistenceService;
+
     @BeforeEach
     void cleanDatabase() {
         priceRepository.deleteAll();
@@ -285,6 +288,26 @@ class MarketDataIntegrationTest {
         assertThat(syncService.status(portfolio.getId()).tickers()).extracting(MarketTickerStatus::ticker).containsExactly("COP=X");
         syncService.syncPortfolio(portfolio.getId());
         verify(provider).fetchDaily(eq("COP=X"), eq(latest), any(LocalDate.class));
+    }
+
+    @Test
+    void savesRepeatedDollarDatesAndUpdatesThemOnSubsequentRefreshes() {
+        var earlier = LocalDate.of(2026, 10, 15);
+        var latest = earlier.plusDays(1);
+        var series = new MarketDataSeries("COP=X", "USD/COP", "COP", "CCY", "CURRENCY", "Europe/London",
+                new BigDecimal("4200"), List.of(nucoBar(latest, "4100"), nucoBar(earlier, "4000"), nucoBar(latest, "4200")));
+
+        assertThat(persistenceService.save(series, "YAHOO_FINANCE")).isEqualTo(2);
+        var refreshed = new MarketDataSeries("COP=X", "USD/COP", "COP", "CCY", "CURRENCY", "Europe/London",
+                new BigDecimal("4300"), List.of(nucoBar(latest, "4250"), nucoBar(earlier, "4050"), nucoBar(latest, "4300")));
+        assertThat(persistenceService.save(refreshed, "YAHOO_FINANCE")).isEqualTo(2);
+        assertThat(persistenceService.save(refreshed, "YAHOO_FINANCE")).isEqualTo(2);
+
+        var prices = syncService.prices("COP=X", earlier, latest).prices();
+        assertThat(priceRepository.count()).isEqualTo(2);
+        assertThat(prices).hasSize(2);
+        assertThat(prices.getFirst().close()).isEqualByComparingTo("4050");
+        assertThat(prices.getLast().close()).isEqualByComparingTo("4300");
     }
 
     private void createPurchase() {
