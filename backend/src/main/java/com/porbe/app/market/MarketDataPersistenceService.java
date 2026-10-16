@@ -1,8 +1,10 @@
 package com.porbe.app.market;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -38,14 +40,17 @@ public class MarketDataPersistenceService {
             return 0;
         }
 
-        var from = series.bars().getFirst().date();
-        var to = series.bars().getLast().date();
+        var barsByDate = new TreeMap<LocalDate, DailyMarketBar>();
+        // Una respuesta puede repetir el día actual: conserva su última cotización.
+        series.bars().forEach(bar -> barsByDate.put(bar.date(), bar));
+        var from = barsByDate.firstKey();
+        var to = barsByDate.lastKey();
         var existingByDate = priceRepository
                 .findByInstrumentAndPriceDateBetweenOrderByPriceDateAsc(persistedInstrument, from, to)
                 .stream()
                 .collect(Collectors.toMap(MarketPriceDaily::getPriceDate, Function.identity()));
 
-        var prices = series.bars().stream()
+        var prices = barsByDate.values().stream()
                 .map(bar -> {
                     var existing = existingByDate.get(bar.date());
                     if (existing == null) {

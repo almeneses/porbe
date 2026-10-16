@@ -120,7 +120,7 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
                         close,
                         decimalAt(adjusted, index),
                         longAt(quote.path("volume"), index),
-                        isFinalClose(date, exchangeZone, regularEnd)));
+                        "NU".equals(ticker) || isFinalClose(date, exchangeZone, regularEnd)));
             }
         }
         return new MarketDataSeries(
