@@ -28,13 +28,21 @@ import java.time.LocalDate;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(classes = PorbeApplication.class)
 @AutoConfigureMockMvc
@@ -76,6 +84,9 @@ class MarketDataIntegrationTest {
 
     @Autowired
     private MarketDataPersistenceService persistenceService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void cleanDatabase() {
@@ -299,15 +310,80 @@ class MarketDataIntegrationTest {
 
         assertThat(persistenceService.save(series, "YAHOO_FINANCE")).isEqualTo(2);
         var refreshed = new MarketDataSeries("COP=X", "USD/COP", "COP", "CCY", "CURRENCY", "Europe/London",
-                new BigDecimal("4300"), List.of(nucoBar(latest, "4250"), nucoBar(earlier, "4050"), nucoBar(latest, "4300")));
-        assertThat(persistenceService.save(refreshed, "YAHOO_FINANCE")).isEqualTo(2);
-        assertThat(persistenceService.save(refreshed, "YAHOO_FINANCE")).isEqualTo(2);
+                new BigDecimal("4300"), List.of(nucoBar(latest, "4250"), nucoBar(earlier, "4050"),
+                        new DailyMarketBar(latest, null, new BigDecimal("4400"), new BigDecimal("4200"),
+                                new BigDecimal("4300"), new BigDecimal("4250"), null, false)));
+        assertThat(persistenceService.save(refreshed, "UPDATED_SOURCE")).isEqualTo(2);
+        assertThat(persistenceService.save(refreshed, "UPDATED_SOURCE")).isEqualTo(2);
 
         var prices = syncService.prices("COP=X", earlier, latest).prices();
         assertThat(priceRepository.count()).isEqualTo(2);
         assertThat(prices).hasSize(2);
         assertThat(prices.getFirst().close()).isEqualByComparingTo("4050");
         assertThat(prices.getLast().close()).isEqualByComparingTo("4300");
+        assertThat(prices.getLast().open()).isNull();
+        assertThat(prices.getLast().high()).isEqualByComparingTo("4400");
+        assertThat(prices.getLast().low()).isEqualByComparingTo("4200");
+        assertThat(prices.getLast().adjustedClose()).isEqualByComparingTo("4250");
+        assertThat(prices.getLast().volume()).isNull();
+        assertThat(prices.getLast().finalClose()).isFalse();
+        var instrument = instrumentRepository.findByTicker("COP=X").orElseThrow();
+        assertThat(priceRepository.findTopByInstrumentOrderByPriceDateDesc(instrument).orElseThrow().getSource())
+                .isEqualTo("UPDATED_SOURCE");
+    }
+
+    @Test
+    // H2 traduce ON CONFLICT a MERGE, que no ofrece la misma garantía de concurrencia.
+    @EnabledIfSystemProperty(named = "spring.datasource.url", matches = "jdbc:postgresql:.*")
+    void upsertsTheSameNewDollarDateFromConcurrentTransactions() throws Exception {
+        var instrument = instrumentRepository.save(new MarketInstrument("COP=X"));
+        var date = LocalDate.of(2026, 10, 23);
+        var ready = new CountDownLatch(2);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var tasks = new ArrayList<Future<?>>();
+            for (int i = 0; i < 2; i++) {
+                tasks.add(executor.submit(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    // Ambas transacciones comprueban que el día falta antes de intentar insertarlo.
+                    assertThat(priceRepository.countByInstrument(instrument)).isZero();
+                    ready.countDown();
+                    try {
+                        assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(exception);
+                    }
+                    priceRepository.upsert(instrument, nucoBar(date, "4200"), "YAHOO_FINANCE", OffsetDateTime.now());
+                })));
+            }
+            for (var task : tasks) task.get(15, TimeUnit.SECONDS);
+        }
+        assertThat(priceRepository.countByInstrument(instrument)).isEqualTo(1);
+        assertThat(syncService.prices("COP=X", date, date).prices().getFirst().close()).isEqualByComparingTo("4200");
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "spring.datasource.url", matches = "jdbc:postgresql:.*")
+    void savesDollarConcurrentlyOnFirstAndSubsequentRefreshes() throws Exception {
+        var date = LocalDate.of(2026, 10, 23);
+        for (var close : List.of("4200", "4300")) {
+            var series = new MarketDataSeries("COP=X", "USD/COP", "COP", "CCY", "CURRENCY", "Europe/London",
+                    new BigDecimal(close), List.of(nucoBar(date, close)));
+            var start = new CountDownLatch(1);
+            try (var executor = Executors.newFixedThreadPool(4)) {
+                var tasks = new ArrayList<Future<Integer>>();
+                for (int i = 0; i < 4; i++) {
+                    tasks.add(executor.submit(() -> {
+                        assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                        return persistenceService.save(series, "YAHOO_FINANCE");
+                    }));
+                }
+                start.countDown();
+                for (var task : tasks) assertThat(task.get(15, TimeUnit.SECONDS)).isEqualTo(1);
+            }
+            assertThat(instrumentRepository.count()).isEqualTo(1);
+            assertThat(priceRepository.count()).isEqualTo(1);
+            assertThat(syncService.prices("COP=X", date, date).prices().getFirst().close()).isEqualByComparingTo(close);
+        }
     }
 
     private void createPurchase() {
