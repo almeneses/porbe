@@ -1,6 +1,7 @@
 package com.porbe.app.report;
 
 import com.porbe.app.market.MarketDataSyncService;
+import com.porbe.app.operation.PortfolioOperationRepository;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ public class PortfolioReportScheduledJob {
     private final MarketDataSyncService marketDataSyncService;
     private final PortfolioReportService reportService;
     private final com.porbe.app.portfolio.PortfolioService portfolioService;
+    private final PortfolioOperationRepository operationRepository;
     private final Clock clock;
 
     public PortfolioReportScheduledJob(
@@ -27,11 +29,13 @@ public class PortfolioReportScheduledJob {
             MarketDataSyncService marketDataSyncService,
             PortfolioReportService reportService,
             com.porbe.app.portfolio.PortfolioService portfolioService,
+            PortfolioOperationRepository operationRepository,
             Clock clock) {
         this.scheduleService = scheduleService;
         this.marketDataSyncService = marketDataSyncService;
         this.reportService = reportService;
         this.portfolioService = portfolioService;
+        this.operationRepository = operationRepository;
         this.clock = clock;
     }
 
@@ -50,14 +54,26 @@ public class PortfolioReportScheduledJob {
             var sync = marketDataSyncService.syncPortfolio();
             var portfolios = portfolioService.listForScheduledReport();
             var deliveredAll = true;
+            var generated = 0;
+            var skipped = 0;
             for (var portfolio : portfolios) {
+                // Un portafolio vacío no tiene cierres semanales; no debe impedir los demás.
+                if (!operationRepository.existsByPortfolioId(portfolio.id())) {
+                    skipped++;
+                    continue;
+                }
                 var report = reportService.generateScheduledIfMissing(portfolio.id(), from, to);
                 var delivered = reportService.deliverToActiveRecipients(report.id());
                 deliveredAll = deliveredAll && "SENT".equals(delivered.deliveryStatus());
+                generated++;
             }
             var status = sync.successfulTickers() == sync.totalTickers() && deliveredAll ? "SUCCESS" : "PARTIAL";
-            scheduleService.finish(status, "Informe semanal generado y entrega procesada para "
-                    + portfolios.size() + " portafolio(s).");
+            var message = "Informe semanal generado y entrega procesada para "
+                    + generated + " portafolio(s).";
+            if (skipped > 0) {
+                message += " Se omitieron " + skipped + " sin operaciones.";
+            }
+            scheduleService.finish(status, message);
         } catch (RuntimeException exception) {
             var message = exception.getMessage() == null
                     ? "No fue posible completar el informe automático."

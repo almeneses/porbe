@@ -64,7 +64,7 @@ Si faltan cotizaciones actuales o históricas, hay saldo USD negativo, ventas si
 
 La sincronización toma los tickers de las operaciones y comienza en el último día guardado con el mismo proveedor, incluyéndolo para corregir precios provisionales. Sin datos, o al cambiar de proveedor, comienza el 19 de enero de 2024. Para NUCO, la primera sincronización con Stock Analysis reemplaza únicamente las fechas disponibles en su serie pública y conserva las anteriores.
 
-Stock Analysis expone actualmente unos seis meses de histórico en esa página. La sincronización avisa cuando no cubre todo el rango solicitado. No reconstruye automáticamente el histórico anterior a esa ventana. El precio del día se considera provisional hasta el día siguiente en Bogotá. Si la página falla, cambia de formato o no identifica NUCO en COP, se reporta el error sin recurrir a Yahoo ni modificar los precios guardados de NUCO. `NU` de Estados Unidos sigue usando Yahoo y se convierte a COP si sus operaciones se registran en USD.
+Stock Analysis expone actualmente unos seis meses de histórico en esa página. La sincronización avisa cuando no cubre todo el rango solicitado. No reconstruye automáticamente el histórico anterior a esa ventana. El cierre de `NUCO.CL` se considera confirmado cuando termina la sesión de la BVC en Bogotá (15:15), sin esperar al día siguiente. `COP=X` se valora con la última cotización disponible y no se marca provisional: el mercado de divisas es continuo y su barra diaria sólo se cierra al final del día UTC. Si la página falla, cambia de formato o no identifica NUCO en COP, se reporta el error sin recurrir a Yahoo ni modificar los precios guardados de NUCO. `NU` de Estados Unidos sigue usando Yahoo y se convierte a COP si sus operaciones se registran en USD.
 
 Ninguna de estas consultas requiere credenciales. El scraping depende del formato y de la disponibilidad de la página pública, y no constituye una API con garantía de servicio.
 
@@ -220,6 +220,7 @@ Endpoints principales:
 - Actualización de precios y generación automática en el horario y para los portafolios elegidos desde **Configuración**.
 - Interfaz de entrega desacoplada, preparada para conectar distintos proveedores de mensajería.
 - Comentario opcional generado con IA, con un resumen sencillo y hasta dos posibilidades de acción.
+- Un precio todavía provisional no impide calcular el TWR ni generar el informe: se usa el último cierre disponible y el informe señala cuántos precios son aproximados. La tarea automática omite los portafolios sin operaciones y continúa con los demás, indicando cuántos se omitieron.
 
 La generación se realiza completamente en el backend a partir de
 `backend/src/main/resources/templates/reports/portfolio-report.html`. Thymeleaf resuelve los datos y

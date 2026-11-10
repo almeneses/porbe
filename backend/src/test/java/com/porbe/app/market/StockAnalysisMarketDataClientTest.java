@@ -38,7 +38,7 @@ class StockAnalysisMarketDataClientTest {
     }
 
     @Test
-    void extractsEmbeddedPricesInDateOrderAndKeepsTodayProvisional() {
+    void extractsEmbeddedPricesInDateOrderAndClosesTheSessionAfterMarketClose() {
         expectHtml(html);
         var series = client.fetchDaily(" nuco.cl ", LocalDate.of(2024, 1, 19), LocalDate.of(2026, 10, 10));
 
@@ -56,6 +56,20 @@ class StockAnalysisMarketDataClientTest {
         assertThat(first.adjustedClose()).isEqualByComparingTo("50400");
         assertThat(first.volume()).isEqualTo(127221L);
         assertThat(first.finalClose()).isTrue();
+        assertThat(series.bars().getLast().finalClose()).isTrue();
+        server.verify();
+    }
+
+    @Test
+    void keepsTodayProvisionalBeforeTheBvcSessionEnds() {
+        var builder = RestClient.builder().baseUrl("https://stockanalysis.com");
+        server = MockRestServiceServer.bindTo(builder).build();
+        client = new StockAnalysisMarketDataClient(builder.build(),
+                Clock.fixed(Instant.parse("2026-10-09T18:00:00Z"), ZoneOffset.UTC));
+        expectHtml(html);
+
+        var series = client.fetchDaily("NUCO.CL", LocalDate.of(2024, 1, 19), LocalDate.of(2026, 10, 10));
+
         assertThat(series.bars().getLast().finalClose()).isFalse();
         server.verify();
     }

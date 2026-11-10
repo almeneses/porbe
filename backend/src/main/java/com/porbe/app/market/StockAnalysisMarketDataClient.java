@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +24,9 @@ public class StockAnalysisMarketDataClient implements MarketDataProvider {
 
     private static final Pattern HISTORY = Pattern.compile(
             "symbol:\\s*\"BVC-NUCO\",\\s*source:\\s*\"[^\"]+\",[^\\[\\]]*?data:\\s*(\\[[^\\[\\]]*\\])");
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Bogota");
+    /** Cierre de la sesión de la BVC en Bogotá; se deja un margen para el cierre definitivo. */
+    private static final LocalTime MARKET_CLOSE = LocalTime.of(15, 15);
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(JsonReadFeature.ALLOW_UNQUOTED_PROPERTY_NAMES,
                     JsonReadFeature.ALLOW_LEADING_DECIMAL_POINT_FOR_NUMBERS)
@@ -74,7 +78,10 @@ public class StockAnalysisMarketDataClient implements MarketDataProvider {
         }
         // shortcut: la página pública expone unos seis meses, usar una fuente licenciada para ampliar el histórico.
         var rows = mapper.readTree(match.group(1));
-        var today = LocalDate.now(clock.withZone(ZoneId.of("America/Bogota")));
+        var bogotaNow = clock.instant().atZone(BUSINESS_ZONE);
+        var today = bogotaNow.toLocalDate();
+        // La BVC ya cerró: la fila del día es el cierre y no un precio intradía.
+        var todaySessionEnded = !bogotaNow.toLocalTime().isBefore(MARKET_CLOSE);
         var prices = new TreeMap<LocalDate, DailyMarketBar>();
         for (var row : rows) {
             var date = LocalDate.parse(row.path("t").asText());
@@ -90,7 +97,7 @@ public class StockAnalysisMarketDataClient implements MarketDataProvider {
             }
             var bar = new DailyMarketBar(date, open, high, low, close,
                     row.path("a").isNull() || row.path("a").isMissingNode() ? null : price(row, "a"),
-                    volume, date.isBefore(today));
+                    volume, date.isBefore(today) || (date.equals(today) && todaySessionEnded));
             if (prices.put(date, bar) != null) {
                 throw new MarketDataProviderException("Stock Analysis devolvió fechas duplicadas para NUCO.CL.");
             }

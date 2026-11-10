@@ -256,11 +256,12 @@ public class PortfolioHistoryService {
                 positions);
     }
 
-    /** No confunde una valoración parcial o provisional con una pérdida de capital. */
+    /**
+     * Usa el valor del cierre aunque el precio aún sea provisional. La marca se
+     * conserva por posición y en el informe, pero no impide calcular la tasa.
+     */
     private BigDecimal performanceValue(PortfolioWeeklySnapshot snapshot) {
-        return snapshot.valuationComplete() && snapshot.positions().stream()
-                .noneMatch(position -> position.quantity().signum() != 0 && position.provisionalPrice())
-                ? snapshot.portfolioValue() : null;
+        return snapshot.valuationComplete() ? snapshot.portfolioValue() : null;
     }
 
     private Map<String, MarketInstrument> instrumentsByTicker(java.util.Set<String> tickers) {
