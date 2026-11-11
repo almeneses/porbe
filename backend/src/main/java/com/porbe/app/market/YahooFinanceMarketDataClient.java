@@ -120,7 +120,7 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
                         close,
                         decimalAt(adjusted, index),
                         longAt(quote.path("volume"), index),
-                        "NU".equals(ticker) || isFinalClose(date, exchangeZone, regularEnd)));
+                        isAlwaysFinal(ticker) || isFinalClose(date, exchangeZone, regularEnd)));
             }
         }
         return new MarketDataSeries(
@@ -132,6 +132,15 @@ public class YahooFinanceMarketDataClient implements MarketDataProvider {
                 exchangeTimezone,
                 decimal(meta.path("regularMarketPrice")),
                 bars);
+    }
+
+    /**
+     * Algunos símbolos no tienen un cierre diario útil para la valoración. El
+     * dólar se negocia de forma continua y su barra no se confirma hasta cerrar
+     * la jornada UTC, por lo que se asume la última cotización disponible.
+     */
+    private boolean isAlwaysFinal(String ticker) {
+        return "NU".equals(ticker) || "COP=X".equals(ticker);
     }
 
     /**

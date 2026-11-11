@@ -14,6 +14,8 @@ public interface PortfolioOperationRepository extends JpaRepository<PortfolioOpe
 
     List<PortfolioOperation> findAllByPortfolioOrderByDateAscIdAsc(Portfolio portfolio);
 
+    boolean existsByPortfolioId(Long portfolioId);
+
     java.util.Optional<PortfolioOperation> findByIdAndPortfolio(Long id, Portfolio portfolio);
 
     List<PortfolioOperation> findAllByPortfolioAndDateBetweenOrderByDateAscIdAsc(

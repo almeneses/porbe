@@ -341,15 +341,18 @@ class PortfolioReportWeeklyReturnTest {
 
     @ParameterizedTest
     @CsvSource({"false, true", "true, false"})
-    @DisplayName("Los precios provisionales no se presentan como rendimientos cerrados")
-    void rejectsProvisionalEndpointPrices(boolean initialFinal, boolean endingFinal) {
+    @DisplayName("Los precios provisionales se usan y el informe queda marcado para revisión")
+    void usesProvisionalEndpointPricesAndFlagsThem(boolean initialFinal, boolean endingFinal) {
         operation("2026-01-02", OperationType.DEPOSITO, "1000000", null);
         operation("2026-01-02", OperationType.COMPRA, "1000000", "10");
         price("2026-01-02", "100000", initialFinal);
         price("2026-01-09", "110000", endingFinal);
 
-        assertThatThrownBy(() -> report("2026-01-05", "2026-01-09"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("precios de cierre");
+        var report = report("2026-01-05", "2026-01-09");
+
+        assertPerformance(report, "100000", "0.10");
+        assertThat(report.valuationComplete()).isEqualTo(endingFinal);
+        assertThat(report.provisionalPrices()).isEqualTo(endingFinal ? 0 : 1);
     }
 
     @Test

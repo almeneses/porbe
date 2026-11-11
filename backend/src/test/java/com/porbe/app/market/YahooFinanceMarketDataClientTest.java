@@ -61,7 +61,7 @@ class YahooFinanceMarketDataClientTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"NU", "ECOPETROL.CL", "COP=X"})
-    void treatsOnlyNuAsFinalBeforeTheSessionEnds(String ticker) {
+    void treatsNuAndTheDollarAsFinalBeforeTheSessionEnds(String ticker) {
         var builder = RestClient.builder().baseUrl("https://query1.finance.yahoo.com");
         server = MockRestServiceServer.bindTo(builder).build();
         client = new YahooFinanceMarketDataClient(builder.build(), new ObjectMapper(),
@@ -72,7 +72,8 @@ class YahooFinanceMarketDataClientTest {
         var series = client.fetchDaily(ticker, LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 26));
 
         assertThat(series.bars().getFirst().finalClose()).isTrue();
-        assertThat(series.bars().getLast().finalClose()).isEqualTo("NU".equals(ticker));
+        assertThat(series.bars().getLast().finalClose())
+                .isEqualTo("NU".equals(ticker) || "COP=X".equals(ticker));
         server.verify();
     }
 
